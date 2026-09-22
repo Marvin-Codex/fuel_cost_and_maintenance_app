@@ -13,7 +13,7 @@ This README is written for an AI coding agent (or a developer) picking up this r
 | ML service | Python, Pandas, NumPy, Scikit-learn |
 | Maps/routing | OpenStreetMap, Leaflet (web) / flutter_map (native), OSRM or GraphHopper |
 
-**Offline-first is a hard requirement for every client, not just Flutter.** Users must be able to open the app, record fuel/trips/maintenance, and view their own data with zero network connectivity — on the React web app included. All calculations (fuel cost, consumption, reminders, predictions) still happen server-side whenever a network call is possible, and both clients defer to the server as the source of truth once synced; but writing a record must never require the network to succeed locally, on any client. GPS trip *capture* is the one exception — it stays mobile/native-only (see Build order, step 7); the web app can display synced trip history offline but does not record new GPS trips.
+**Offline-first is a hard requirement for every client, not just Flutter.** Users must be able to open the app, record fuel/trips/maintenance, and view their own data with zero network connectivity — on the React web app included. All calculations (fuel cost, consumption, reminders, predictions) still happen server-side whenever a network call is possible, and both clients defer to the server as the source of truth once synced; but writing a record must never require the network to succeed locally, on any client. GPS trip *capture* is the one exception — it stays mobile/native-only (see Build order); the web app can display synced trip history offline but does not record new GPS trips.
 
 ## 2. Repository layout
 
@@ -26,8 +26,8 @@ fuel_cost_and_maintenance_app/        # repo root — also the Flutter project r
 ├── macos/
 ├── windows/
 ├── linux/
-├── web/                              
-│                                   the real web app is frontend fuelmaintenance
+├── web/                              # ⚠ stray Flutter-web scaffold — delete this;
+│                                        the real web app is frontend/fuelmaintenance
 ├── lib/                              # Flutter app source
 │   ├── core/                          # constants, theme, routing, utils
 │   ├── models/                         # Vehicle, Trip, FuelRecord, Maintenance
@@ -73,14 +73,12 @@ Work top to bottom — each phase should be runnable and demoable before startin
 1. **Backend foundation** — Django project, Postgres+PostGIS, custom user model, token auth (DRF `TokenAuthentication` or SimpleJWT), `vehicles` app with full CRUD, OpenAPI schema (drf-spectacular) from day one so both clients can codegen/reference it. Design the sync endpoint contract now (step below) — both clients will build against it.
 2. **Fuel + Maintenance APIs** — CRUD endpoints, server-side consumption/cost calculations, maintenance reminder computation.
 3. **Trips + GPS APIs** — trip CRUD, batch GPS point ingestion endpoint (mobile will upload points in batches, not one at a time), distance/duration calculation.
-4. **React web app, online-only first** — auth flow, vehicle management, fuel/maintenance CRUD, dashboard with charts. Fastest way to exercise the API end-to-end before adding offline complexity.
-5. **React offline layer (PWA)** — `vite-plugin-pwa` for the service worker/app-shell caching, IndexedDB (`dexie`) mirroring the API resources, local writes queued and flushed via `POST /api/v1/sync/` on reconnect. Same sync-queue shape as Flutter (step 6) — build them from the same contract.
-6. **Flutter app, online-only first** — same CRUD flows against the live API, no offline/sync yet. Validates the API from a third client (native).
-7. **Flutter offline layer** — local SQLite schema mirroring the API resources, sync queue, background sync service.
-8. **GPS trip tracking (Flutter only)** — foreground location tracking, point filtering (5–10s or 10–20m, whichever first), route/distance calculation on-device with server reconciliation.
-9. **Maps / service centre discovery** — Leaflet on web, flutter_map or google_maps_flutter (OSM tiles) on native; OSRM for routing. Cache the user's last-known nearby results locally so this degrades gracefully offline instead of showing a blank map.
-10. **ML service** — start once there's real trip/fuel data to train on. Build as a separate Python module the Django backend calls into (in-process import or a small internal service), not a rewrite of Django.
-11. **Fuel efficiency alerts + personalized reminders + forecasting** — layer on top of steps 2–10 once predictions are producing sane output.
+4. **React app, CRUD + offline layer together** — auth flow, vehicle/fuel/maintenance CRUD, dashboard with charts, built directly on top of the offline layer: `vite-plugin-pwa` for service worker/app-shell caching, IndexedDB (`dexie`) mirroring the API resources, local writes queued and flushed via `POST /api/v1/sync/` on reconnect. Every screen is offline-capable from the first commit — there is no online-only intermediate version.
+5. **Flutter app, CRUD + offline layer together** — same principle: local Drift/SQLite schema mirroring the API resources and the sync queue are part of the app from day one, not bolted on after. A screen isn't "done" until it works in airplane mode.
+6. **GPS trip tracking (Flutter only)** — foreground location tracking, point filtering (5–10s or 10–20m, whichever first), route/distance calculation on-device with server reconciliation. Naturally offline already, since it's local-first by nature.
+7. **Maps / service centre discovery** — Leaflet on web, flutter_map or google_maps_flutter (OSM tiles) on native; OSRM for routing. Cache the user's last-known nearby results locally so this degrades gracefully offline instead of showing a blank map.
+8. **ML service** — start once there's real trip/fuel data to train on. Build as a separate Python module the Django backend calls into (in-process import or a small internal service), not a rewrite of Django.
+9. **Fuel efficiency alerts + personalized reminders + forecasting** — layer on top of steps 2–8 once predictions are producing sane output.
 
 ## 4. API conventions
 
@@ -95,14 +93,83 @@ Work top to bottom — each phase should be runnable and demoable before startin
 
 Django models are the canonical schema. React and Flutter each maintain their own typed models that mirror the API's serialized shape — regenerate/update them whenever a serializer changes. Core entities: `User`, `Vehicle`, `Trip`, `GPSPoint`, `FuelRecord`, `MaintenanceRecord`, `MaintenanceType`, `FuelPrice`, `ServiceCentre`, `Prediction`, `SyncQueueItem` (client-local only — one instance in Flutter/SQLite, one in React/IndexedDB — not a server model).
 
-## 6. Environment setup
+## 6. Database configuration
+
+**PostgreSQL (+ PostGIS) is the default, including locally in development** — via `DATABASE_URL`. SQLite is available only as an explicit opt-in fallback (e.g. a quick sanity check with no Postgres running), not the default. Install `dj-database-url`:
+
+```bash
+python -m pip install dj-database-url
+```
+
+`config/settings.py`:
+
+```python
+import dj_database_url
+from pathlib import Path
+import os
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+DATABASE_URL = os.environ.get("DATABASE_URL")
+USE_SQLITE = os.environ.get("USE_SQLITE") == "1"   # explicit opt-in only
+
+if USE_SQLITE:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+elif DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=True)
+    }
+else:
+    raise RuntimeError(
+        "DATABASE_URL is not set. Set it to your local Postgres instance "
+        "(see README §'Run Postgres locally'), or set USE_SQLITE=1 to fall back to SQLite."
+    )
+```
+
+`.env` (never committed) — local dev, pointing at a Postgres instance you're running on your machine:
+
+```
+DATABASE_URL=postgresql://localhost:5432/vehicle_fuel_db
+```
+
+`.env` — staging/production (e.g. Neon):
+
+```
+DATABASE_URL=postgresql://user:password@ep-xxxx.region.aws.neon.tech/dbname?sslmode=require
+```
+
+**Local Postgres setup (macOS/Homebrew):**
+
+```bash
+brew install postgresql@16
+brew services start postgresql@16
+createdb vehicle_fuel_db
+psql vehicle_fuel_db -c "CREATE EXTENSION postgis;"
+```
+
+Docker is a solid alternative if you'd rather not manage a Homebrew service — `postgis/postgis` images bundle Postgres+PostGIS together:
+
+```bash
+docker run --name vehicle-fuel-pg -e POSTGRES_PASSWORD=devpass -e POSTGRES_DB=vehicle_fuel_db -p 5432:5432 -d postgis/postgis:16-3.4
+```
+
+**Caveats:**
+- Making Postgres the default means every dev (including your future self on a fresh machine) needs Postgres running before `manage.py runserver` will even start — that's intentional here, since it keeps dev and prod on the same engine and avoids SQLite/PostGIS gaps entirely, but note it in your setup docs for anyone else touching the repo.
+- Neon requires `sslmode=require` (included above), uses connection pooling by default (its pooled connection string works fine with Django), and free-tier databases auto-suspend after inactivity — first request after idle is slightly slower while it wakes up.
+- Add `.env` to `.gitignore` if it isn't already; commit a `.env.example` with a placeholder `DATABASE_URL` instead.
+
+## 7. Environment setup
 
 **Backend**
 ```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-createdb vehicle_fuel_db   # requires PostGIS extension enabled
+# ensure Postgres is running and DATABASE_URL is set in .env (see §6)
 python manage.py migrate
 python manage.py runserver
 ```
@@ -121,7 +188,7 @@ flutter pub get
 flutter run                 # pick target device/platform when prompted
 ```
 
-## 7. Conventions for the AI agent
+## 8. Conventions for the AI agent
 
 - Don't introduce a new package/library for something Django, DRF, React, or Flutter already does natively — check before adding a dependency.
 - Write the server-side calculation once; both clients call the API for it. Only duplicate logic client-side for the offline case (Flutter/SQLite or React/IndexedDB), and comment clearly why (`// duplicated for offline use — keep in sync with backend/fuel/services.py:calc_consumption`).
@@ -131,9 +198,8 @@ flutter run                 # pick target device/platform when prompted
 - Treat "works with no network" as a testable requirement, not a nice-to-have: for every new screen/feature on Flutter or React, check it against airplane mode before calling it done.
 - No secrets in code — `.env` files for both `backend/` and `frontend/fuelmaintenance/`, `flutter_dotenv` or `--dart-define` for the Flutter app.
 
-## 8. Out of scope for v1
+## 9. Out of scope for v1
 
 Deep learning models, payment integration, multi-user fleet management, iOS build (Android only per current scope).
-
 
 dart run build_runner build --delete-conflicting-outputs
