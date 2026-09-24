@@ -1,0 +1,187 @@
+/* Login page — blue gradient backdrop with a centred white card. */
+
+.login-page {
+  display: grid;
+  place-items: center;
+  flex: 1;
+  min-height: 100svh;
+  padding: 24px;
+  background:
+    radial-gradient(1100px 500px at 85% -10%, rgba(96, 165, 250, 0.35), transparent 60%),
+    radial-gradient(900px 500px at -15% 110%, rgba(30, 64, 175, 0.35), transparent 55%),
+    linear-gradient(160deg, var(--fm-blue-100) 0%, var(--fm-blue-200) 35%, var(--fm-blue-600) 100%);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--fm-surface);
+  border-radius: 20px;
+  box-shadow: var(--fm-shadow);
+  padding: 40px 28px;
+}
+
+.login-brand {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.login-logo {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--fm-blue-500), var(--fm-blue-700));
+  color: #ffffff;
+}
+
+.login-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--fm-navy-900);
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.login-subtitle {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  color: var(--fm-muted);
+}
+
+/* Form */
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-field label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--fm-text);
+}
+
+.input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--fm-muted);
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+}
+
+.form-field input {
+  width: 100%;
+  padding: 12px 44px 12px 40px;
+  border: 1px solid var(--fm-border);
+  border-radius: 10px;
+  background: var(--fm-surface);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.form-field input::placeholder {
+  color: var(--fm-muted);
+  opacity: 0.8;
+}
+
+.form-field input:focus {
+  outline: none;
+  border-color: var(--fm-blue-600);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--fm-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+}
+
+.password-toggle:hover {
+  color: var(--fm-blue-700);
+  background: var(--fm-blue-50);
+}
+
+/* Feedback (error / success) */
+.form-banner {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.875rem;
+}
+
+.form-banner--error {
+  background: var(--fm-danger-bg);
+  border: 1px solid var(--fm-danger-border);
+  color: var(--fm-danger);
+}
+
+.form-banner--success {
+  background: var(--fm-success-bg);
+  border: 1px solid var(--fm-success-border);
+  color: var(--fm-success);
+}
+
+/* Submit */
+.login-submit {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--fm-blue-500), var(--fm-blue-700));
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+
+.login-submit:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.login-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

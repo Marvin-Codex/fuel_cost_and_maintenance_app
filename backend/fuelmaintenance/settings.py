@@ -10,22 +10,35 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+import dj_database_url
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Local configuration lives in backend/.env (never committed). load_dotenv never
+# overrides variables already set in the real environment, so trying both the
+# current layout (settings next to manage.py) and the parent layout is safe.
+load_dotenv(BASE_DIR / '.env')         # backend/fuelmaintenance/.env
+load_dotenv(BASE_DIR.parent / '.env')  # backend/.env
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-!0f4ib=s465$%yf*t*h3_@xn=bc-%r_lmn!a=n-7=i)bf3_ah-'
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+]
 
 
 # Application definition
@@ -37,10 +50,19 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # Third-party
+    'corsheaders',
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'drf_spectacular',
+    # Local apps
+    'accounts',
+    'vehicles',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -71,12 +93,65 @@ WSGI_APPLICATION = 'fuelmaintenance.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
+#
+# PostgreSQL is the default via DATABASE_URL (e.g. Neon). SQLite is available
+# only as an explicit opt-in fallback (USE_SQLITE=1), not the default. See
+# README §6.
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+DATABASE_URL = os.environ.get('DATABASE_URL')
+USE_SQLITE = os.environ.get('USE_SQLITE') == '1'  # explicit opt-in only
+
+if USE_SQLITE:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
+elif DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.parse(
+            DATABASE_URL, conn_max_age=600, ssl_require=True
+        )
+    }
+else:
+    raise RuntimeError(
+        'DATABASE_URL is not set. Set it to your Postgres instance '
+        '(Neon — see backend/.env), or set USE_SQLITE=1 to fall back to SQLite.'
+    )
+
+
+# Authentication — custom user model from day one (accounts.User)
+AUTH_USER_MODEL = 'accounts.User'
+
+# CORS — allow the Vite dev server (and future web builds) to call this API
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+]
+
+# Django REST Framework — every endpoint requires JWT auth by default
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# OpenAPI schema (drf-spectacular)
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Fuel Cost & Maintenance API',
+    'DESCRIPTION': (
+        'API for the Fuel Cost and Maintenance web & Flutter apps. '
+        'Every endpoint requires JWT auth and is scoped to the authenticated '
+        'user — clients must never supply an owner id.'
+    ),
+    'VERSION': '1.0.0',
 }
 
 
@@ -120,8 +195,4 @@ STATIC_URL = 'static/'
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
-MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
-    },
-}
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
