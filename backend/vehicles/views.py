@@ -2,7 +2,7 @@ from rest_framework import viewsets
 from rest_framework.exceptions import PermissionDenied
 
 from accounts.models import Membership
-from accounts.permissions import ROLE_PERMISSIONS, tenant_membership
+from accounts.permissions import has_permission, tenant_membership
 
 from .models import Vehicle
 from .serializers import VehicleSerializer
@@ -16,13 +16,23 @@ class VehicleViewSet(viewsets.ModelViewSet):
 
     def _require_permission(self, permission):
         membership = self._membership()
-        if membership and permission not in ROLE_PERMISSIONS.get(membership.role, set()):
-            raise PermissionDenied('Your organization role cannot perform this action.')
+        if membership and not has_permission(
+            self.request.user, permission, membership.organization
+        ):
+            raise PermissionDenied(
+                'Your organization role or package cannot perform this action.'
+            )
         return membership
 
     def get_queryset(self):
         user = self.request.user
         membership = self._membership()
+        if membership and not has_permission(
+            user, 'vehicle.view', membership.organization
+        ):
+            raise PermissionDenied(
+                'Your organization role or package cannot view vehicles.'
+            )
         if membership:
             queryset = Vehicle.objects.filter(
                 organization_id=membership.organization_id

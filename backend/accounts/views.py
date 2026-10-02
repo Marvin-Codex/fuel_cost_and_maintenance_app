@@ -5,14 +5,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .models import Membership, Organization
-from .permissions import has_permission
+from .models import Membership, Organization, Plan, Subscription
+from .permissions import active_subscription, has_permission
 from .serializers import (
     AddMemberSerializer,
     CreateOrganizationSerializer,
     LoginSerializer,
     OrganizationSerializer,
+    PlanSerializer,
     RegisterSerializer,
+    SubscriptionSerializer,
     UserSerializer,
 )
 
@@ -69,6 +71,34 @@ class OrganizationMemberCreateView(generics.CreateAPIView):
         context = super().get_serializer_context()
         context['organization'] = self.get_organization()
         return context
+
+
+class PlanListView(generics.ListAPIView):
+    """GET /api/v1/auth/plans/ — plans available for selection."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = PlanSerializer
+
+    def get_queryset(self):
+        return Plan.objects.filter(is_active=True).prefetch_related('features')
+
+
+class OrganizationSubscriptionView(APIView):
+    """GET the active subscription for the requested organization."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, organization_id):
+        membership = request.user.memberships.filter(
+            organization_id=organization_id, is_active=True
+        ).select_related('organization').first()
+        if not membership:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('You cannot access this organization.')
+        subscription = active_subscription(membership.organization)
+        if not subscription:
+            return Response({'subscription': None})
+        return Response({'subscription': SubscriptionSerializer(subscription).data})
 
 
 class MeView(APIView):

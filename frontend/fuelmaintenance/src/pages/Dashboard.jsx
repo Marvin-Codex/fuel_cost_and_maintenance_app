@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as auth from '../api/auth'
 import './Dashboard.css'
@@ -22,6 +23,32 @@ function Metric({ icon, label, value, detail, accent = '' }) {
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const [subscription, setSubscription] = useState(null)
+  const [packageState, setPackageState] = useState('loading')
+
+  useEffect(() => {
+    let mounted = true
+    async function loadSubscription() {
+      try {
+        const organizations = await auth.getOrganizations()
+        const organizationList = Array.isArray(organizations) ? organizations : organizations.results ?? []
+        const organization = organizationList[0]
+        if (!organization) {
+          if (mounted) setPackageState('empty')
+          return
+        }
+        const response = await auth.getSubscription(organization.id)
+        if (mounted) {
+          setSubscription(response.subscription)
+          setPackageState(response.subscription ? 'active' : 'empty')
+        }
+      } catch {
+        if (mounted) setPackageState('error')
+      }
+    }
+    loadSubscription()
+    return () => { mounted = false }
+  }, [])
 
   function signOut() {
     auth.logout()
@@ -38,6 +65,11 @@ export default function Dashboard() {
       <section className="dashboard-content">
         <div className="eyebrow">DIAGNOSTICS PANEL</div>
         <div className="dashboard-heading"><h1>VEHICLE SMART<br />PERFORMANCE</h1><span className="live-pill"><i /> ECU<br />LIVE</span></div>
+
+        <section className="package-status" aria-live="polite">
+          <div><small>ORGANIZATION PACKAGE</small><strong>{packageState === 'active' ? subscription.plan.name : packageState === 'loading' ? 'CHECKING ACCESS…' : 'NO ACTIVE PACKAGE'}</strong></div>
+          <span>{packageState === 'active' ? `Valid until ${new Date(subscription.ends_at).toLocaleDateString()}` : packageState === 'error' ? 'Access status unavailable' : packageState === 'empty' ? 'Contact your administrator' : 'Loading subscription'}</span>
+        </section>
 
         <section className="vehicle-card">
           <div className="vehicle-summary"><span className="car-badge"><Icon size={27}><path d="M3 16v-3l2-5h14l2 5v3M5 16v2M19 16v2M6 13h12" /><circle cx="6" cy="16" r="1.5" /><circle cx="18" cy="16" r="1.5" /></Icon></span><div><h2>Toyota Premio <em>UBA 123A</em></h2><p>1.8L Valvematic Petrol • Automatic</p></div><span className="switch-label">⇄ SWITCH</span></div>

@@ -6,6 +6,12 @@ const features = [
   ['Vehicle insights', 'Understand how each vehicle is performing so every trip costs less.'],
 ]
 
+const packages = [
+  ['Essentials', 'The core tools for confident vehicle ownership.', ['Vehicle records', 'Fuel and trip tracking', 'Maintenance history']],
+  ['Fleet', 'Shared visibility for teams managing multiple vehicles.', ['Everything in Essentials', 'Organization roles', 'Package-based feature access']],
+  ['Scale', 'Flexible access that grows with your organization.', ['Time-limited subscriptions', 'Centralized organization access', 'Built for expanding fleets']],
+]
+
 export default function Landing() {
   return (
     <main className="min-h-screen overflow-hidden bg-slate-950 text-white">
@@ -37,6 +43,7 @@ export default function Landing() {
       </section>
 
       <section className="bg-white px-6 py-20 text-slate-900 lg:px-10"><div className="mx-auto max-w-7xl"><p className="text-sm font-bold uppercase tracking-[0.2em] text-blue-700">Everything in one place</p><div className="mt-4 grid gap-8 md:grid-cols-3">{features.map(([title, description]) => <article key={title} className="rounded-2xl border border-slate-200 p-6"><div className="mb-5 h-3 w-12 rounded-full bg-cyan-400" /><h2 className="text-xl font-bold">{title}</h2><p className="mt-3 leading-7 text-slate-600">{description}</p></article>)}</div></div></section>
+      <section className="bg-slate-100 px-6 py-20 text-slate-900 lg:px-10" id="packages"><div className="mx-auto max-w-7xl"><div className="max-w-2xl"><p className="text-sm font-bold uppercase tracking-[0.2em] text-blue-700">Plans that fit your operation</p><h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Choose the access your organization needs.</h2><p className="mt-4 leading-7 text-slate-600">Features are delivered through organization packages and protected by role permissions. Active subscriptions keep access available only during the plan period.</p></div><div className="mt-10 grid gap-6 md:grid-cols-3">{packages.map(([title, description, items], index) => <article key={title} className={`rounded-2xl border p-6 ${index === 1 ? 'border-blue-600 bg-white shadow-xl shadow-blue-900/10' : 'border-slate-200 bg-white/70'}`}><div className="flex items-center justify-between"><h3 className="text-xl font-bold">{title}</h3>{index === 1 && <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-bold text-blue-800">POPULAR</span>}</div><p className="mt-3 min-h-14 leading-7 text-slate-600">{description}</p><ul className="mt-5 space-y-3 text-sm text-slate-700">{items.map((item) => <li key={item} className="flex gap-2"><span className="font-bold text-emerald-600">✓</span>{item}</li>)}</ul></article>)}</div><p className="mt-8 text-sm text-slate-500">Package availability and feature access are managed for each organization. <Link className="font-semibold text-blue-700 hover:text-blue-900" to="/register">Create an account to get started.</Link></p></div></section>
       <footer className="bg-slate-950 px-6 py-8 text-center text-sm text-slate-400">FuelMaintenance · Keep moving with confidence.</footer>
     </main>
   )

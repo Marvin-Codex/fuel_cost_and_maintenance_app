@@ -1,7 +1,28 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import Membership, Organization, User
+from .models import Membership, Organization, Plan, Subscription, User
+
+
+class PlanSerializer(serializers.ModelSerializer):
+    features = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Plan
+        fields = ['id', 'name', 'slug', 'description', 'features']
+        read_only_fields = fields
+
+    def get_features(self, plan):
+        return list(plan.features.values_list('code', flat=True))
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    plan = PlanSerializer(read_only=True)
+
+    class Meta:
+        model = Subscription
+        fields = ['id', 'plan', 'starts_at', 'ends_at', 'is_active']
+        read_only_fields = fields
 
 
 class UserSerializer(serializers.ModelSerializer):

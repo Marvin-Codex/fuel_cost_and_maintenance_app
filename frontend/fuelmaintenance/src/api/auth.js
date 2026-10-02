@@ -16,6 +16,26 @@ const REGISTER_PATH = '/api/v1/auth/register/'
 
 const ACCESS_TOKEN_KEY = 'fuelmaintenance.accessToken'
 const REFRESH_TOKEN_KEY = 'fuelmaintenance.refreshToken'
+const ORGANIZATIONS_PATH = '/api/v1/auth/organizations/'
+
+async function authenticatedGet(path) {
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!response.ok) throw new Error('Unable to load account information.')
+  return response.json()
+}
+
+/** Return organizations available to the signed-in user. */
+export function getOrganizations() {
+  return authenticatedGet(ORGANIZATIONS_PATH)
+}
+
+/** Return the current active subscription for an organization. */
+export function getSubscription(organizationId) {
+  return authenticatedGet(`${ORGANIZATIONS_PATH}${organizationId}/subscription/`)
+}
 
 /** Create a user account. */
 export async function register(username, email, password) {
