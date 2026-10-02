@@ -12,9 +12,31 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 
 const LOGIN_PATH = '/api/v1/auth/login/'
+const REGISTER_PATH = '/api/v1/auth/register/'
 
 const ACCESS_TOKEN_KEY = 'fuelmaintenance.accessToken'
 const REFRESH_TOKEN_KEY = 'fuelmaintenance.refreshToken'
+
+/** Create a user account. */
+export async function register(username, email, password) {
+  let response
+  try {
+    response = await fetch(`${API_BASE_URL}${REGISTER_PATH}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password }),
+    })
+  } catch {
+    throw new Error('Cannot reach the server. Check your connection and try again.')
+  }
+
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const message = Object.values(data).flat().find((value) => typeof value === 'string')
+    throw new Error(message || 'Registration failed. Please check your details.')
+  }
+  return data
+}
 
 /** Sign in with a username + password; stores tokens and returns the payload. */
 export async function login(username, password) {

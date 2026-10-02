@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import LoginForm from '../components/LoginForm'
 import './Login.css'
 
@@ -30,6 +31,17 @@ export default function Login() {
           </p>
         </header>
         <LoginForm />
+        <p className="mt-5 text-center text-sm text-slate-600">
+          New to Fuel Maintenance?{' '}
+          <Link className="font-semibold text-blue-700 hover:text-blue-800" to="/register">
+            Create an account
+          </Link>
+        </p>
+        <p className="mt-3 text-center text-sm">
+          <Link className="text-slate-500 hover:text-blue-700" to="/">
+            ← Back to home
+          </Link>
+        </p>
       </div>
     </main>
   )
