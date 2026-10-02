@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import User
+from .models import Membership, Organization, User
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -20,6 +20,53 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return User.objects.create_user(**validated_data)
+
+
+class OrganizationSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Organization
+        fields = ['id', 'name', 'slug', 'role', 'created_at']
+        read_only_fields = fields
+
+    def get_role(self, organization):
+        memberships = getattr(organization, 'request_memberships', [])
+        membership = memberships[0] if memberships else None
+        return membership.role if membership else None
+
+
+class CreateOrganizationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Organization
+        fields = ['name', 'slug']
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        organization = Organization.objects.create(created_by=user, **validated_data)
+        Membership.objects.create(
+            organization=organization, user=user, role=Membership.OWNER
+        )
+        return organization
+
+
+class AddMemberSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    role = serializers.ChoiceField(choices=Membership.ROLE_CHOICES)
+
+    def validate_username(self, value):
+        try:
+            return User.objects.get(username=value)
+        except User.DoesNotExist:
+            raise serializers.ValidationError('User does not exist.')
+
+    def create(self, validated_data):
+        organization = self.context['organization']
+        return Membership.objects.update_or_create(
+            organization=organization,
+            user=validated_data['username'],
+            defaults={'role': validated_data['role'], 'is_active': True},
+        )[0]
 
 
 class LoginSerializer(TokenObtainPairSerializer):

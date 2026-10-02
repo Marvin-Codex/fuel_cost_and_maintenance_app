@@ -7,13 +7,15 @@ class VehicleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Vehicle
         fields = [
-            'id', 'owner', 'name', 'make', 'model', 'year', 'license_plate',
-            'vin', 'fuel_type', 'odometer_km', 'is_active', 'created_at',
-            'updated_at',
+            'id', 'owner', 'organization', 'assigned_drivers', 'name', 'make',
+            'model', 'year', 'license_plate', 'vin', 'fuel_type', 'odometer_km',
+            'is_active', 'created_at', 'updated_at',
         ]
         # owner is always set server-side from the authenticated request user
         # (see VehicleViewSet.perform_create) — never accepted from the client.
-        read_only_fields = ['id', 'owner', 'created_at', 'updated_at']
+        read_only_fields = [
+            'id', 'owner', 'organization', 'assigned_drivers', 'created_at', 'updated_at'
+        ]
 
     def validate_year(self, value):
         if value is not None and not (1900 <= value <= 2100):

@@ -5,6 +5,8 @@ from rest_framework.test import APITestCase
 from accounts.models import User
 
 from .models import Vehicle
+from accounts.models import Membership, Organization
+
 
 
 class VehicleAPITests(APITestCase):
@@ -38,7 +40,7 @@ class VehicleAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(res.data['owner'], self.owner.id)
+        self.assertEqual(res.data['owner'], str(self.owner.id))
         self.assertEqual(Vehicle.objects.filter(owner=self.owner).count(), 1)
 
     def test_ownership_scoped_list_and_retrieve(self):
@@ -50,7 +52,7 @@ class VehicleAPITests(APITestCase):
         list_res = self.client.get(self._list_url())
         self.assertEqual(list_res.status_code, status.HTTP_200_OK)
         self.assertEqual(list_res.data['count'], 1)
-        self.assertEqual(list_res.data['results'][0]['id'], mine.id)
+        self.assertEqual(list_res.data['results'][0]['id'], str(mine.id))
 
         detail = self.client.get(self._detail_url(mine.id))
         self.assertEqual(detail.status_code, status.HTTP_200_OK)
@@ -76,3 +78,79 @@ class VehicleAPITests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         v.refresh_from_db()
         self.assertEqual(v.odometer_km, 15000)
+
+    def test_organization_scope_excludes_personal_and_other_tenant_vehicles(self):
+        organization = Organization.objects.create(
+            name='Fleet One', slug='fleet-one', created_by=self.owner
+        )
+        Membership.objects.create(
+            organization=organization, user=self.owner, role=Membership.OWNER
+        )
+        organization_vehicle = Vehicle.objects.create(
+            owner=self.owner,
+            organization=organization,
+            name='Fleet vehicle',
+            license_plate='ORG1',
+        )
+        Vehicle.objects.create(owner=self.owner, name='Personal', license_plate='PER1')
+
+        response = self.client.get(
+            self._list_url(), HTTP_X_ORGANIZATION_ID=str(organization.id)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['id'], str(organization_vehicle.id))
+
+    def test_driver_sees_only_assigned_organization_vehicles(self):
+        organization = Organization.objects.create(
+            name='Fleet Two', slug='fleet-two', created_by=self.owner
+        )
+        driver = User.objects.create_user(username='driver', password='driver-pass-123')
+        Membership.objects.create(
+            organization=organization, user=driver, role=Membership.DRIVER
+        )
+        assigned = Vehicle.objects.create(
+            owner=self.owner,
+            organization=organization,
+            name='Assigned',
+            license_plate='DRV1',
+        )
+        unassigned = Vehicle.objects.create(
+            owner=self.owner,
+            organization=organization,
+            name='Unassigned',
+            license_plate='DRV2',
+        )
+        assigned.assigned_drivers.add(driver)
+        self.client.force_authenticate(user=driver)
+
+        response = self.client.get(
+            self._list_url(), HTTP_X_ORGANIZATION_ID=str(organization.id)
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(response.data['results'][0]['id'], str(assigned.id))
+        self.assertNotIn(str(unassigned.id), [item['id'] for item in response.data['results']])
+
+    def test_viewer_cannot_create_organization_vehicle(self):
+        organization = Organization.objects.create(
+            name='Fleet Three', slug='fleet-three', created_by=self.owner
+        )
+        viewer = User.objects.create_user(username='viewer', password='viewer-pass-123')
+        Membership.objects.create(
+            organization=organization, user=viewer, role=Membership.VIEWER
+        )
+        self.client.force_authenticate(user=viewer)
+
+        response = self.client.post(
+            self._list_url(),
+            {'name': 'Blocked', 'license_plate': 'VIEW1'},
+            format='json',
+            HTTP_X_ORGANIZATION_ID=str(organization.id),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(Vehicle.objects.filter(license_plate='VIEW1').exists())
+
