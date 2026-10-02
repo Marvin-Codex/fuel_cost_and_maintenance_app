@@ -18,7 +18,8 @@ def membership_for(user, organization_id=None):
     memberships = user.memberships.filter(is_active=True).select_related('organization')
     if organization_id:
         return memberships.filter(organization_id=organization_id).first()
-    return memberships.first() if memberships.count() == 1 else None
+    candidates = list(memberships[:2])
+    return candidates[0] if len(candidates) == 1 else None
 
 
 def tenant_membership(request):

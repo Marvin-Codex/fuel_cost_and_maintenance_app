@@ -40,7 +40,7 @@ class VehicleAPITests(APITestCase):
             format='json',
         )
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(res.data['owner'], str(self.owner.id))
+        self.assertEqual(str(res.data['owner']), str(self.owner.id))
         self.assertEqual(Vehicle.objects.filter(owner=self.owner).count(), 1)
 
     def test_ownership_scoped_list_and_retrieve(self):

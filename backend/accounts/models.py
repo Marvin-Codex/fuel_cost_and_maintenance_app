@@ -61,6 +61,10 @@ class Membership(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        indexes = [
+            models.Index(fields=['user', 'is_active'], name='membership_user_active_idx'),
+            models.Index(fields=['organization', 'is_active'], name='membership_org_active_idx'),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['organization', 'user'], name='unique_organization_member'
