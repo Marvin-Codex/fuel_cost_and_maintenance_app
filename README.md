@@ -154,7 +154,9 @@ psql vehicle_fuel_db -c "CREATE EXTENSION postgis;"
 Docker is a solid alternative if you'd rather not manage a Homebrew service — `postgis/postgis` images bundle Postgres+PostGIS together:
 
 ```bash
-docker run --name vehicle-fuel-pg -e POSTGRES_PASSWORD=devpass -e POSTGRES_DB=vehicle_fuel_db -p 5432:5432 -d postgis/postgis:16-3.4
+export POSTGRES_PASSWORD="$(openssl rand -hex 24)"
+docker run --name vehicle-fuel-pg -e POSTGRES_PASSWORD -e POSTGRES_DB=vehicle_fuel_db -p 127.0.0.1:5432:5432 -d postgis/postgis:16-3.4
+export DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD}@localhost:5432/vehicle_fuel_db"
 ```
 
 **Caveats:**

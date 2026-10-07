@@ -13,3 +13,61 @@
 .reminders .panel-title > b { padding: 5px 10px; color: #291b05; background: #f5a812; border-radius: 4px; font-size: 8px; font-weight: 400; }.warning { color: var(--amber); }.reminder { display: grid; grid-template-columns: 8px 1fr auto; gap: 9px; margin-top: 18px; }.reminder > i { width: 8px; height: 8px; margin-top: 4px; border-radius: 50%; background: var(--amber); }.reminder strong { color: #eef2fb; font: 14px 'Space Mono'; }.reminder p { margin-top: 6px; color: #c2cada; font-size: 9px; line-height: 1.6; }.reminder small { color: #dce3ef; font-size: 8px; }.warning-text { color: var(--amber) !important; }.diagnostic-button { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 18px; padding: 11px; border: 0; border-radius: 4px; color: var(--cyan); background: #202b42; font-size: 9px; }
 .bottom-nav { position: fixed; right: 0; bottom: 0; left: 0; z-index: 10; display: flex; justify-content: center; gap: clamp(15px, 7vw, 50px); padding: 12px 10px 10px; background: #0d1528; border-top: 1px solid #1c2941; }.bottom-nav button { display: grid; justify-items: center; gap: 4px; border: 0; color: #c4cede; background: transparent; font-size: 8px; }.bottom-nav button.selected { color: var(--cyan); }.bottom-nav button.selected svg { filter: drop-shadow(0 0 5px rgba(66,216,244,.5)); }
 @media (min-width: 800px) { .dashboard-shell { padding-bottom: 0; }.dashboard-content { padding-bottom: 35px; }.bottom-nav { position: sticky; top: 0; margin: 0 auto; max-width: 760px; border: 1px solid #1c2941; border-radius: 5px; }.dashboard-topbar { padding-inline: calc((100vw - 760px) / 2); } }
+
+/* Keep dashboard labels and supporting text readable alongside the large metrics. */
+.wordmark small { font-size: 9px; }
+.vin { font-size: 12px; }
+.package-status small { font-size: 10px; }
+.package-status > span { font-size: 11px; }
+.eyebrow { font-size: 12px; }
+.live-pill { font-size: 12px; }
+.vehicle-summary h2 em { font-size: 11px; }
+.vehicle-summary p { font-size: 12px; }
+.switch-label { font-size: 11px; }
+.health-bars span,
+.health-bars small { font-size: 10px; }
+.metric-heading small { font-size: 10px; }
+.metric-card p { font-size: 10px; }
+.segmented button { font-size: 10px; }
+.chart-meta { font-size: 10px; }
+.chart-label,
+.chart-target { font-size: 10px; }
+.trip-labels { font-size: 10px; }
+.card-top small,
+.prediction-stats small { font-size: 10px; }
+.card-top > b { font-size: 11px; }
+.service-meter { font-size: 10px; }
+.service-bottom p,
+.predictive-footer p { font-size: 11px; }
+.service-bottom button,
+.predictive-footer button { font-size: 10px; }
+.route { font-size: 13px; }
+.route small { font-size: 10px; }
+.reminders .panel-title > b { font-size: 10px; }
+.reminder p { font-size: 10px; }
+.reminder small { font-size: 9px; }
+.diagnostic-button { font-size: 10px; }
+.bottom-nav button { font-size: 10px; }
+
+.vehicle-card-copy { flex: 1; min-width: 0; }
+.vehicle-switcher { position: relative; margin-left: auto; }
+.switch-label { display: block; margin-left: 0; border: 0; border-radius: 4px; cursor: pointer; }
+.switch-label:hover,
+.switch-label[aria-expanded="true"] { background: #22334f; }
+.switch-label:focus-visible,
+.vehicle-picker button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.vehicle-picker { position: absolute; top: calc(100% + 8px); right: 0; z-index: 15; display: grid; width: min(250px, calc(100vw - 50px)); padding: 5px; border: 1px solid #35425b; border-radius: 7px; background: #101a2d; box-shadow: 0 12px 30px #0008; }
+.vehicle-picker button { display: grid; gap: 4px; padding: 10px; border: 0; border-radius: 4px; color: #e5f3ff; background: transparent; text-align: left; cursor: pointer; }
+.vehicle-picker button + button { border-top: 1px solid #27344d; }
+.vehicle-picker button:hover,
+.vehicle-picker button.current { background: #1b2b41; }
+.vehicle-picker button strong { font-size: 10px; }
+.vehicle-picker button span { color: #9aa8c5; font-size: 8px; }
+
+@media (max-width: 480px) {
+  .vehicle-summary { gap: 8px; }
+  .vehicle-summary h2 { font-size: 18px; }
+  .vehicle-summary h2 em { display: block; margin: 4px 0 0; }
+  .vehicle-summary p { max-width: 190px; font-size: 9px; }
+  .switch-label { padding: 7px 6px; font-size: 8px; }
+}

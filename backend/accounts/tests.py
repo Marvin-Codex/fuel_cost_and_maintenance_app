@@ -1,3 +1,8 @@
+from io import StringIO
+from unittest.mock import patch
+
+from django.contrib.auth import get_user_model
+from django.core.management import CommandError, call_command
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -41,3 +46,28 @@ class AuthAPITests(APITestCase):
         self.assertEqual(me.status_code, status.HTTP_200_OK)
         self.assertEqual(me.data['username'], 'jane')
         self.assertEqual(me.data['email'], 'jane@example.com')
+
+
+class SeedDemoUserCommandTests(APITestCase):
+    @patch(
+        'accounts.management.commands.seed_demo_user.getpass',
+        side_effect=['Strong-test-password-928!', 'Strong-test-password-928!'],
+    )
+    def test_password_is_prompted_and_never_printed(self, _getpass):
+        output = StringIO()
+
+        call_command('seed_demo_user', stdout=output)
+
+        user = get_user_model().objects.get(username='demo')
+        self.assertTrue(user.check_password('Strong-test-password-928!'))
+        self.assertNotIn('Strong-test-password-928!', output.getvalue())
+
+    @patch(
+        'accounts.management.commands.seed_demo_user.getpass',
+        side_effect=['Strong-test-password-928!', 'different-password'],
+    )
+    def test_mismatched_password_does_not_create_user(self, _getpass):
+        with self.assertRaises(CommandError):
+            call_command('seed_demo_user', stdout=StringIO())
+
+        self.assertFalse(get_user_model().objects.filter(username='demo').exists())

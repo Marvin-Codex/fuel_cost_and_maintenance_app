@@ -4,6 +4,104 @@ import uuid
 from django.db import migrations, models
 
 
+UUID_FROM_BIGINT = """
+    ('00000000-0000-0000-' ||
+     substr(lpad(to_hex({column}), 16, '0'), 1, 4) || '-' ||
+     substr(lpad(to_hex({column}), 16, '0'), 5, 12))::uuid
+"""
+
+
+def convert_primary_keys_to_uuid(apps, schema_editor):
+    connection = schema_editor.connection
+    if connection.vendor != 'postgresql':
+        raise RuntimeError(
+            'This migration requires PostgreSQL to safely convert existing '
+            'BIGINT primary keys and their foreign keys to UUIDs.'
+        )
+
+    tables = ('accounts_user', 'accounts_organization', 'accounts_membership')
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT source.table_name, source.constraint_name,
+                   pg_get_constraintdef(constraint_row.oid),
+                   source.column_name, target.table_name
+            FROM information_schema.key_column_usage AS source
+            JOIN information_schema.constraint_column_usage AS target
+              ON target.constraint_catalog = source.constraint_catalog
+             AND target.constraint_schema = source.constraint_schema
+             AND target.constraint_name = source.constraint_name
+            JOIN information_schema.table_constraints AS table_constraint
+              ON table_constraint.constraint_catalog = source.constraint_catalog
+             AND table_constraint.constraint_schema = source.constraint_schema
+             AND table_constraint.constraint_name = source.constraint_name
+            JOIN pg_constraint AS constraint_row
+              ON constraint_row.conname = source.constraint_name
+             AND constraint_row.conrelid =
+                 format('%%I.%%I', source.constraint_schema, source.table_name)::regclass
+            WHERE table_constraint.constraint_type = 'FOREIGN KEY'
+              AND source.constraint_schema = current_schema()
+              AND target.table_schema = current_schema()
+              AND target.table_name = ANY(%s)
+              AND target.column_name = 'id'
+            """,
+            [list(tables)],
+        )
+        foreign_keys = cursor.fetchall()
+
+        definitions = {}
+        conversions = {}
+        for table_name, constraint_name, definition, column_name, target_table in foreign_keys:
+            definitions[(table_name, constraint_name)] = definition
+            conversions[(table_name, column_name)] = target_table
+
+        for table_name, constraint_name in definitions:
+            cursor.execute(
+                'ALTER TABLE {} DROP CONSTRAINT {}'.format(
+                    schema_editor.quote_name(table_name),
+                    schema_editor.quote_name(constraint_name),
+                )
+            )
+
+        for table_name in tables:
+            conversions[(table_name, 'id')] = table_name
+
+        for (table_name, column_name), _target_table in conversions.items():
+            quoted_table = schema_editor.quote_name(table_name)
+            quoted_column = schema_editor.quote_name(column_name)
+            if column_name == 'id' and table_name in tables:
+                cursor.execute(
+                    'ALTER TABLE {} ALTER COLUMN {} DROP IDENTITY IF EXISTS'.format(
+                        quoted_table, quoted_column
+                    )
+                )
+                cursor.execute(
+                    'ALTER TABLE {} ALTER COLUMN {} DROP DEFAULT'.format(
+                        quoted_table, quoted_column
+                    )
+                )
+            cursor.execute(
+                'ALTER TABLE {} ALTER COLUMN {} TYPE uuid USING {}'.format(
+                    quoted_table,
+                    quoted_column,
+                    UUID_FROM_BIGINT.format(column=quoted_column),
+                )
+            )
+
+        for (table_name, constraint_name), definition in definitions.items():
+            cursor.execute(
+                'ALTER TABLE {} ADD CONSTRAINT {} {}'.format(
+                    schema_editor.quote_name(table_name),
+                    schema_editor.quote_name(constraint_name),
+                    definition,
+                )
+            )
+
+
+def noop_reverse(apps, schema_editor):
+    raise RuntimeError('Converting UUID primary keys back to BIGINT is not supported.')
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -11,19 +109,29 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='membership',
-            name='id',
-            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
-        ),
-        migrations.AlterField(
-            model_name='organization',
-            name='id',
-            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
-        ),
-        migrations.AlterField(
-            model_name='user',
-            name='id',
-            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunPython(
+                    convert_primary_keys_to_uuid,
+                    reverse_code=noop_reverse,
+                ),
+            ],
+            state_operations=[
+                migrations.AlterField(
+                    model_name='membership',
+                    name='id',
+                    field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
+                ),
+                migrations.AlterField(
+                    model_name='organization',
+                    name='id',
+                    field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
+                ),
+                migrations.AlterField(
+                    model_name='user',
+                    name='id',
+                    field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
+                ),
+            ],
         ),
     ]

@@ -1,0 +1,102 @@
+.fuel-view { display: grid; gap: 14px; padding: 8px 0 24px; }
+.fuel-view-heading, .fuel-section-heading { display: flex; align-items: center; gap: 12px; }
+.fuel-view-heading { margin: 0 0 2px; }
+.fuel-eyebrow { color: var(--cyan); font-size: 10px; letter-spacing: 1px; }
+.fuel-view-heading h2 { margin-top: 2px; font: 600 30px/1 'Barlow Condensed', sans-serif; }
+.fuel-vehicle-name { margin-top: 5px; color: #c4cede; font-size: 11px; }
+.fuel-back { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; padding: 8px; border: 1px solid #2c3b57; border-radius: 5px; color: var(--cyan); background: #18253c; cursor: pointer; }
+.fuel-back svg { width: 20px; height: 20px; }
+.fuel-back:hover { background: #22334f; }
+.fuel-demo-badge { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 6px 9px; border: 1px solid #324059; border-radius: 20px; color: #c4cede; font-size: 9px; white-space: nowrap; }
+.fuel-demo-badge i, .fuel-level-live i { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); }
+.fuel-panel { min-width: 0; padding: 16px; border: 1px solid #1c2943; border-radius: 9px; background: var(--panel); }
+.fuel-section-heading { justify-content: space-between; }
+.fuel-section-heading h3 { margin-top: 3px; font: 600 22px/1.1 'Barlow Condensed', sans-serif; }
+.fuel-level-live { display: inline-flex; align-items: center; gap: 6px; color: #c4cede; font-size: 9px; }
+.fuel-level-live i { background: #51e6a7; }
+.fuel-level-value { display: flex; align-items: baseline; gap: 10px; margin: 17px 0 12px; }
+.fuel-level-value > strong { color: var(--cyan); font: 600 54px/.95 'Barlow Condensed', sans-serif; }
+.fuel-level-value > span { color: #f0f4ff; font-size: 13px; }
+.fuel-gauge { height: 15px; overflow: hidden; border-radius: 10px; background: #27344d; }
+.fuel-gauge > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #2ab6dc, #42d8f4); }
+.fuel-gauge-labels { display: flex; justify-content: space-between; margin-top: 5px; color: #98a7c1; font-size: 9px; }
+.fuel-range { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding: 12px; border-radius: 6px; background: #101a2d; }
+.fuel-range > div { display: grid; gap: 4px; }
+.fuel-range > div > span { color: #e9eef8; font-size: 11px; }
+.fuel-range > div > small { color: #9aa8c5; font-size: 9px; }
+.fuel-range > strong { color: var(--cyan); font: 600 28px/1 'Barlow Condensed', sans-serif; white-space: nowrap; }
+.fuel-range > strong small { font: 11px 'Space Mono', monospace; }
+.fuel-metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.fuel-metric { display: flex; flex-direction: column; min-height: 165px; padding: 14px; }
+.fuel-metric-value { display: block; margin-top: 11px; color: #f0f4ff; font: 600 32px/1.05 'Barlow Condensed', sans-serif; }
+.fuel-metric-value small { color: #d2d9e6; font: 11px 'Space Mono', monospace; }
+.fuel-metric-note { margin-top: 5px; color: #c4cede; font-size: 10px; }
+.fuel-trend { margin-top: 7px; color: #51e6a7; font-size: 10px; }
+.fuel-trend.high { color: var(--amber); }
+.fuel-extra-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin-top: auto; padding-top: 10px; color: #9aa8c5; font-size: 9px; }
+.fuel-extra-stats span { display: grid; gap: 3px; }
+.fuel-extra-stats b { color: #e9eef8; font-weight: 400; }
+.fuel-usage-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.fuel-price-label { margin-top: 10px; color: #c4cede; font-size: 10px; }
+.fuel-price-input { display: flex; align-items: center; gap: 5px; margin-top: 7px; padding: 8px 9px; border: 1px solid #35425b; border-radius: 4px; color: #c4cede; background: #101a2d; font-size: 10px; }
+.fuel-price-input input { width: 100%; min-width: 0; border: 0; outline: none; color: #f0f4ff; background: transparent; font: 12px 'Space Mono', monospace; }
+.fuel-price-input input:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.fuel-fill-cost { margin-top: 6px; color: var(--cyan); font: 600 17px 'Barlow Condensed', sans-serif; }
+.fuel-period-switch { display: flex; gap: 4px; }
+.fuel-period-switch button { padding: 7px 8px; border: 1px solid #35425b; border-radius: 4px; color: #c4cede; background: #101a2d; font: 9px 'Space Mono', monospace; cursor: pointer; }
+.fuel-period-switch button.active { border-color: var(--cyan); color: #07101f; background: var(--cyan); }
+.fuel-chart-legend { display: flex; flex-wrap: wrap; gap: 12px; color: #c4cede; font-size: 9px; }
+.fuel-chart-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.fuel-chart-legend i { width: 9px; height: 9px; border-radius: 50%; background: var(--cyan); }
+.fuel-chart-legend span + span i { background: var(--amber); }
+.fuel-chart { position: relative; height: 160px; margin-top: 3px; }
+.fuel-chart-grid { position: absolute; inset: 0; background: repeating-linear-gradient(to bottom, transparent 0 38px, #27344d 39px, transparent 40px); }
+.fuel-chart svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.fuel-chart-y { position: absolute; left: 0; z-index: 1; color: #9aa8c5; font-size: 9px; }
+.fuel-chart-y.y10 { top: -4px; }
+.fuel-chart-y.y8 { top: 42%; }
+.fuel-chart-y.y6 { bottom: -4px; }
+.fuel-chart-labels { display: flex; justify-content: space-between; margin: 6px 0 0 24px; color: #aebbd0; font-size: 9px; }
+.fuel-chart-caption { margin-top: 10px; color: #aebbd0; font-size: 10px; }
+.fuel-history-caption { color: #9aa8c5; font-size: 9px; }
+.fuel-history-list { display: grid; margin-top: 4px; }
+.fuel-history-row { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid #27344d; }
+.fuel-history-row:last-child { border-bottom: 0; }
+.fuel-history-icon { display: grid; flex: 0 0 36px; width: 36px; height: 36px; place-items: center; border-radius: 5px; color: var(--cyan); background: #1c2943; }
+.fuel-history-icon svg { width: 19px; height: 19px; }
+.fuel-history-main { display: grid; flex: 1; gap: 4px; min-width: 0; }
+.fuel-history-main > strong { color: #f0f4ff; font-size: 11px; }
+.fuel-history-main > span { color: #aebbd0; font-size: 9px; }
+.fuel-history-cost { color: #e5f3ff; font-size: 10px; white-space: nowrap; }
+.fuel-alert { display: flex; align-items: flex-start; gap: 11px; padding: 13px; border: 1px solid #344159; border-radius: 7px; background: #141e33; }
+.fuel-alert.high, .fuel-alert.warning { border-color: #725530; background: #2a241d; }
+.fuel-alert.improved { border-color: #2d624e; background: #142820; }
+.fuel-alert-icon { display: grid; flex: 0 0 21px; width: 21px; height: 21px; place-items: center; border-radius: 50%; color: #17120b; background: var(--amber); font-weight: bold; font-size: 12px; }
+.fuel-alert.improved .fuel-alert-icon { color: #06180f; background: #51e6a7; }
+.fuel-alert > div { display: grid; gap: 4px; }
+.fuel-alert > div > strong { color: var(--amber); font-size: 10px; letter-spacing: .4px; }
+.fuel-alert.improved > div > strong { color: #51e6a7; }
+.fuel-alert p { color: #d3dbea; font-size: 10px; line-height: 1.5; }
+.fuel-demo-note { color: #8391aa; font-size: 9px; line-height: 1.5; }
+
+@media (max-width: 480px) {
+  .fuel-view { gap: 11px; }
+  .fuel-panel { padding: 13px; }
+  .fuel-section-heading h3 { font-size: 20px; }
+  .fuel-metric { min-height: 172px; padding: 12px; }
+  .fuel-metric-value { font-size: 28px; }
+  .fuel-extra-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fuel-period-switch button { padding: 7px 5px; font-size: 8px; }
+  .fuel-history-row { gap: 7px; }
+  .fuel-history-main > span { line-height: 1.4; }
+  .fuel-history-cost { font-size: 9px; }
+}
+
+@media (max-width: 360px) {
+  .fuel-demo-badge { padding: 5px 6px; font-size: 8px; }
+  .fuel-level-value { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .fuel-range { align-items: flex-start; flex-direction: column; }
+  .fuel-section-heading { align-items: flex-start; flex-direction: column; }
+  .fuel-period-switch { width: 100%; }
+  .fuel-period-switch button { flex: 1; }
+}

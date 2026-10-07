@@ -6,12 +6,40 @@ from .models import Membership, Subscription
 
 # Permission names are intentionally domain-based so other resources can reuse them.
 ROLE_PERMISSIONS = {
-    Membership.OWNER: {'vehicle.view', 'vehicle.create', 'vehicle.update', 'vehicle.delete', 'member.manage'},
-    Membership.ADMIN: {'vehicle.view', 'vehicle.create', 'vehicle.update', 'vehicle.delete', 'member.manage'},
-    Membership.FLEET_MANAGER: {'vehicle.view', 'vehicle.create', 'vehicle.update', 'vehicle.delete'},
-    Membership.MAINTENANCE_MANAGER: {'vehicle.view', 'vehicle.update'},
-    Membership.DRIVER: {'vehicle.view'},
-    Membership.VIEWER: {'vehicle.view'},
+    Membership.OWNER: {
+        'vehicle.view', 'vehicle.create', 'vehicle.update', 'vehicle.delete',
+        'fuel.view', 'fuel.create', 'fuel.update', 'fuel.delete',
+        'trip.view', 'trip.create', 'trip.update', 'trip.delete',
+        'maintenance.view', 'maintenance.create', 'maintenance.update', 'maintenance.delete',
+        'system.view', 'system.update', 'member.manage',
+    },
+    Membership.ADMIN: {
+        'vehicle.view', 'vehicle.create', 'vehicle.update', 'vehicle.delete',
+        'fuel.view', 'fuel.create', 'fuel.update', 'fuel.delete',
+        'trip.view', 'trip.create', 'trip.update', 'trip.delete',
+        'maintenance.view', 'maintenance.create', 'maintenance.update', 'maintenance.delete',
+        'system.view', 'system.update', 'member.manage',
+    },
+    Membership.FLEET_MANAGER: {
+        'vehicle.view', 'vehicle.create', 'vehicle.update', 'vehicle.delete',
+        'fuel.view', 'fuel.create', 'fuel.update', 'fuel.delete',
+        'trip.view', 'trip.create', 'trip.update', 'trip.delete',
+        'maintenance.view', 'maintenance.create', 'maintenance.update', 'maintenance.delete',
+        'system.view', 'system.update',
+    },
+    Membership.MAINTENANCE_MANAGER: {
+        'vehicle.view', 'vehicle.update',
+        'fuel.view', 'trip.view',
+        'maintenance.view', 'maintenance.create', 'maintenance.update', 'maintenance.delete',
+        'system.view',
+    },
+    Membership.DRIVER: {
+        'vehicle.view', 'fuel.view', 'fuel.create',
+        'trip.view', 'trip.create', 'maintenance.view', 'system.view',
+    },
+    Membership.VIEWER: {
+        'vehicle.view', 'fuel.view', 'trip.view', 'maintenance.view', 'system.view',
+    },
 }
 
 

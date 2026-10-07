@@ -5,6 +5,95 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def convert_vehicle_primary_key_to_uuid(apps, schema_editor):
+    connection = schema_editor.connection
+    if connection.vendor != 'postgresql':
+        raise RuntimeError(
+            'This migration requires PostgreSQL to safely convert existing '
+            'BIGINT primary keys and their foreign keys to UUIDs.'
+        )
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT source.table_name, source.constraint_name,
+                   pg_get_constraintdef(constraint_row.oid),
+                   source.column_name
+            FROM information_schema.key_column_usage AS source
+            JOIN information_schema.constraint_column_usage AS target
+              ON target.constraint_catalog = source.constraint_catalog
+             AND target.constraint_schema = source.constraint_schema
+             AND target.constraint_name = source.constraint_name
+            JOIN information_schema.table_constraints AS table_constraint
+              ON table_constraint.constraint_catalog = source.constraint_catalog
+             AND table_constraint.constraint_schema = source.constraint_schema
+             AND table_constraint.constraint_name = source.constraint_name
+            JOIN pg_constraint AS constraint_row
+              ON constraint_row.conname = source.constraint_name
+             AND constraint_row.conrelid =
+                 format('%I.%I', source.constraint_schema, source.table_name)::regclass
+            WHERE table_constraint.constraint_type = 'FOREIGN KEY'
+              AND source.constraint_schema = current_schema()
+              AND target.table_schema = current_schema()
+              AND target.table_name = 'vehicles_vehicle'
+              AND target.column_name = 'id'
+            """,
+        )
+        foreign_keys = cursor.fetchall()
+        definitions = {}
+        referencing_columns = set()
+        for table_name, constraint_name, definition, column_name in foreign_keys:
+            definitions[(table_name, constraint_name)] = definition
+            referencing_columns.add((table_name, column_name))
+
+        for table_name, constraint_name in definitions:
+            cursor.execute(
+                'ALTER TABLE {} DROP CONSTRAINT {}'.format(
+                    schema_editor.quote_name(table_name),
+                    schema_editor.quote_name(constraint_name),
+                )
+            )
+
+        conversions = referencing_columns | {('vehicles_vehicle', 'id')}
+        for table_name, column_name in conversions:
+            quoted_table = schema_editor.quote_name(table_name)
+            quoted_column = schema_editor.quote_name(column_name)
+            if table_name == 'vehicles_vehicle' and column_name == 'id':
+                cursor.execute(
+                    'ALTER TABLE {} ALTER COLUMN {} DROP IDENTITY IF EXISTS'.format(
+                        quoted_table, quoted_column
+                    )
+                )
+                cursor.execute(
+                    'ALTER TABLE {} ALTER COLUMN {} DROP DEFAULT'.format(
+                        quoted_table, quoted_column
+                    )
+                )
+            expression = """
+                ('00000000-0000-0000-' ||
+                 substr(lpad(to_hex({column}), 16, '0'), 1, 4) || '-' ||
+                 substr(lpad(to_hex({column}), 16, '0'), 5, 12))::uuid
+            """.format(column=quoted_column)
+            cursor.execute(
+                'ALTER TABLE {} ALTER COLUMN {} TYPE uuid USING {}'.format(
+                    quoted_table, quoted_column, expression
+                )
+            )
+
+        for (table_name, constraint_name), definition in definitions.items():
+            cursor.execute(
+                'ALTER TABLE {} ADD CONSTRAINT {} {}'.format(
+                    schema_editor.quote_name(table_name),
+                    schema_editor.quote_name(constraint_name),
+                    definition,
+                )
+            )
+
+
+def noop_reverse(apps, schema_editor):
+    raise RuntimeError('Converting UUID primary keys back to BIGINT is not supported.')
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -14,10 +103,20 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='vehicle',
-            name='id',
-            field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunPython(
+                    convert_vehicle_primary_key_to_uuid,
+                    reverse_code=noop_reverse,
+                ),
+            ],
+            state_operations=[
+                migrations.AlterField(
+                    model_name='vehicle',
+                    name='id',
+                    field=models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False),
+                ),
+            ],
         ),
         migrations.AddIndex(
             model_name='vehicle',
