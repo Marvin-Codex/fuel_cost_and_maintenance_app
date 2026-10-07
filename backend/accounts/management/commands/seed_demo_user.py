@@ -1,5 +1,9 @@
+from getpass import getpass
+
 from django.contrib.auth import get_user_model
-from django.core.management.base import BaseCommand
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.core.management.base import BaseCommand, CommandError
 
 User = get_user_model()
 
@@ -9,16 +13,25 @@ class Command(BaseCommand):
 
     help = (
         'Create or update the local demo user for development. '
-        'Usage: python manage.py seed_demo_user [--username demo] [--password demo12345]'
+        'The password is entered through a hidden interactive prompt.'
     )
 
     def add_arguments(self, parser):
         parser.add_argument('--username', default='demo', help='Demo username.')
-        parser.add_argument('--password', default='demo12345', help='Demo password.')
 
     def handle(self, *args, **options):
         username = options['username']
-        password = options['password']
+        user = User.objects.filter(username=username).first() or User(username=username)
+        password = getpass('Password: ')
+        confirmation = getpass('Password (again): ')
+        if not password:
+            raise CommandError('Password cannot be empty.')
+        if password != confirmation:
+            raise CommandError('The two passwords did not match.')
+        try:
+            validate_password(password, user)
+        except ValidationError as exc:
+            raise CommandError('; '.join(exc.messages)) from exc
 
         user, created = User.objects.get_or_create(
             username=username,
@@ -31,6 +44,6 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"{'Created' if created else 'Updated'} demo user "
-                f"'{username}' (password: {password}). Active: {user.is_active}"
+                f"'{username}'. Active: {user.is_active}"
             )
         )

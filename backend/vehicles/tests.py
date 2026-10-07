@@ -1,8 +1,11 @@
+from datetime import timedelta
+
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.models import User
+from accounts.models import Plan, PlanFeature, Subscription, User
 
 from .models import Vehicle
 from accounts.models import Membership, Organization
@@ -24,6 +27,17 @@ class VehicleAPITests(APITestCase):
 
     def _detail_url(self, pk):
         return reverse('vehicles:vehicle-detail', args=[pk])
+
+    def _enable_vehicle_view(self, organization):
+        plan = Plan.objects.create(name='Test plan', slug=f'test-{organization.slug}')
+        PlanFeature.objects.create(plan=plan, code='vehicle.view')
+        now = timezone.now()
+        Subscription.objects.create(
+            organization=organization,
+            plan=plan,
+            starts_at=now - timedelta(days=1),
+            ends_at=now + timedelta(days=1),
+        )
 
     def test_create_vehicle_happy_path(self):
         res = self.client.post(
@@ -86,6 +100,7 @@ class VehicleAPITests(APITestCase):
         Membership.objects.create(
             organization=organization, user=self.owner, role=Membership.OWNER
         )
+        self._enable_vehicle_view(organization)
         organization_vehicle = Vehicle.objects.create(
             owner=self.owner,
             organization=organization,
@@ -110,6 +125,7 @@ class VehicleAPITests(APITestCase):
         Membership.objects.create(
             organization=organization, user=driver, role=Membership.DRIVER
         )
+        self._enable_vehicle_view(organization)
         assigned = Vehicle.objects.create(
             owner=self.owner,
             organization=organization,
@@ -153,4 +169,3 @@ class VehicleAPITests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertFalse(Vehicle.objects.filter(license_plate='VIEW1').exists())
-

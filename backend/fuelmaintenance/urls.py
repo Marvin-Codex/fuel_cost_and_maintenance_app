@@ -12,6 +12,11 @@ urlpatterns = [
     path('api/v1/auth/', include('accounts.urls')),
     # Resource APIs.
     path('api/v1/', include('vehicles.urls')),
+    path('api/v1/', include('fuel.urls')),
+    path('api/v1/', include('trips.urls')),
+    path('api/v1/', include('maintenance.urls')),
+    path('api/v1/system/', include('preferences.urls')),
+    path('api/v1/dashboard/', include('dashboard.urls')),
     # OpenAPI schema (public — both clients codegen/reference from it).
     path(
         'api/schema/',
@@ -24,4 +29,3 @@ urlpatterns = [
         name='docs',
     ),
 ]
-

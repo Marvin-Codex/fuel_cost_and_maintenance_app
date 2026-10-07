@@ -58,6 +58,11 @@ INSTALLED_APPS = [
     # Local apps
     'accounts',
     'vehicles',
+    'fuel',
+    'trips',
+    'maintenance',
+    'preferences',
+    'dashboard',
 ]
 
 MIDDLEWARE = [

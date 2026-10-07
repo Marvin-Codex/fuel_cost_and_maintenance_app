@@ -1,0 +1,115 @@
+.trips-view { display: grid; gap: 13px; padding: 8px 0 24px; }
+.trips-heading, .trips-section-heading { display: flex; align-items: center; gap: 12px; }
+.trips-heading { margin-bottom: 2px; }
+.trips-eyebrow { color: var(--cyan); font-size: 9px; letter-spacing: 1px; }
+.trips-heading h2 { margin-top: 2px; font: 600 30px/1 'Barlow Condensed', sans-serif; }
+.trips-vehicle { margin-top: 5px; color: #c4cede; font-size: 10px; }
+.trips-back { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; padding: 8px; border: 1px solid #2c3b57; border-radius: 5px; color: var(--cyan); background: #18253c; cursor: pointer; }
+.trips-back svg { width: 20px; height: 20px; }
+.trips-back:hover { background: #22334f; }
+.trip-live-pill, .trip-state { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border: 1px solid #2d624e; border-radius: 20px; color: #72e7b0; font-size: 8px; white-space: nowrap; }
+.trip-live-pill { margin-left: auto; }
+.trip-live-pill i, .trip-state i { width: 7px; height: 7px; border-radius: 50%; background: #51e6a7; }
+.trip-live-pill.active i { box-shadow: 0 0 0 3px rgba(81, 230, 167, .15); }
+.trip-live-pill.stopped, .trip-state.stopped { border-color: #35425b; color: #aebbd0; }
+.trip-live-pill.stopped i, .trip-state.stopped i { background: #8491a8; }
+.trips-panel { min-width: 0; padding: 15px; border: 1px solid #1c2943; border-radius: 9px; background: var(--panel); }
+.trips-section-heading { justify-content: space-between; }
+.trips-section-heading h3 { margin-top: 3px; font: 600 21px/1.1 'Barlow Condensed', sans-serif; }
+.current-trip-panel { position: relative; overflow: hidden; background: linear-gradient(130deg, #182741, #141e33 70%); }
+.current-trip-panel::before { position: absolute; top: 0; right: 0; width: 100px; height: 100px; border-radius: 0 0 0 100%; background: rgba(66, 216, 244, .035); content: ''; pointer-events: none; }
+.trip-state { align-self: flex-start; }
+.current-trip-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 18px; }
+.trip-metric { display: grid; gap: 5px; min-width: 0; }
+.trip-metric > span { color: #aebbd0; font-size: 8px; letter-spacing: .5px; }
+.trip-metric > strong { color: #f0f4ff; font: 600 clamp(19px, 5vw, 27px)/1 'Barlow Condensed', sans-serif; white-space: nowrap; }
+.trip-metric > small { color: #9aa8c5; font-size: 8px; }
+.trip-current-details { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 9px; margin-top: 17px; padding: 11px 0; border-top: 1px solid #2a3955; border-bottom: 1px solid #2a3955; color: #aebbd0; font-size: 8px; }
+.trip-current-details span { display: grid; gap: 5px; }
+.trip-current-details b { color: #e5f3ff; font-size: 9px; font-weight: 400; }
+.trip-toggle-button { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 39px; margin-top: 13px; padding: 10px; border: 1px solid transparent; border-radius: 5px; font: 700 9px 'Space Mono', monospace; cursor: pointer; }
+.trip-toggle-button.end { color: #ffe8e5; border-color: #763b40; background: #42252d; }
+.trip-toggle-button.end:hover { background: #593039; }
+.trip-toggle-button.start { color: #07101f; background: var(--cyan); }
+.trip-toggle-button.start:hover { background: #7ae8fa; }
+.trip-idle-copy { margin-top: 14px; color: #aebbd0; font-size: 10px; line-height: 1.5; }
+.trip-notice { padding: 10px 12px; border: 1px solid #2d624e; border-radius: 6px; color: #71e5ad; background: #142820; font-size: 9px; }
+.route-distance { color: var(--cyan); font: 600 16px 'Barlow Condensed', sans-serif; }
+.route-map { position: relative; height: 176px; margin-top: 13px; overflow: hidden; border: 1px solid #293a53; border-radius: 6px; background: linear-gradient(140deg, #17283a, #172235 60%, #1a2b36); }
+.map-grid { position: absolute; inset: 0; opacity: .52; background-image: linear-gradient(24deg, transparent 47%, #34465a 48%, #34465a 49%, transparent 50%), linear-gradient(111deg, transparent 47%, #2a3c50 48%, #2a3c50 49%, transparent 50%), linear-gradient(75deg, transparent 47%, #26394c 48%, #26394c 49%, transparent 50%); background-size: 92px 68px, 118px 72px, 160px 90px; }
+.map-road { position: absolute; height: 2px; background: #31445b; transform-origin: left center; }
+.road-one { top: 22%; left: 8%; width: 83%; transform: rotate(16deg); }
+.road-two { top: 76%; left: 14%; width: 77%; transform: rotate(-21deg); }
+.road-three { top: 42%; left: 58%; width: 43%; transform: rotate(54deg); }
+.route-path { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.route-path path { fill: none; stroke: var(--cyan); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 8 5; filter: drop-shadow(0 0 4px rgba(66,216,244,.35)); }
+.route-stop { position: absolute; display: flex; align-items: center; gap: 5px; color: #f0f4ff; font: 700 7px 'Space Mono', monospace; }
+.route-stop i { width: 8px; height: 8px; border: 2px solid #112033; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 0 2px var(--cyan); }
+.route-start { top: 13%; left: 16%; }
+.route-kira { top: 46%; left: 50%; }
+.route-kira i { background: var(--amber); box-shadow: 0 0 0 2px var(--amber); }
+.route-end { right: 8%; bottom: 13%; }
+.route-map-caption { position: absolute; right: 8px; bottom: 7px; color: #91a1b9; font-size: 7px; }
+.route-info { display: flex; justify-content: space-between; gap: 10px; margin-top: 11px; color: #aebbd0; font-size: 8px; }
+.route-info span { display: grid; gap: 5px; }
+.route-info b { color: #e5f3ff; font-weight: 400; }
+.trip-highlight-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.trip-highlight { padding: 13px; }
+.trip-highlight > strong { display: block; margin-top: 8px; color: #f0f4ff; font: 600 33px/1 'Barlow Condensed', sans-serif; }
+.trip-highlight > strong small { color: #c4cede; font: 12px 'Space Mono', monospace; }
+.trip-highlight > p:not(.trips-eyebrow) { margin-top: 6px; color: #d3dbea; font-size: 9px; }
+.trip-highlight > span { display: block; margin-top: 9px; color: #9aa8c5; font-size: 8px; line-height: 1.5; }
+.score-highlight > strong { color: var(--cyan); }
+.score-good { display: flex; align-items: center; gap: 6px; color: #71e5ad !important; }
+.score-good i { width: 7px; height: 7px; border-radius: 50%; background: #51e6a7; }
+.performance-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px 10px; margin-top: 15px; }
+.performance-metrics .trip-metric { padding: 10px; border-radius: 5px; background: #101a2d; }
+.performance-metrics .trip-metric > strong { font-size: 20px; }
+.smooth-score { color: #71e5ad; font-size: 8px; }
+.driving-events { display: grid; margin-top: 8px; }
+.driving-events > div { display: grid; grid-template-columns: 19px 1fr auto; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid #27344d; color: #e5ebf5; font-size: 9px; }
+.driving-events > div:last-child { border-bottom: 0; padding-bottom: 1px; }
+.driving-events b { color: #e5f3ff; font-size: 9px; font-weight: 400; }
+.event-warning, .event-good { display: grid; width: 17px; height: 17px; place-items: center; border-radius: 50%; font-size: 10px; font-weight: 700; }
+.event-warning { color: #221809; background: var(--amber); }
+.event-good { color: #06180f; background: #51e6a7; }
+.trip-history-count, .comparison-tag { padding: 5px 7px; border-radius: 4px; color: #d5dfed; background: #25344b; font-size: 7px; }
+.comparison-tag { color: #71e5ad; background: #142d2a; }
+.trip-history-list { display: grid; margin-top: 7px; }
+.trip-history-item { border-bottom: 1px solid #27344d; }
+.trip-history-item:last-child { border-bottom: 0; }
+.trip-history-row { display: flex; align-items: center; gap: 9px; width: 100%; padding: 12px 0; border: 0; color: inherit; background: transparent; text-align: left; cursor: pointer; }
+.trip-history-row:hover .trip-history-route strong { color: var(--cyan); }
+.trip-history-date { flex: 0 0 54px; color: #aebbd0; font-size: 8px; }
+.trip-history-route { display: grid; flex: 1; gap: 5px; min-width: 0; }
+.trip-history-route strong { overflow: hidden; color: #f0f4ff; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.trip-history-route small { color: #aebbd0; font-size: 8px; }
+.trip-history-arrow { color: var(--cyan); font-size: 16px; }
+.trip-expanded-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 0 0 13px 63px; }
+.trip-expanded-details span { display: grid; gap: 4px; color: #98a7c1; font-size: 7px; }
+.trip-expanded-details b { color: #e5f3ff; font-size: 8px; font-weight: 400; }
+.trip-comparison-table { margin-top: 13px; }
+.comparison-row { display: grid; grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(0, 1fr)); gap: 5px; padding: 9px 0; border-bottom: 1px solid #27344d; color: #dce5f5; font-size: 8px; }
+.comparison-row:last-child { border-bottom: 0; }
+.comparison-row > span:not(:first-child) { text-align: right; }
+.comparison-header { color: #96a5bf; font-size: 7px; letter-spacing: .5px; }
+.comparison-row:not(.comparison-header) > span:nth-child(2) { color: #7de6fa; }
+.comparison-insight { margin-top: 10px; padding: 10px; border-radius: 5px; color: #c4cede; background: #101a2d; font-size: 8px; line-height: 1.5; }
+.comparison-insight strong { color: #71e5ad; font-weight: 400; }
+.trip-statistics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.trip-statistics > div { display: grid; gap: 6px; padding: 13px; border: 1px solid #1c2943; border-radius: 9px; background: #141e33; }
+.trip-statistics > div > strong { color: #f0f4ff; font: 600 30px/1 'Barlow Condensed', sans-serif; }
+.trip-statistics > div > span { color: #d3dbea; font-size: 8px; }
+.trip-statistics > div > small { color: #9aa8c5; font-size: 8px; }
+.trips-demo-note { padding: 0 3px; color: #8391aa; font-size: 8px; line-height: 1.5; }
+
+@media (max-width: 400px) {
+  .trips-panel { padding: 12px; }
+  .current-trip-metrics { gap: 5px; }
+  .trip-metric > span { font-size: 7px; }
+  .trip-current-details { font-size: 7px; }
+  .trip-current-details b { font-size: 8px; }
+  .trip-history-date { flex-basis: 47px; font-size: 7px; }
+  .trip-expanded-details { padding-left: 55px; }
+  .comparison-row { font-size: 7px; }
+}

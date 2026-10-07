@@ -34,29 +34,37 @@ The React web client should remain offline-first: users must be able to view cac
 
 ### Fuel records
 
-- [ ] Create fuel-record model, migrations, serializer, viewset, and URLs.
-- [ ] Support date, vehicle, odometer, quantity, unit price, total cost, fuel type, station, and notes.
-- [ ] Validate odometer progression and calculate cost/consumption consistently on the server.
-- [ ] Add summaries for period, vehicle, fuel cost, distance, and consumption.
+- [x] Create fuel-record model, migrations, serializer, viewset, and URLs.
+- [x] Support date, vehicle, odometer, quantity, unit price, total cost, fuel type, station, and notes.
+- [x] Validate odometer progression and calculate fuel cost on the server.
+- [x] Add date-range and vehicle-filtered summaries for fuel cost and volume.
+- [ ] Add distance and consumption calculations to fuel summaries.
 
 ### Trips
 
-- [ ] Create trip and GPS-point models, migrations, serializers, and endpoints.
-- [ ] Support synced trip history for the web app.
-- [ ] Keep GPS trip capture mobile/native-only.
-- [ ] Add trip statistics and route/map data where available.
+- [x] Create manual/synced trip-summary model, migration, serializer, and CRUD endpoints.
+- [ ] Add GPS-point storage and batch ingestion (GPS integration remains out of scope for now).
+- [x] Support synced trip history and trip statistics for the web app.
+- [x] Keep live GPS trip capture outside the web/backend summary API for now.
+- [ ] Add route/map data when GPS data is available.
 
 ### Maintenance
 
-- [ ] Create maintenance-record and maintenance-reminder models and migrations.
-- [ ] Add CRUD endpoints for service history, costs, parts, notes, dates, and odometer readings.
-- [ ] Add upcoming/overdue maintenance queries and reminder status updates.
+- [x] Create maintenance-record and maintenance-reminder models and migrations.
+- [x] Add CRUD endpoints for service history, costs, parts, notes, dates, and odometer readings.
+- [x] Add upcoming/overdue maintenance queries and reminder completion.
 - [ ] Add service-centre lookup integration if required.
+
+### System preferences and export
+
+- [x] Add per-user alert settings, thresholds, units, currency, language, and notification preferences.
+- [x] Export accessible vehicle, fuel, trip, and maintenance records as CSV.
 
 ### Sync, calculations, and operations
 
 - [ ] Add a sync protocol for create/update/delete operations, retries, conflicts, and idempotency.
-- [ ] Expose server-side fuel, maintenance, dashboard, and prediction summaries.
+- [x] Expose server-side fuel, maintenance, trip, and dashboard summaries.
+- [ ] Add prediction summaries when sufficient real-world data is available.
 - [ ] Add consistent pagination, filtering, error formats, and API versioning.
 - [ ] Maintain OpenAPI documentation for all endpoints.
 - [ ] Add production PostgreSQL/PostGIS configuration, backups, logging, health checks, and monitoring.
@@ -156,4 +164,3 @@ The React web client should remain offline-first: users must be able to view cac
 5. Build synced trip history.
 6. Add IndexedDB, PWA support, offline queues, and synchronization.
 7. Complete tests, accessibility, security review, and deployment automation.
-

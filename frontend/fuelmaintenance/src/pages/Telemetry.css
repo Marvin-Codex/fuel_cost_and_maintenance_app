@@ -1,0 +1,72 @@
+.telemetry-view { display: grid; gap: 16px; padding-bottom: 20px; }
+.telemetry-view-heading, .telemetry-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.telemetry-view-heading { justify-content: flex-start; margin: 8px 0 2px; }
+.telemetry-eyebrow { color: var(--cyan); font-size: 10px; letter-spacing: 1px; }
+.telemetry-view-heading h2 { margin-top: 3px; font: 600 30px/1.1 'Barlow Condensed', sans-serif; }
+.telemetry-section-heading h3 { margin-top: 3px; font: 600 22px/1.1 'Barlow Condensed', sans-serif; }
+.telemetry-back, .compare-button { padding: 9px 12px; border: 1px solid #2c3b57; border-radius: 5px; color: var(--cyan); background: #18253c; font: 10px 'Space Mono', monospace; cursor: pointer; }
+.telemetry-back { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; padding: 8px; }
+.telemetry-back svg { width: 20px; height: 20px; }
+.telemetry-back:hover { background: #22334f; }
+.telemetry-connection, .telemetry-section { border: 1px solid #1c2943; border-radius: 9px; background: var(--panel); }
+.telemetry-connection { display: flex; align-items: center; gap: 12px; padding: 14px; }
+.connection-dot, .rule-indicator { flex: 0 0 9px; width: 9px; height: 9px; border-radius: 50%; background: var(--amber); }
+.telemetry-connection strong { color: #f0f4ff; font-size: 12px; }
+.telemetry-connection p, .telemetry-card p, .telemetry-empty, .alert-rule p, .alert-footnote { margin-top: 5px; color: #bcc6d9; font-size: 11px; line-height: 1.6; }
+.connection-badge { margin-left: auto; padding: 5px 8px; border-radius: 4px; color: var(--amber); background: #34291d; font-size: 10px; }
+.telemetry-section { display: grid; gap: 13px; padding: 15px; }
+.telemetry-unavailable, .health-state { color: #c4cede; font-size: 10px; text-align: right; }
+.health-state { color: var(--amber); }
+.reading-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.reading-card, .telemetry-card, .behaviour-stats article, .trip-summary-grid article { min-width: 0; padding: 11px; border: 1px solid #27344d; border-radius: 6px; background: #101a2d; }
+.reading-card > span, .telemetry-card-label, .behaviour-stats article > span, .trip-summary-grid article > span { display: block; color: #b8c4d8; font-size: 9px; letter-spacing: .4px; }
+.reading-card strong { display: block; margin-top: 11px; color: #eff5ff; font: 600 28px/1 'Barlow Condensed', sans-serif; }
+.reading-card strong small, .behaviour-score strong small, .behaviour-stats strong small { margin-left: 4px; color: #b8c4d8; font: 10px 'Space Mono', monospace; }
+.reading-card p { margin-top: 8px; color: #8796b0; font-size: 10px; }
+.health-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.telemetry-card > strong { display: block; margin-top: 9px; color: #f0f4ff; font: 600 20px 'Barlow Condensed', sans-serif; }
+.telemetry-card > strong.pending-value { color: var(--amber); }
+.sensor-card { grid-column: 1 / -1; }
+.sensor-card .telemetry-empty { margin-top: 9px; }
+.behaviour-grid { display: grid; grid-template-columns: minmax(150px, .8fr) 2fr; gap: 8px; }
+.behaviour-score > strong { font: 600 42px/1 'Barlow Condensed', sans-serif; }
+.behaviour-score p { margin-top: 8px; }
+.behaviour-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.behaviour-stats article { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.behaviour-stats strong { color: #f0f4ff; font: 600 19px 'Barlow Condensed', sans-serif; }
+.driving-events { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.driving-events > span { padding: 8px; border-radius: 4px; color: #c4cede; background: #101a2d; font-size: 10px; text-align: center; }
+.driving-events p { grid-column: 1 / -1; color: #9aa8c5; font-size: 10px; }
+.alert-rule-list { display: grid; }
+.alert-rule { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid #27344d; }
+.alert-rule:last-child { border-bottom: 0; }
+.rule-indicator { background: #586781; }
+.alert-rule strong { color: #e8edf6; font-size: 11px; }
+.alert-rule p { margin-top: 3px; font-size: 10px; }
+.rule-state { margin-left: auto; color: #9aa8c5; font-size: 9px; text-align: right; white-space: nowrap; }
+.alert-footnote { margin-top: 0; color: #9aa8c5; }
+.compare-button:disabled { color: #8190a9; background: #101a2d; cursor: not-allowed; opacity: .8; }
+.trip-summary-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.trip-summary-grid article strong { display: block; margin-top: 8px; color: #eff5ff; font: 600 20px 'Barlow Condensed', sans-serif; }
+.telemetry-section > .telemetry-empty { padding: 12px; border-radius: 5px; background: #101a2d; }
+
+@media (max-width: 620px) {
+  .reading-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .reading-card:last-child { grid-column: 1 / -1; }
+  .telemetry-section-heading { align-items: flex-start; }
+  .telemetry-unavailable, .health-state { max-width: 120px; }
+  .trip-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .trip-summary-grid article:last-child { grid-column: 1 / -1; }
+}
+
+@media (max-width: 420px) {
+  .telemetry-view-heading { align-items: flex-start; }
+  .telemetry-view-heading h2 { font-size: 27px; }
+  .telemetry-back { padding: 8px; font-size: 9px; }
+  .telemetry-connection { align-items: flex-start; }
+  .connection-badge { font-size: 9px; }
+  .behaviour-grid { grid-template-columns: 1fr; }
+  .behaviour-stats article { flex-wrap: wrap; }
+  .alert-rule { align-items: flex-start; }
+  .rule-state { max-width: 65px; white-space: normal; }
+}
