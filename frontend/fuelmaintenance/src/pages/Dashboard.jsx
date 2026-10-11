@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react';
+import Sidebar from '../components/Sidebar';
+import { useLocation, useNavigate } from 'react-router-dom'
 import * as auth from '../api/auth'
 import { SyncIndicator } from '../components/animations'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import { APP_NAME } from '../config/brand'
 import { useSyncStatus } from '../hooks/useSyncStatus'
+import { getDashboardAccess, normalizeRoleKey, ROLE_LABELS } from '../utils/permissions'
 import Fuel from './Fuel'
 import Services from './Services'
 import System from './System'
@@ -83,13 +85,58 @@ const demoVehicles = [
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [organization, setOrganization] = useState(null)
   const [subscription, setSubscription] = useState(null)
   const [packageState, setPackageState] = useState('loading')
   const [activeTab, setActiveTab] = useState('overview')
   const [selectedVehicleId, setSelectedVehicleId] = useState(demoVehicles[0].id)
   const [isVehiclePickerOpen, setIsVehiclePickerOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return window.localStorage.getItem('fm.sidebar.collapsed') === '1'
+    } catch {
+      return false
+    }
+  })
+  const [superAdminSection, setSuperAdminSection] = useState('sa-overview')
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('fm.sidebar.collapsed', sidebarCollapsed ? '1' : '0')
+    } catch {
+      /* storage unavailable; collapse state just won't persist */
+    }
+  }, [sidebarCollapsed])
   const selectedVehicle = demoVehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? demoVehicles[0]
   const { pending, state: syncState } = useSyncStatus()
+
+  const planFeatures = useMemo(
+    () => (Array.isArray(subscription?.plan?.features) ? subscription.plan.features : []),
+    [subscription],
+  )
+
+  const user = auth.getStoredUser()
+  const isPlatformSuperUser = Boolean(user?.is_superuser)
+  const hasOrganization = Boolean(organization && organization.role)
+  const effectiveRole = isPlatformSuperUser
+    ? 'super_admin'
+    : normalizeRoleKey(hasOrganization ? organization.role : (user ? 'owner' : 'viewer'))
+
+  const access = useMemo(
+    () => getDashboardAccess({ role: effectiveRole, planFeatures, allowNoPackageAccess: Boolean(user && !hasOrganization) }),
+    [effectiveRole, hasOrganization, planFeatures, user],
+  )
+
+  const dashboardNavItems = [
+    { id: 'overview', label: 'OVERVIEW', allowed: access.tabs.overview, icon: <Icon><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></Icon> },
+    { id: 'telemetry', label: 'TELEMETRY', allowed: access.tabs.telemetry, icon: <Icon><path d="M4 16a8 8 0 1 1 8 4" /><path d="m12 12 4-4" /></Icon> },
+    { id: 'fuel', label: 'FUEL', allowed: access.tabs.fuel, icon: <Icon><path d="M6 4v16M18 4v16M6 7h8M6 12h12M6 17h8" /><path d="M18 9l2 2v5" /></Icon> },
+    { id: 'services', label: 'SERVICE', allowed: access.tabs.services, icon: <Icon><path d="m14 6 4 4M13 7l4-4 4 4-4 4M4 20l6-6" /></Icon> },
+    { id: 'trips', label: 'TRIPS', allowed: access.tabs.trips, icon: <Icon><path d="M6 4v16M18 4v16M6 7c5 0 7 3 12 3M6 17c5 0 7-3 12-3" /></Icon> },
+    { id: 'system', label: 'SYSTEM', allowed: access.tabs.system, icon: <Icon><path d="M4 6h16M4 12h16M4 18h16M8 4v4M15 10v4M11 16v4" /></Icon> },
+  ]
 
   useEffect(() => {
     let mounted = true
@@ -97,15 +144,20 @@ export default function Dashboard() {
       try {
         const organizations = await auth.getOrganizations()
         const organizationList = Array.isArray(organizations) ? organizations : organizations.results ?? []
-        const organization = organizationList[0]
-        if (!organization) {
+        const currentOrganization = organizationList[0]
+
+        if (!currentOrganization) {
           if (mounted) setPackageState('empty')
           return
         }
-        const response = await auth.getSubscription(organization.id)
+
+        if (mounted) setOrganization(currentOrganization)
+
+        const response = await auth.getSubscription(currentOrganization.id)
         if (mounted) {
-          setSubscription(response.subscription)
-          setPackageState(response.subscription ? 'active' : 'empty')
+          const nextSubscription = response.subscription
+          setSubscription(nextSubscription)
+          setPackageState(nextSubscription ? 'active' : 'empty')
         }
       } catch {
         if (mounted) setPackageState('error')
@@ -115,16 +167,193 @@ export default function Dashboard() {
     return () => { mounted = false }
   }, [])
 
+  useEffect(() => {
+    if (!access.canViewAny && activeTab !== 'overview') {
+      setActiveTab('overview')
+    }
+
+    const permittedTab = Object.entries(access.tabs).find(([, allowed]) => allowed)?.[0] ?? 'overview'
+    if (!access.tabs[activeTab] && activeTab !== 'overview') {
+      setActiveTab(permittedTab)
+    }
+  }, [access, activeTab])
+
   function signOut() {
     auth.logout()
     navigate('/login')
   }
 
+  const roleKey = isPlatformSuperUser ? 'super_admin' : normalizeRoleKey(organization?.role)
+  const roleLabel = ROLE_LABELS[roleKey] ?? ROLE_LABELS.viewer
+  const isSuperAdmin = isPlatformSuperUser || roleKey === 'super_admin'
+
+  const superAdminNavItems = [
+    { id: 'sa-overview', label: 'OVERVIEW', allowed: true, icon: <Icon><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></Icon> },
+    { id: 'sa-tenants', label: 'TENANTS', allowed: access.memberManage, icon: <Icon><path d="M3 21h18M6 21V3h12v18M9 7h.01M15 7h.01M9 11h.01M15 11h.01M9 15h.01M15 15h.01" /></Icon> },
+    { id: 'sa-plans', label: 'PLANS', allowed: access.systemView, icon: <Icon><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></Icon> },
+    { id: 'sa-actions', label: 'ACTIONS', allowed: access.systemView, icon: <Icon><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1" /></Icon> },
+  ]
+
+  const handleSuperAdminNav = (id) => {
+    setSuperAdminSection(id)
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  if (isSuperAdmin) {
+    return (
+      <main className={`dashboard-shell super-admin-shell${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
+        <header className="dashboard-topbar">
+          <div className="wordmark"><span className="wordmark-mark"><Icon size={22}><path d="M4 15h16M6 15l1-5h10l1 5M8 10l1-3h6l1 3M7 18h.01M17 18h.01" /><circle cx="7" cy="17" r="1.5" /><circle cx="17" cy="17" r="1.5" /></Icon></span><span>{APP_NAME}<small>SUPER ADMIN</small></span></div>
+          <div className="topbar-actions">
+            <SyncIndicator state={syncState} pending={pending} />
+            <ThemeToggle />
+            <div className="profile-menu">
+              <button className="profile-button" aria-label="Open profile menu" onClick={() => setProfileOpen((open) => !open)}>
+                <Icon size={19}><circle cx="12" cy="8" r="3" /><path d="M5 20c.6-3.2 2.8-5 7-5s6.4 1.8 7 5" /></Icon>
+              </button>
+              {profileOpen && (
+                <div className="profile-dropdown" role="menu" aria-label="Profile menu">
+                  <div className="profile-summary">
+                    <strong>{organization?.name ?? 'Platform Admin'}</strong>
+                    <span>{roleLabel}</span>
+                  </div>
+                  <button type="button" role="menuitem" onClick={() => navigate('/super-admin')}>Profile</button>
+                  <button type="button" role="menuitem" onClick={() => navigate('/super-admin')}>Settings</button>
+                  <button type="button" role="menuitem" className="danger" onClick={signOut}>Log out</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        <Sidebar
+          items={superAdminNavItems}
+          activeTab={superAdminSection}
+          onTabChange={handleSuperAdminNav}
+          collapsed={sidebarCollapsed}
+          onCollapsedChange={setSidebarCollapsed}
+          title="PLATFORM"
+          subtitle="Super Admin"
+          ariaLabel="Platform sections"
+          footer={<div className="sidebar-footer-copy"><small>ACCESS LEVEL</small><strong>{roleLabel}</strong></div>}
+        />
+
+        <section className="dashboard-content super-admin-content">
+          <div className="super-admin-hero" id="sa-overview">
+            <div>
+              <p className="eyebrow">SUPER ADMIN CONSOLE</p>
+              <h1>Platform control center</h1>
+            </div>
+            <span className="live-pill"><i /> ALL SYSTEMS ONLINE</span>
+          </div>
+
+          <div className="super-admin-stat-grid">
+            <article className="metric-card super-admin-metric">
+              <small>ACTIVE ORGANIZATIONS</small>
+              <strong>24</strong>
+              <p>+3 this month</p>
+            </article>
+            <article className="metric-card super-admin-metric">
+              <small>SUBSCRIPTIONS</small>
+              <strong>18</strong>
+              <p>12 active plans</p>
+            </article>
+            <article className="metric-card super-admin-metric">
+              <small>MEMBERS</small>
+              <strong>342</strong>
+              <p>96% active</p>
+            </article>
+            <article className="metric-card super-admin-metric">
+              <small>SYSTEM HEALTH</small>
+              <strong>99.2%</strong>
+              <p>Uptime this week</p>
+            </article>
+          </div>
+
+          <div className="super-admin-grid">
+            <section className="panel super-admin-panel" id="sa-tenants">
+              <div className="panel-title"><h2>Tenant overview</h2><b>LIVE</b></div>
+              <div className="super-admin-list">
+                <div><span>FleetOps Uganda</span><strong>Owner</strong></div>
+                <div><span>TransLogix</span><strong>Admin</strong></div>
+                <div><span>City Fuel Co.</span><strong>Fleet Manager</strong></div>
+                <div><span>LogiCare</span><strong>Maintenance</strong></div>
+              </div>
+            </section>
+
+            <section className="panel super-admin-panel" id="sa-plans">
+              <div className="panel-title"><h2>Plan access</h2><b>FEATURES</b></div>
+              <div className="super-admin-list">
+                <div><span>Essentials</span><strong>12 orgs</strong></div>
+                <div><span>Fleet</span><strong>7 orgs</strong></div>
+                <div><span>Scale</span><strong>5 orgs</strong></div>
+                <div><span>Enterprise</span><strong>1 org</strong></div>
+              </div>
+            </section>
+
+            <section className="panel super-admin-panel wide" id="sa-actions">
+              <div className="panel-title"><h2>Platform actions</h2><b>CONTROL</b></div>
+              <div className="super-admin-actions">
+                <button type="button">Manage organizations</button>
+                <button type="button">Update subscriptions</button>
+                <button type="button">Review members</button>
+                <button type="button">System settings</button>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
+  if (!access.canViewAny && packageState !== 'loading') {
+    return (
+      <main className="dashboard-shell dashboard-denied-shell">
+        <header className="dashboard-topbar">
+          <div className="wordmark"><span className="wordmark-mark"><Icon size={22}><path d="M4 15h16M6 15l1-5h10l1 5M8 10l1-3h6l1 3M7 18h.01M17 18h.01" /><circle cx="7" cy="17" r="1.5" /><circle cx="17" cy="17" r="1.5" /></Icon></span><span>{APP_NAME}<small>DASHBOARD</small></span></div>
+          <div className="topbar-actions"><SyncIndicator state={syncState} pending={pending} /><ThemeToggle /><button className="profile-button" aria-label="Sign out" onClick={signOut}><Icon size={19}><circle cx="12" cy="8" r="3" /><path d="M5 20c.6-3.2 2.8-5 7-5s6.4 1.8 7 5" /></Icon></button></div>
+        </header>
+
+        <section className="dashboard-content dashboard-denied">
+          <div className="denied-card">
+            <p className="eyebrow">ACCESS RESTRICTED</p>
+            <h1>Dashboard access is unavailable</h1>
+            <p>
+              Your role ({roleLabel}) does not currently have access to this organization’s active plan features.
+              Contact an administrator to enable the required permissions or upgrade the subscription.
+            </p>
+            <button type="button" className="denied-button" onClick={signOut}>Back to login</button>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
   return (
-    <main className="dashboard-shell">
+    <main className={`dashboard-shell${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
       <header className="dashboard-topbar">
         <div className="wordmark"><span className="wordmark-mark"><Icon size={22}><path d="M4 15h16M6 15l1-5h10l1 5M8 10l1-3h6l1 3M7 18h.01M17 18h.01" /><circle cx="7" cy="17" r="1.5" /><circle cx="17" cy="17" r="1.5" /></Icon></span><span>{APP_NAME}<small>DASHBOARD</small></span></div>
-        <div className="topbar-actions"><SyncIndicator state={syncState} pending={pending} /><ThemeToggle /><span className="vin"><Icon size={16}><path d="M4 17h16M5 17l1-6h12l1 6M8 11l1-3h6l1 3" /><circle cx="7" cy="18" r="1" /><circle cx="17" cy="18" r="1" /></Icon> VIN: {selectedVehicle.vinSuffix} <span>⌄</span></span><button className="profile-button" aria-label="Sign out" onClick={signOut}><Icon size={19}><circle cx="12" cy="8" r="3" /><path d="M5 20c.6-3.2 2.8-5 7-5s6.4 1.8 7 5" /></Icon></button></div>
+        <div className="topbar-actions">
+          <SyncIndicator state={syncState} pending={pending} />
+          <ThemeToggle />
+          <span className="vin"><Icon size={16}><path d="M4 17h16M5 17l1-6h12l1 6M8 11l1-3h6l1 3" /><circle cx="7" cy="18" r="1" /><circle cx="17" cy="18" r="1" /></Icon> VIN: {selectedVehicle.vinSuffix} <span>⌄</span></span>
+          <div className="profile-menu">
+            <button className="profile-button" aria-label="Open profile menu" onClick={() => setProfileOpen((open) => !open)}>
+              <Icon size={19}><circle cx="12" cy="8" r="3" /><path d="M5 20c.6-3.2 2.8-5 7-5s6.4 1.8 7 5" /></Icon>
+            </button>
+            {profileOpen && (
+              <div className="profile-dropdown" role="menu" aria-label="Profile menu">
+                <div className="profile-summary">
+                  <strong>{organization?.name ?? 'Fleet User'}</strong>
+                  <span>{roleLabel}</span>
+                </div>
+                <button type="button" role="menuitem" onClick={() => navigate('/dashboard')}>Profile</button>
+                <button type="button" role="menuitem" onClick={() => navigate('/dashboard')}>Settings</button>
+                <button type="button" role="menuitem" className="danger" onClick={signOut}>Log out</button>
+              </div>
+            )}
+          </div>
+        </div>
       </header>
 
       <section className="dashboard-content">
@@ -171,7 +400,17 @@ export default function Dashboard() {
         )}
       </section>
 
-      <nav className="bottom-nav" aria-label="Dashboard sections"><button className={activeTab === 'telemetry' ? 'selected' : ''} type="button" aria-pressed={activeTab === 'telemetry'} onClick={() => setActiveTab('telemetry')}><Icon><path d="M4 16a8 8 0 1 1 8 4" /><path d="m12 12 4-4" /></Icon><span>TELEMETRY</span></button><button className={activeTab === 'fuel' ? 'selected' : ''} type="button" aria-pressed={activeTab === 'fuel'} onClick={() => setActiveTab('fuel')}><Icon><path d="M6 4v16M18 4v16M6 7h8M6 12h12M6 17h8" /><path d="M18 9l2 2v5" /></Icon><span>FUEL</span></button><button className={activeTab === 'services' ? 'selected' : ''} type="button" aria-pressed={activeTab === 'services'} onClick={() => setActiveTab('services')}><Icon><path d="m14 6 4 4M13 7l4-4 4 4-4 4M4 20l6-6" /></Icon><span>SERVICE</span></button><button className={activeTab === 'trips' ? 'selected' : ''} type="button" aria-pressed={activeTab === 'trips'} onClick={() => setActiveTab('trips')}><Icon><path d="M6 4v16M18 4v16M6 7c5 0 7 3 12 3M6 17c5 0 7-3 12-3" /></Icon><span>TRIPS</span></button><button className={activeTab === 'system' ? 'selected' : ''} type="button" aria-pressed={activeTab === 'system'} onClick={() => setActiveTab('system')}><Icon><path d="M4 6h16M4 12h16M4 18h16M8 4v4M15 10v4M11 16v4" /></Icon><span>SYSTEM</span></button></nav>
+      <Sidebar
+        items={dashboardNavItems}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        title="SECTIONS"
+        subtitle={roleLabel}
+        ariaLabel="Dashboard sections"
+        footer={<div className="sidebar-footer-copy"><small>ACTIVE ROLE</small><strong>{roleLabel}</strong></div>}
+      />
     </main>
   )
 }

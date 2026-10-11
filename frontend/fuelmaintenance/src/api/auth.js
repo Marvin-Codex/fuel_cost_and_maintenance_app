@@ -10,6 +10,7 @@ const REGISTER_PATH = '/api/v1/auth/register/'
 
 const ACCESS_TOKEN_KEY = 'fuelmaintenance.accessToken'
 const REFRESH_TOKEN_KEY = 'fuelmaintenance.refreshToken'
+const USER_KEY = 'fuelmaintenance.user'
 const ORGANIZATIONS_PATH = '/api/v1/auth/organizations/'
 
 // "Remember me" off → sessionStorage so the session ends with the tab.
@@ -75,9 +76,10 @@ export async function login(username, password, { remember = true } = {}) {
     // Clearly marked mock adapter — demo only, no network.
     await new Promise((resolve) => setTimeout(resolve, 500))
     if (username === 'demo' && password === 'demo1234') {
-      const data = { access: 'mock-access-token', refresh: 'mock-refresh-token', username }
+      const data = { access: 'mock-access-token', refresh: 'mock-refresh-token', username, user: { is_superuser: false, username } }
       storage(remember).setItem(ACCESS_TOKEN_KEY, data.access)
       storage(remember).setItem(REFRESH_TOKEN_KEY, data.refresh)
+      storage(remember).setItem(USER_KEY, JSON.stringify(data.user))
       return { ...data, mocked: true }
     }
     throw new Error('Mock auth: use demo / demo1234, or unset VITE_USE_MOCK_AUTH for the real backend.')
@@ -105,7 +107,17 @@ export async function login(username, password, { remember = true } = {}) {
   const data = await response.json()
   if (data.access) storage(remember).setItem(ACCESS_TOKEN_KEY, data.access)
   if (data.refresh) storage(remember).setItem(REFRESH_TOKEN_KEY, data.refresh)
+  if (data.user) storage(remember).setItem(USER_KEY, JSON.stringify(data.user))
   return data
+}
+
+export function getStoredUser() {
+  try {
+    const raw = localStorage.getItem(USER_KEY) ?? sessionStorage.getItem(USER_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
 }
 
 /** Whether a session token is already stored locally. */
@@ -118,8 +130,10 @@ export function logout() {
   try {
     localStorage.removeItem(ACCESS_TOKEN_KEY)
     localStorage.removeItem(REFRESH_TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
     sessionStorage.removeItem(ACCESS_TOKEN_KEY)
     sessionStorage.removeItem(REFRESH_TOKEN_KEY)
+    sessionStorage.removeItem(USER_KEY)
   } catch {
     /* storage unavailable — nothing to clear */
   }
