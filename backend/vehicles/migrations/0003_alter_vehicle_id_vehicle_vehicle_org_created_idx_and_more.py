@@ -5,8 +5,84 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def _convert_to_uuid_sqlite(schema_editor):
+    """Rebuild empty SQLite vehicle tables with UUID columns.
+
+    Mirrors the accounts 0003 SQLite fallback: dev-only, empty tables only.
+    """
+    connection = schema_editor.connection
+    with connection.cursor() as cursor:
+        existing = {
+            row[0]
+            for row in cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).fetchall()
+        }
+    # M2M ``vehicles_vehicle_assigned_drivers`` is only created in 0002;
+    # include it when present so its ``vehicle_id`` FK matches the new PK.
+    # ``user_id`` also points at the converted accounts_user PK, but accounts
+    # 0003 already rebuilt that column type when it ran first (vehicles 0002
+    # depends on accounts 0003). Rebuilding here would wipe any rows, and the
+    # whole fallback only supports empty tables anyway.
+    targets = [
+        t
+        for t in (
+            'vehicles_vehicle',
+            'vehicles_vehicle_assigned_drivers',
+        )
+        if t in existing
+    ]
+    with connection.cursor() as cursor:
+        for table in targets:
+            cursor.execute('SELECT COUNT(*) FROM "{}"'.format(table))
+            (count,) = cursor.fetchone()
+            if count:
+                raise RuntimeError(
+                    'SQLite fallback cannot convert table "{}" with {} existing '
+                    'row(s) from BIGINT to UUID. Use PostgreSQL '
+                    '(DATABASE_URL) for real data, or delete backend/db.sqlite3 '
+                    'to recreate an empty dev database.'.format(table, count)
+                )
+        cursor.execute(
+            "SELECT name, sql FROM sqlite_master WHERE type = 'table' "
+            'AND name IN ({})'.format(
+                ', '.join(['%s'] * len(targets))
+            ),
+            list(targets),
+        )
+        create_sql = dict(cursor.fetchall())
+
+    with connection.constraint_checks_disabled():
+        with connection.cursor() as cursor:
+            for table in targets:
+                sql = create_sql[table]
+                if table == 'vehicles_vehicle':
+                    sql = sql.replace(
+                        '"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT',
+                        '"id" char(32) NOT NULL PRIMARY KEY',
+                    )
+                    sql = sql.replace('bigint', 'char(32)')
+                else:
+                    # M2M table: only ``vehicle_id`` references the converted
+                    # PK; ``user_id``/``id`` keep their existing types.
+                    sql = sql.replace('"vehicle_id" bigint', '"vehicle_id" char(32)')
+                cursor.execute(
+                    'ALTER TABLE "{}" RENAME TO "{}__old_uuid"'.format(
+                        table, table
+                    )
+                )
+                cursor.execute(sql)
+                cursor.execute('DROP TABLE "{}__old_uuid"'.format(table))
+            cursor.execute(
+                "DELETE FROM sqlite_sequence WHERE name = 'vehicles_vehicle'"
+            )
+
+
 def convert_vehicle_primary_key_to_uuid(apps, schema_editor):
     connection = schema_editor.connection
+    if connection.vendor == 'sqlite':
+        _convert_to_uuid_sqlite(schema_editor)
+        return
     if connection.vendor != 'postgresql':
         raise RuntimeError(
             'This migration requires PostgreSQL to safely convert existing '

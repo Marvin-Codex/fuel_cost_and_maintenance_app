@@ -11,8 +11,93 @@ UUID_FROM_BIGINT = """
 """
 
 
+def _convert_to_uuid_sqlite(schema_editor):
+    """Rebuild empty SQLite tables with UUID (char(32)) PK/FK columns.
+
+    The SQLite fallback (USE_SQLITE=1) is a dev-only convenience — the
+    production engine is PostgreSQL. For a fresh/empty database we can
+    rewrite the schema in place instead of running the Postgres
+    ``USING`` conversion. Non-empty SQLite databases are refused so no
+    data is silently mangled; use Postgres or wipe the dev database.
+    """
+    connection = schema_editor.connection
+    pk_tables = (
+        'accounts_user',
+        'accounts_organization',
+        'accounts_membership',
+    )
+    # M2M tables created by the custom User model also carry FKs to the
+    # converted PKs and must have their column types updated as well. Their
+    # own ``id`` stays an integer AutoField.
+    extra_tables = (
+        'accounts_user_groups',
+        'accounts_user_user_permissions',
+    )
+    rebuild_tables = pk_tables + extra_tables
+
+    with connection.cursor() as cursor:
+        existing = {
+            row[0]
+            for row in cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).fetchall()
+        }
+        targets = [t for t in rebuild_tables if t in existing]
+        for table in targets:
+            cursor.execute('SELECT COUNT(*) FROM "{}"'.format(table))
+            (count,) = cursor.fetchone()
+            if count:
+                raise RuntimeError(
+                    'SQLite fallback cannot convert table "{}" with {} existing '
+                    'row(s) from BIGINT to UUID. Use PostgreSQL '
+                    '(DATABASE_URL) for real data, or delete backend/db.sqlite3 '
+                    'to recreate an empty dev database.'.format(table, count)
+                )
+
+        cursor.execute(
+            "SELECT name, sql FROM sqlite_master WHERE type = 'table' "
+            'AND name IN ({})'.format(
+                ', '.join(['%s'] * len(targets))
+            ),
+            list(targets),
+        )
+        create_sql = dict(cursor.fetchall())
+
+    with connection.constraint_checks_disabled():
+        with connection.cursor() as cursor:
+            for table in targets:
+                sql = create_sql[table]
+                if table in pk_tables:
+                    sql = sql.replace(
+                        '"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT',
+                        '"id" char(32) NOT NULL PRIMARY KEY',
+                    )
+                # Every BIGINT column in these tables references one of the
+                # converted PKs (M2M ``group_id`` is integer, untouched).
+                sql = sql.replace('bigint', 'char(32)')
+                cursor.execute(
+                    'ALTER TABLE "{}" RENAME TO "{}__old_uuid"'.format(
+                        table, table
+                    )
+                )
+                cursor.execute(sql)
+                cursor.execute(
+                    'DROP TABLE "{}__old_uuid"'.format(table)
+                )
+            # Converted PKs no longer use AUTOINCREMENT sequences.
+            cursor.execute(
+                'DELETE FROM sqlite_sequence WHERE name IN ({})'.format(
+                    ', '.join(['%s'] * len(pk_tables))
+                ),
+                list(pk_tables),
+            )
+
+
 def convert_primary_keys_to_uuid(apps, schema_editor):
     connection = schema_editor.connection
+    if connection.vendor == 'sqlite':
+        _convert_to_uuid_sqlite(schema_editor)
+        return
     if connection.vendor != 'postgresql':
         raise RuntimeError(
             'This migration requires PostgreSQL to safely convert existing '
