@@ -67,7 +67,27 @@
 .fm-tabs button { border: 0; background: transparent; color: var(--fm-muted); padding: 9px 20px; border-radius: 999px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .fm-tabs button.is-active { background: var(--fm-accent); color: #0b1526; }
 .fm-vehicle-card { margin-top: 18px; padding: 24px; display: grid; gap: 20px; align-items: center; }
-.fm-vehicle-card svg { width: 100%; max-width: 320px; height: auto; color: var(--fm-accent-strong); }
+.fm-vehicle-card svg { width: 100%; max-width: 360px; height: auto; color: var(--fm-accent-strong); }
+/* --- Vehicle illustrations: layered, token-driven, works in light + dark --- */
+.fm-veh-bob { transform-box: fill-box; transform-origin: center; animation: fm-veh-bob 4s ease-in-out infinite; }
+.fm-veh-body { fill: var(--fm-accent-soft); stroke: var(--fm-accent-strong); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.fm-veh-detail { fill: none; stroke: var(--fm-accent-strong); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: 0.75; }
+.fm-veh-glass { fill: var(--fm-accent); fill-opacity: 0.18; stroke: var(--fm-accent-strong); stroke-width: 2; stroke-linejoin: round; }
+.fm-veh-shadow { fill: var(--fm-map-grid); stroke: none; }
+.fm-veh-tire { fill: var(--fm-ink); fill-opacity: 0.9; stroke: var(--fm-ink); stroke-width: 3; }
+.fm-veh-rim { fill: none; stroke: var(--fm-accent-strong); stroke-width: 2.5; }
+.fm-veh-spokes { fill: none; stroke: var(--fm-accent-strong); stroke-width: 1.6; stroke-linecap: round; opacity: 0.85; }
+.fm-veh-spin { transform-box: fill-box; transform-origin: center; animation: fm-veh-spin 3.5s linear infinite; }
+.fm-veh-disc { fill: none; stroke: var(--fm-accent-strong); stroke-width: 1.4; opacity: 0.5; }
+.fm-veh-hub { fill: var(--fm-accent-strong); }
+.fm-veh-light-front { fill: #ffd77a; stroke: var(--fm-accent-strong); stroke-width: 1.6; }
+.fm-veh-light-rear { fill: #ff7a6b; stroke: none; }
+.fm-veh-glow { filter: drop-shadow(0 0 5px rgba(255, 199, 92, 0.85)); }
+@keyframes fm-veh-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes fm-veh-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .fm-veh-bob, .fm-veh-spin { animation: none; }
+}
 .fm-stat { margin-top: 14px; display: grid; gap: 2px; }
 .fm-stat strong { font-size: 26px; }
 .fm-package { padding: 24px; display: grid; gap: 10px; align-content: start; }

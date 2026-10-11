@@ -206,9 +206,72 @@ export default function Landing() {
           </div>
           <Reveal className="fm-card fm-vehicle-card" role="tabpanel">
             {vehicle === 'car' ? (
-              <svg viewBox="0 0 260 90" role="img" aria-label="Stylised car silhouette"><g fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 62 C 20 48, 44 44, 62 42 L 84 24 C 88 20, 94 20, 100 20 L 160 20 C 168 20, 172 22, 178 28 L 198 44 C 220 46, 240 50, 246 62 L 246 68 L 14 68 Z" /><circle cx="70" cy="68" r="12" /><circle cx="190" cy="68" r="12" /><path d="M82 68h96" /></g></svg>
+              <svg key="car" className="fm-veh-art" viewBox="0 0 360 150" role="img" aria-label="Side-view illustration of a modern car with tinted windows, alloy wheels, headlight and taillight">
+                <g className="fm-veh-bob">
+                  <ellipse className="fm-veh-shadow" cx="184" cy="137" rx="152" ry="6" />
+                  <path className="fm-veh-body" d="M36 106 Q36 86 60 82 L96 58 Q102 54 110 54 L214 54 Q222 54 228 60 L258 82 L302 90 Q324 94 332 102 L334 106 Z" />
+                  <path className="fm-veh-glass" d="M116 60 L206 60 L216 82 L126 82 Z" />
+                  <path className="fm-veh-detail" d="M162 60 L168 82" />
+                  <path className="fm-veh-detail" d="M132 66 L152 78 M142 64 L162 76" />
+                  <path className="fm-veh-detail" d="M126 84 L120 106 M216 84 L216 106" />
+                  <path className="fm-veh-detail" d="M150 92 L164 92" />
+                  <path className="fm-veh-detail" d="M62 98 L300 96" />
+                  <path className="fm-veh-body" d="M214 68 L226 64 L226 73 Z" />
+                  <path className="fm-veh-light-front fm-veh-glow" d="M316 92 L332 96 L330 102 L314 98 Z" />
+                  <path className="fm-veh-light-rear" d="M38 88 L52 89 L51 96 L38 95 Z" />
+                  <g>
+                    <circle className="fm-veh-tire" cx="278" cy="108" r="26" />
+                    <circle className="fm-veh-disc" cx="278" cy="108" r="15" />
+                    <g className="fm-veh-spin"><path className="fm-veh-spokes" d="M278 96 L278 120 M266 108 L290 108 M270 100 L286 116 M286 100 L270 116" /></g>
+                    <circle className="fm-veh-rim" cx="278" cy="108" r="15" />
+                    <circle className="fm-veh-hub" cx="278" cy="108" r="3.6" />
+                  </g>
+                  <g>
+                    <circle className="fm-veh-tire" cx="92" cy="108" r="26" />
+                    <circle className="fm-veh-disc" cx="92" cy="108" r="15" />
+                    <g className="fm-veh-spin"><path className="fm-veh-spokes" d="M92 96 L92 120 M80 108 L104 108 M82 100 L102 116 M102 100 L82 116" /></g>
+                    <circle className="fm-veh-rim" cx="92" cy="108" r="15" />
+                    <circle className="fm-veh-hub" cx="92" cy="108" r="3.6" />
+                  </g>
+                </g>
+              </svg>
             ) : (
-              <svg viewBox="0 0 260 90" role="img" aria-label="Stylised motorcycle silhouette"><g fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="52" cy="64" r="16" /><circle cx="208" cy="64" r="16" /><path d="M52 64 L96 34 L132 64 M96 34 L118 34 L142 64 M132 64 L168 40 L208 64 M118 34 L112 22 M104 22h16" /></g></svg>
+              <svg key="bike" className="fm-veh-art" viewBox="0 0 360 150" role="img" aria-label="Side-view illustration of a sport motorcycle with spoked wheels, fuel tank, engine block and exhaust">
+                <g className="fm-veh-bob">
+                  <ellipse className="fm-veh-shadow" cx="180" cy="136" rx="150" ry="6" />
+                  <g>
+                    <circle className="fm-veh-tire" cx="86" cy="102" r="29" />
+                    <circle className="fm-veh-disc" cx="86" cy="102" r="17" />
+                    <g className="fm-veh-spin"><path className="fm-veh-spokes" d="M86 86 L86 118 M70 102 L102 102 M74 90 L98 114 M98 90 L74 114" /></g>
+                    <circle className="fm-veh-rim" cx="86" cy="102" r="17" />
+                    <circle className="fm-veh-hub" cx="86" cy="102" r="3.6" />
+                  </g>
+                  <g>
+                    <circle className="fm-veh-tire" cx="256" cy="102" r="29" />
+                    <circle className="fm-veh-disc" cx="256" cy="102" r="17" />
+                    <g className="fm-veh-spin"><path className="fm-veh-spokes" d="M256 86 L256 118 M240 102 L272 102 M244 90 L268 114 M268 90 L244 114" /></g>
+                    <circle className="fm-veh-rim" cx="256" cy="102" r="17" />
+                    <circle className="fm-veh-hub" cx="256" cy="102" r="3.6" />
+                  </g>
+                  <path className="fm-veh-body" d="M256 102 L228 76 L196 66 L172 66" />
+                  <path className="fm-veh-detail" d="M172 70 L120 74 M120 74 L86 96" />
+                  <path className="fm-veh-detail" d="M228 78 L214 92 M214 92 L176 96" />
+                  <path className="fm-veh-body" d="M150 78 C144 62 160 52 180 52 C200 52 210 64 205 78 Z" />
+                  <path className="fm-veh-glass" d="M156 70 C158 62 168 58 178 58 C186 58 192 62 194 70 Z" />
+                  <path className="fm-veh-body" d="M204 76 L232 80 C238 81 242 78 242 72 C242 66 236 64 230 66 L206 68 Z" />
+                  <path className="fm-veh-body" d="M172 66 C182 62 200 62 210 68 L214 74 L168 74 Z" />
+                  <path className="fm-veh-detail" d="M150 82 L172 90 M172 86 L172 96" />
+                  <path className="fm-veh-body" d="M168 78 L146 82 L150 92 L172 90 Z" />
+                  <path className="fm-veh-detail" d="M150 84 L166 87 M152 88 L168 90" />
+                  <path className="fm-veh-body" d="M244 58 L262 50 L272 52 L268 66 L250 66 Z" />
+                  <path className="fm-veh-glass" d="M248 60 L262 54 L266 62 L250 64 Z" />
+                  <path className="fm-veh-body" d="M248 52 L274 44 M266 44 L280 40" />
+                  <path className="fm-veh-light-front fm-veh-glow" d="M240 66 L252 64 L252 74 L242 74 Z" />
+                  <path className="fm-veh-detail" d="M188 80 C160 84 120 86 92 84" />
+                  <path className="fm-veh-light-rear" d="M84 92 L94 92 L94 100 L84 100 Z" />
+                  <path className="fm-veh-detail" d="M96 84 L92 72 L108 82" />
+                </g>
+              </svg>
             )}
             <div>
               <h3>{vehicle === 'car' ? 'Cars & SUVs' : 'Boda & sport bikes'}</h3>
