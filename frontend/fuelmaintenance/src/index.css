@@ -1,44 +1,11 @@
 @import 'tailwindcss';
 
-/* Global styles — blue palette shared by every page of the app. */
+/* Global styles — token-driven light/dark themes (see styles/tokens.css). */
 
 :root {
-  --fm-blue-50: #eff6ff;
-  --fm-blue-100: #dbeafe;
-  --fm-blue-200: #bfdbfe;
-  --fm-blue-300: #93c5fd;
-  --fm-blue-400: #60a5fa;
-  --fm-blue-500: #3b82f6;
-  --fm-blue-600: #2563eb;
-  --fm-blue-700: #1d4ed8;
-  --fm-blue-800: #1e40af;
-  --fm-navy-900: #0f2454;
-
-  --fm-surface: #ffffff;
-  --fm-text: #1e293b;
-  --fm-muted: #64748b;
-  --fm-border: #e2e8f0;
-
-  --fm-danger: #dc2626;
-  --fm-danger-bg: #fef2f2;
-  --fm-danger-border: #fecaca;
-  --fm-success: #16a34a;
-  --fm-success-bg: #f0fdf4;
-  --fm-success-border: #bbf7d0;
-
-  --fm-radius: 16px;
-  --fm-shadow: 0 20px 40px -12px rgba(15, 36, 84, 0.25);
-
-  font-family:
-    system-ui,
-    'Segoe UI',
-    Roboto,
-    'Helvetica Neue',
-    Arial,
-    sans-serif;
+  font-family: var(--fm-font-text);
   line-height: 1.5;
-  color: var(--fm-text);
-  color-scheme: light;
+  color: var(--fm-ink);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -60,7 +27,8 @@ body,
 }
 
 body {
-  background: var(--fm-blue-50);
+  background: var(--fm-bg);
+  color: var(--fm-ink);
 }
 
 #root {
@@ -81,4 +49,37 @@ button,
 input {
   font: inherit;
   color: inherit;
+}
+
+/* Visually hidden but available to screen readers. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Suspense fallback shown while a lazy route chunk downloads. */
+.fm-route-fallback {
+  min-height: 100svh;
+  padding: 32px 20px;
+}
+
+.fm-route-fallback-grid {
+  display: grid;
+  gap: 16px;
+  max-width: 1080px;
+  margin: 0 auto;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 720px) {
+  .fm-route-fallback-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap');
+/* Fonts are self-hosted via src/styles/fonts.css (no CDN request). */
 
 .dashboard-shell { --ink: #f0f4ff; --muted: #9aa8c5; --panel: #141e33; --panel-2: #1b263e; --cyan: #42d8f4; --amber: #ffb957; min-height: 100svh; color: var(--ink); background: #080f20; font-family: 'Space Mono', monospace; padding-bottom: 76px; }
 .dashboard-topbar { height: 70px; display: flex; align-items: center; justify-content: space-between; padding: 0 max(22px, calc((100vw - 760px) / 2)); background: #0d1528; border-bottom: 1px solid #17233b; }

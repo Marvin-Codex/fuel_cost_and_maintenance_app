@@ -1,6 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { ThemeContext } from './theme-context'
 
-const ThemeContext = createContext({ theme: 'system', resolved: 'light', setTheme: () => {} })
 const STORAGE_KEY = 'fuelmaintenance.theme'
 
 function resolveTheme(choice) {
@@ -56,8 +56,4 @@ export function ThemeProvider({ children }) {
   }, [])
 
   return <ThemeContext.Provider value={{ theme, resolved, setTheme }}>{children}</ThemeContext.Provider>
-}
-
-export function useTheme() {
-  return useContext(ThemeContext)
 }

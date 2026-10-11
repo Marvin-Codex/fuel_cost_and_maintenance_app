@@ -1,4 +1,4 @@
-import { useTheme } from '../../styles/ThemeContext'
+import { useTheme } from '../../styles/useTheme'
 
 /** Sun/moon toggle — cycles light → dark → system. */
 export default function ThemeToggle({ className = '' }) {

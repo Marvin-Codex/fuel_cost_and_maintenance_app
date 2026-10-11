@@ -133,6 +133,69 @@
   cursor: pointer;
 }
 
+/* Skeleton loaders + empty states for data cards. */
+.fm-skeleton {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    var(--fm-surface-2) 25%,
+    var(--fm-line) 37%,
+    var(--fm-surface-2) 63%
+  );
+  background-size: 400% 100%;
+  border-radius: var(--fm-radius-sm);
+  animation: fm-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes fm-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+
+.fm-skeleton-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.fm-skeleton-card-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.fm-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.fm-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 4px;
+  color: var(--fm-muted);
+  background: var(--fm-surface-2);
+  border-radius: 999px;
+}
+
+.fm-empty h3 {
+  font-family: var(--fm-font-display);
+  font-size: var(--fm-type-lg);
+}
+
+.fm-empty p {
+  max-width: 42ch;
+  color: var(--fm-muted);
+  font-size: var(--fm-type-sm);
+  line-height: 1.6;
+}
+
+
 .fm-route { position: relative; }
 .fm-route-svg { width: 100%; height: auto; display: block; }
 .fm-route-chips { position: absolute; inset: 0; pointer-events: none; }
@@ -256,4 +319,5 @@
   .fm-route-draw { stroke-dashoffset: 0; animation: none; }
   .fm-chip-float, .fm-chip-float--alt, .fm-piston, .fm-blink, .fm-sync-dot { animation: none; }
   .fm-gauge-needle { transition: none; }
+  .fm-skeleton { animation: none; }
 }

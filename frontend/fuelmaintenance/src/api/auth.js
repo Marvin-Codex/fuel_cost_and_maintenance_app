@@ -1,15 +1,9 @@
-// Auth API client for the web frontend — see build guide §2 (one file per
-// resource under src/api/).
-//
-// Endpoint contract (Django backend, not built yet — Phase 1):
-//   POST /api/v1/auth/login/     body: { username, password }
-//   200 → { access, refresh, username, ... }
-//   401 → invalid credentials
-//
-// The API base URL is read from VITE_API_BASE_URL (see .env in
-// frontend/fuelmaintenance/) and defaults to the local Django dev server.
+// Auth API client — Django token endpoints through one module.
+// Set VITE_USE_MOCK_AUTH=true for a clearly marked offline demo that never
+// touches the network; otherwise all calls hit the Django backend.
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+const USE_MOCK = import.meta.env.VITE_USE_MOCK_AUTH === 'true'
 
 const LOGIN_PATH = '/api/v1/auth/login/'
 const REGISTER_PATH = '/api/v1/auth/register/'
@@ -18,8 +12,25 @@ const ACCESS_TOKEN_KEY = 'fuelmaintenance.accessToken'
 const REFRESH_TOKEN_KEY = 'fuelmaintenance.refreshToken'
 const ORGANIZATIONS_PATH = '/api/v1/auth/organizations/'
 
+// "Remember me" off → sessionStorage so the session ends with the tab.
+function storage(remember) {
+  try {
+    return remember ? localStorage : sessionStorage
+  } catch {
+    return { getItem: () => null, setItem: () => {}, removeItem: () => {} }
+  }
+}
+
+function readToken() {
+  try {
+    return localStorage.getItem(ACCESS_TOKEN_KEY) ?? sessionStorage.getItem(ACCESS_TOKEN_KEY)
+  } catch {
+    return null
+  }
+}
+
 async function authenticatedGet(path) {
-  const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+  const token = readToken()
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
@@ -59,7 +70,18 @@ export async function register(username, email, password) {
 }
 
 /** Sign in with a username + password; stores tokens and returns the payload. */
-export async function login(username, password) {
+export async function login(username, password, { remember = true } = {}) {
+  if (USE_MOCK) {
+    // Clearly marked mock adapter — demo only, no network.
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    if (username === 'demo' && password === 'demo1234') {
+      const data = { access: 'mock-access-token', refresh: 'mock-refresh-token', username }
+      storage(remember).setItem(ACCESS_TOKEN_KEY, data.access)
+      storage(remember).setItem(REFRESH_TOKEN_KEY, data.refresh)
+      return { ...data, mocked: true }
+    }
+    throw new Error('Mock auth: use demo / demo1234, or unset VITE_USE_MOCK_AUTH for the real backend.')
+  }
   let response
   try {
     response = await fetch(`${API_BASE_URL}${LOGIN_PATH}`, {
@@ -81,18 +103,24 @@ export async function login(username, password) {
   }
 
   const data = await response.json()
-  if (data.access) localStorage.setItem(ACCESS_TOKEN_KEY, data.access)
-  if (data.refresh) localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh)
+  if (data.access) storage(remember).setItem(ACCESS_TOKEN_KEY, data.access)
+  if (data.refresh) storage(remember).setItem(REFRESH_TOKEN_KEY, data.refresh)
   return data
 }
 
 /** Whether a session token is already stored locally. */
 export function hasSession() {
-  return localStorage.getItem(ACCESS_TOKEN_KEY) !== null
+  return readToken() !== null
 }
 
 /** Clear the locally stored session. */
 export function logout() {
-  localStorage.removeItem(ACCESS_TOKEN_KEY)
-  localStorage.removeItem(REFRESH_TOKEN_KEY)
+  try {
+    localStorage.removeItem(ACCESS_TOKEN_KEY)
+    localStorage.removeItem(REFRESH_TOKEN_KEY)
+    sessionStorage.removeItem(ACCESS_TOKEN_KEY)
+    sessionStorage.removeItem(REFRESH_TOKEN_KEY)
+  } catch {
+    /* storage unavailable — nothing to clear */
+  }
 }

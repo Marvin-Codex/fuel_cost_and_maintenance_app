@@ -3,15 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0ea5c4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#080f20" media="(prefers-color-scheme: dark)" />
     <meta
       name="description"
-      content="Fuel cost and maintenance app — track fuel, trips and maintenance for your vehicles."
+      content="FuelMaintenance — GPS trip tracking, fuel cost and consumption tracking, ML cost predictions and maintenance reminders for cars and bikes. Works offline."
     />
-    <title>Fuel cost and maintenance app</title>
+    <title>FuelMaintenance — know what your vehicle costs you</title>
+    <script>
+      // Apply the saved/preferred theme before first paint to avoid a flash.
+      (function () {
+        try {
+          var stored = localStorage.getItem('fuelmaintenance.theme');
+          var dark =
+            stored === 'dark' ||
+            ((!stored || stored === 'system') &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.setAttribute(
+            'data-theme',
+            dark ? 'dark' : 'light'
+          );
+        } catch (e) {
+          /* storage blocked — fall back to CSS prefers-color-scheme */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
+

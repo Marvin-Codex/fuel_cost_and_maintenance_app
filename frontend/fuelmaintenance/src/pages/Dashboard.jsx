@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as auth from '../api/auth'
+import { SyncIndicator } from '../components/animations'
+import ThemeToggle from '../components/ui/ThemeToggle'
+import { APP_NAME } from '../config/brand'
+import { useSyncStatus } from '../hooks/useSyncStatus'
 import Fuel from './Fuel'
 import Services from './Services'
 import System from './System'
@@ -85,6 +89,7 @@ export default function Dashboard() {
   const [selectedVehicleId, setSelectedVehicleId] = useState(demoVehicles[0].id)
   const [isVehiclePickerOpen, setIsVehiclePickerOpen] = useState(false)
   const selectedVehicle = demoVehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? demoVehicles[0]
+  const { pending, state: syncState } = useSyncStatus()
 
   useEffect(() => {
     let mounted = true
@@ -118,8 +123,8 @@ export default function Dashboard() {
   return (
     <main className="dashboard-shell">
       <header className="dashboard-topbar">
-        <div className="wordmark"><span className="wordmark-mark"><Icon size={22}><path d="M4 15h16M6 15l1-5h10l1 5M8 10l1-3h6l1 3M7 18h.01M17 18h.01" /><circle cx="7" cy="17" r="1.5" /><circle cx="17" cy="17" r="1.5" /></Icon></span><span>VOLT MECHANICS<small>DASHBOARD</small></span></div>
-        <div className="topbar-actions"><span className="vin"><Icon size={16}><path d="M4 17h16M5 17l1-6h12l1 6M8 11l1-3h6l1 3" /><circle cx="7" cy="18" r="1" /><circle cx="17" cy="18" r="1" /></Icon> VIN: {selectedVehicle.vinSuffix} <span>⌄</span></span><button className="profile-button" aria-label="Sign out" onClick={signOut}><Icon size={19}><circle cx="12" cy="8" r="3" /><path d="M5 20c.6-3.2 2.8-5 7-5s6.4 1.8 7 5" /></Icon></button></div>
+        <div className="wordmark"><span className="wordmark-mark"><Icon size={22}><path d="M4 15h16M6 15l1-5h10l1 5M8 10l1-3h6l1 3M7 18h.01M17 18h.01" /><circle cx="7" cy="17" r="1.5" /><circle cx="17" cy="17" r="1.5" /></Icon></span><span>{APP_NAME}<small>DASHBOARD</small></span></div>
+        <div className="topbar-actions"><SyncIndicator state={syncState} pending={pending} /><ThemeToggle /><span className="vin"><Icon size={16}><path d="M4 17h16M5 17l1-6h12l1 6M8 11l1-3h6l1 3" /><circle cx="7" cy="18" r="1" /><circle cx="17" cy="18" r="1" /></Icon> VIN: {selectedVehicle.vinSuffix} <span>⌄</span></span><button className="profile-button" aria-label="Sign out" onClick={signOut}><Icon size={19}><circle cx="12" cy="8" r="3" /><path d="M5 20c.6-3.2 2.8-5 7-5s6.4 1.8 7 5" /></Icon></button></div>
       </header>
 
       <section className="dashboard-content">

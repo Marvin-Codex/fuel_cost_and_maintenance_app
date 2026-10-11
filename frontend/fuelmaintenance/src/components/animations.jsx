@@ -3,14 +3,12 @@ import { useEffect, useRef, useState } from 'react'
 /** Fade/slide sections in once when scrolled into view. */
 export function Reveal({ children, delay = 0, className = '', as: Tag = 'div', ...rest }) {
   const ref = useRef(null)
-  const [visible, setVisible] = useState(false)
+  // Show immediately when IntersectionObserver is unavailable (older browsers/SSR).
+  const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined')
   useEffect(() => {
     const node = ref.current
     if (!node) return
-    if (typeof IntersectionObserver === 'undefined') {
-      setVisible(true)
-      return
-    }
+    if (typeof IntersectionObserver === 'undefined') return
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -119,14 +117,12 @@ export function RouteAnimation({ chips = [] }) {
 /** Speedometer-style dial whose needle animates into view. */
 export function Gauge({ label, value = 0, max = 200, unit = '', display }) {
   const ref = useRef(null)
-  const [active, setActive] = useState(false)
+  // Activate immediately when IntersectionObserver is unavailable (older browsers/SSR).
+  const [active, setActive] = useState(() => typeof IntersectionObserver === 'undefined')
   useEffect(() => {
     const node = ref.current
     if (!node) return
-    if (typeof IntersectionObserver === 'undefined') {
-      setActive(true)
-      return
-    }
+    if (typeof IntersectionObserver === 'undefined') return
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {

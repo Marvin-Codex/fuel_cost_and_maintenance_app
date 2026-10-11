@@ -1,222 +1,283 @@
 import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { APP_NAME, APP_DESCRIPTION } from '../config/brand'
+import ThemeToggle from '../components/ui/ThemeToggle'
+import { Counter, EngineLine, Gauge, Reveal, RouteAnimation, SyncIndicator } from '../components/animations'
+import './Landing.css'
 
-const features = [
-  ['Fuel cost tracking', 'Log fill-ups, prices and consumption. See cost per kilometre and efficiency trends for every vehicle.'],
-  ['Maintenance & reminders', 'Keep service history organised with parts and costs, and get reminded before work is due.'],
-  ['Trips & GPS history', 'Review trip distances, durations and fuel use with route summaries and trip-to-trip comparisons.'],
-  ['Live telemetry', 'Connect an OBD-II adapter for engine readings, diagnostics and driving-behaviour insights.'],
-  ['Offline-first PWA', 'Record fuel, trips and maintenance with zero connectivity. Everything syncs when you are back online.'],
-  ['Fleet organizations', 'Invite your team with roles from owner to viewer, and unlock features through package subscriptions.'],
+const NAV_LINKS = [
+  ['Features', '#features'],
+  ['How it works', '#how-it-works'],
+  ['Offline', '#offline'],
+  ['Packages', '#packages'],
+  ['FAQ', '#faq'],
+  ['Contact', '#contact'],
 ]
 
-const steps = [
-  ['1', 'Create your account', 'Sign up free in seconds. Your data stays scoped to you from the first login.'],
-  ['2', 'Add your vehicles', 'Register number plates, fuel types and odometer readings for each vehicle you run.'],
-  ['3', 'Track & save', 'Log fuel, review trips and service on time — and watch the cost per kilometre fall.'],
+const FEATURES = [
+  ['M4 17c3-8 9-12 16-12M4 17h16M4 17l3 4M12 5a8 8 0 0 1 8 8', 'Trip tracking (GPS)', 'Follow every journey on a live route line with distance, duration and speed summaries.'],
+  ['M5 21V6a2 2 0 0 1 2-2h6v18M5 21h10M9 8h3v4H9zM15 9h2l2 3v6', 'Fuel tracking', 'Log fill-ups in litres and UGX. Watch consumption in L/100 km and cost per kilometre.'],
+  ['M4 19V9M10 19V5M16 19v-8M22 19H2', 'Cost prediction (ML)', 'Each vehicle learns its own behaviour and forecasts trip cost as a range, never a false exact number.'],
+  ['M14 7l3 3M13 8l5-5 4 4-5 5M5 21l5-5', 'Maintenance reminders', 'Mileage and date reminders for oil, brakes, filters and more — before they become breakdowns.'],
+  ['M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11zM12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z', 'Service-centre finder', 'Discover nearby garages and workshops with map pins, distances and service focus.'],
+  ['M4 20V12M10 20V6M16 20v-9M2 20h20', 'Analytics dashboard', 'Consumption over time, monthly UGX spend and predicted-vs-actual charts at a glance.'],
 ]
 
-const modules = [
-  ['Telemetry', 'Live engine monitoring', ['OBD-II operating conditions', 'Diagnostics & sensor health', 'Eco-driving behaviour score']],
-  ['Fuel', 'Every litre accounted for', ['Tank status & estimated range', 'Consumption trends vs target', 'Fill-up history with UGX costs']],
-  ['Trips', 'Journeys that teach', ['Current trip tracking', 'Trip history with engine stats', 'Today-vs-yesterday comparisons']],
-  ['Services', 'Never miss maintenance', ['Vehicle health score', 'Upcoming service countdowns', 'Searchable service history']],
-  ['System', 'Your garage office', ['Vehicle records & OBD status', 'Alerts, thresholds & preferences', 'Data export & backups']],
-]
-
-const packages = [
-  ['Essentials', 'The core tools for confident vehicle ownership.', ['Vehicle records', 'Fuel and trip tracking', 'Maintenance history']],
-  ['Fleet', 'Shared visibility for teams managing multiple vehicles.', ['Everything in Essentials', 'Organization roles', 'Package-based feature access']],
-  ['Scale', 'Flexible access that grows with your organization.', ['Time-limited subscriptions', 'Centralized organization access', 'Built for expanding fleets']],
-]
-
-const offlinePoints = [
-  ['Record anywhere', 'Log fuel, trips and maintenance with zero bars — the app never blocks on network.'],
-  ['Sync when online', 'Queued records upload to the JWT-secured API and reconcile with server truth.'],
-  ['Never lose work', 'IndexedDB storage on web and SQLite on mobile keep every entry safe on-device.'],
-]
-
-const faqs = [
-  ['Is FuelMaintenance really offline-first?', 'Yes. Fuel, trip and maintenance entry works with no connection on both the web PWA and the mobile app. Calculations run server-side whenever a network call is possible, and local records sync once you are back online.'],
-  ['Do I need an OBD-II adapter?', 'No. Telemetry, diagnostics and driving-behaviour views light up when you connect one, but fuel, trips and maintenance work fully without any hardware.'],
-  ['How do organizations and roles work?', 'Create an organization, invite members as owner, admin, fleet manager, maintenance manager, driver or viewer, and grant dashboard features through package subscriptions.'],
-  ['What do subscriptions control?', 'Plans bundle features into packages, and subscriptions open access only within their active window — so expanding fleets can scale access up or down per organization.'],
-  ['Which vehicles and currencies are supported?', 'Any petrol, diesel, electric, hybrid or LPG vehicle with an odometer reading. Costs render in UGX by default with USD, EUR and GBP available in settings.'],
-  ['Is my data private?', 'Every API endpoint requires JWT auth and is scoped to the authenticated user — clients never supply an owner id, and organizations isolate fleet data by role.'],
-]
+function FeatureIcon({ path }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={path} />
+    </svg>
+  )
+}
 
 export default function Landing() {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [vehicle, setVehicle] = useState('car')
   return (
-    <main className="min-h-screen scroll-smooth overflow-hidden bg-slate-950 text-white" id="top">
-      <nav className="sticky top-0 z-50 border-b border-slate-800 bg-slate-950/90 backdrop-blur" aria-label="Primary">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-10">
-          <Link to="/" className="text-lg font-bold tracking-tight">Fuel<span className="text-cyan-400">Maintenance</span></Link>
-          <div className="hidden items-center gap-7 text-sm text-slate-300 md:flex">
-            <a className="hover:text-white" href="#features">Features</a>
-            <a className="hover:text-white" href="#how-it-works">How it works</a>
-            <a className="hover:text-white" href="#modules">Modules</a>
-            <a className="hover:text-white" href="#packages">Packages</a>
-            <a className="hover:text-white" href="#faq">FAQ</a>
+    <main className="fm-landing" id="top">
+      <nav className="fm-nav" aria-label="Primary">
+        <div className="fm-nav-inner">
+          <Link to="/" className="fm-brand" aria-label={`${APP_NAME} home`}>
+            <span className="fm-brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" /><circle cx="7" cy="17" r="2" /><path d="M9 17h6" /><circle cx="17" cy="17" r="2" /></svg>
+            </span>
+            <span className="fm-brand-name">{APP_NAME}</span>
+          </Link>
+          <div className="fm-nav-links">
+            {NAV_LINKS.map(([label, href]) => <a key={href} href={href}>{label}</a>)}
           </div>
-          <div className="flex items-center gap-3 text-sm">
-            <Link className="rounded-lg px-4 py-2 text-slate-300 hover:text-white" to="/login">Sign in</Link>
-            <Link className="rounded-lg bg-cyan-400 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-300" to="/register">Get started</Link>
+          <div className="fm-nav-actions">
+            <ThemeToggle />
+            <Link className="fm-btn fm-btn--ghost fm-btn--sm" to="/login">Login</Link>
+            <Link className="fm-btn fm-btn--primary fm-btn--sm" to="/register">Get started</Link>
+            <button type="button" className="fm-menu-btn" aria-expanded={menuOpen} aria-label={menuOpen ? 'Close menu' : 'Open menu'} onClick={() => setMenuOpen((open) => !open)}>
+              <span aria-hidden="true">{menuOpen ? '\u2715' : '\u2630'}</span>
+            </button>
           </div>
         </div>
+        {menuOpen && (
+          <div className="fm-nav-mobile">
+            {NAV_LINKS.map(([label, href]) => <a key={href} href={href} onClick={() => setMenuOpen(false)}>{label}</a>)}
+          </div>
+        )}
       </nav>
-
-      <section className="relative mx-auto grid max-w-7xl gap-14 px-6 pb-20 pt-16 lg:grid-cols-2 lg:items-center lg:px-10 lg:pt-24" aria-labelledby="hero-title">
-        <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-blue-600/20 blur-3xl" />
-        <div className="absolute -right-24 top-40 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
-        <div className="relative">
-          <p className="mb-5 text-sm font-semibold uppercase tracking-[0.25em] text-cyan-400">Smarter vehicle ownership</p>
-          <h1 id="hero-title" className="max-w-3xl text-5xl font-bold leading-tight tracking-tight sm:text-6xl">Know where your vehicle costs are going.</h1>
-          <p className="mt-6 max-w-xl text-lg leading-8 text-slate-300">FuelMaintenance brings fuel costs, trips, and service records together so you can make better decisions for every vehicle you own — online or off.</p>
-          <div className="mt-9 flex flex-wrap gap-4">
-            <Link className="rounded-xl bg-cyan-400 px-6 py-3 font-bold text-slate-950 hover:bg-cyan-300" to="/register">Create your free account</Link>
-            <Link className="rounded-xl border border-slate-700 px-6 py-3 font-semibold text-white hover:border-slate-500" to="/login">I already have an account</Link>
-          </div>
-          <div className="mt-8 flex flex-wrap gap-2 text-xs font-semibold">
-            <span className="rounded-full border border-slate-700 px-3 py-1 text-slate-300">Offline-first PWA</span>
-            <span className="rounded-full border border-slate-700 px-3 py-1 text-slate-300">JWT-secured API</span>
-            <span className="rounded-full border border-slate-700 px-3 py-1 text-slate-300">UGX-ready costs</span>
-          </div>
-        </div>
-        <div className="relative rounded-3xl border border-slate-700 bg-slate-900/80 p-6 shadow-2xl shadow-blue-950/50">
-          <div className="mb-8 flex items-center justify-between"><span className="text-sm font-semibold text-slate-300">VEHICLE OVERVIEW</span><span className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-400">HEALTHY</span></div>
-          <div className="mb-8 flex items-end justify-between"><div><p className="text-sm text-slate-400">Monthly fuel cost</p><strong className="text-4xl">UGX 320K</strong></div><span className="text-sm text-emerald-400">↓ 12% vs last month</span></div>
-          <div className="h-32 rounded-xl bg-gradient-to-t from-cyan-400/20 to-transparent p-4"><div className="h-full border-b border-cyan-400/40 bg-[linear-gradient(135deg,transparent_45%,rgba(34,211,238,.7)_46%,transparent_48%,transparent_60%,rgba(34,211,238,.7)_61%,transparent_63%)]" /></div>
-          <div className="mt-5 grid grid-cols-2 gap-3 text-sm"><div className="rounded-xl bg-slate-800 p-4"><span className="text-slate-400">Efficiency</span><strong className="mt-1 block text-xl">7.8 L/100km</strong></div><div className="rounded-xl bg-slate-800 p-4"><span className="text-slate-400">Next service</span><strong className="mt-1 block text-xl">850 km</strong></div></div>
-          <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-400"><span className="rounded-md bg-slate-800 px-2 py-1">Telemetry</span><span className="rounded-md bg-slate-800 px-2 py-1">Fuel</span><span className="rounded-md bg-slate-800 px-2 py-1">Trips</span><span className="rounded-md bg-slate-800 px-2 py-1">Services</span><span className="rounded-md bg-slate-800 px-2 py-1">System</span></div>
-        </div>
-      </section>
-
-      <section className="border-y border-slate-800 bg-slate-900/60" aria-label="Key facts">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 px-6 py-10 text-center lg:grid-cols-4 lg:px-10">
-          <div><strong className="text-3xl font-bold text-cyan-400">6</strong><p className="mt-2 text-sm text-slate-300">dashboard views, from overview to system</p></div>
-          <div><strong className="text-3xl font-bold text-cyan-400">6</strong><p className="mt-2 text-sm text-slate-300">organization roles, owner to viewer</p></div>
-          <div><strong className="text-3xl font-bold text-cyan-400">100%</strong><p className="mt-2 text-sm text-slate-300">offline-capable fuel &amp; trip logging</p></div>
-          <div><strong className="text-3xl font-bold text-cyan-400">3</strong><p className="mt-2 text-sm text-slate-300">package tiers that grow with your fleet</p></div>
-        </div>
-      </section>
-
-      <section className="bg-white px-6 py-20 text-slate-900 lg:px-10" id="features">
-        <div className="mx-auto max-w-7xl">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-blue-700">Everything in one place</p>
-          <h2 className="mt-4 max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">The tools every kilometre depends on.</h2>
-          <p className="mt-4 max-w-2xl leading-7 text-slate-600">One account covers fuel, maintenance, trips, telemetry and team access — with offline support built in from day one.</p>
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{features.map(([title, description]) => <article key={title} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div className="mb-5 h-3 w-12 rounded-full bg-cyan-400" /><h3 className="text-xl font-bold">{title}</h3><p className="mt-3 leading-7 text-slate-600">{description}</p></article>)}</div>
-        </div>
-      </section>
-
-      <section className="bg-slate-950 px-6 py-20 lg:px-10" id="how-it-works" aria-labelledby="how-title">
-        <div className="mx-auto max-w-7xl">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-cyan-400">How it works</p>
-          <h2 id="how-title" className="mt-4 max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">From signup to savings in three steps.</h2>
-          <div className="mt-10 grid gap-6 md:grid-cols-3">{steps.map(([number, title, description]) => <article key={title} className="rounded-2xl border border-slate-800 bg-slate-900 p-6"><span className="inline-grid h-10 w-10 place-items-center rounded-full bg-cyan-400 font-bold text-slate-950">{number}</span><h3 className="mt-5 text-xl font-bold">{title}</h3><p className="mt-3 leading-7 text-slate-300">{description}</p></article>)}</div>
-          <div className="mt-8 flex flex-wrap gap-4">
-            <Link className="rounded-xl bg-cyan-400 px-6 py-3 font-bold text-slate-950 hover:bg-cyan-300" to="/register">Start step one free</Link>
-            <Link className="rounded-xl border border-slate-700 px-6 py-3 font-semibold text-white hover:border-slate-500" to="/dashboard">Preview the dashboard</Link>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-slate-100 px-6 py-20 text-slate-900 lg:px-10" id="modules" aria-labelledby="modules-title">
-        <div className="mx-auto max-w-7xl">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-blue-700">Inside the dashboard</p>
-          <h2 id="modules-title" className="mt-4 max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">Five views, one confident operation.</h2>
-          <p className="mt-4 max-w-2xl leading-7 text-slate-600">The same dashboard you log into every day — telemetry, fuel, trips, services and system, each tuned for the job.</p>
-          <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">{modules.map(([tab, headline, bullets]) => <article key={tab} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6"><span className="text-xs font-bold uppercase tracking-[0.2em] text-blue-700">{tab}</span><h3 className="mt-3 text-xl font-bold">{headline}</h3><ul className="mt-4 space-y-2.5 text-sm text-slate-700">{bullets.map((bullet) => <li key={bullet} className="flex gap-2"><span className="font-bold text-emerald-600">\u2713</span>{bullet}</li>)}</ul><Link className="mt-6 font-semibold text-blue-700 hover:text-blue-900" to="/register">Try {tab.toLowerCase()} free \u2192</Link></article>)}</div>
-        </div>
-      </section>
-
-      <section className="bg-slate-950 px-6 py-20 lg:px-10" id="offline" aria-labelledby="offline-title">
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-2 lg:items-center">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-cyan-400">Offline-first, always</p>
-            <h2 id="offline-title" className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Works with no network. Syncs when there is one.</h2>
-            <p className="mt-4 max-w-xl leading-7 text-slate-300">Airplane mode is a testable requirement, not a nice-to-have. Open the app, record fuel, trips and maintenance, and review your own data with zero connectivity — on web and mobile.</p>
-            <div className="mt-8 flex flex-wrap gap-4">
-              <Link className="rounded-xl bg-cyan-400 px-6 py-3 font-bold text-slate-950 hover:bg-cyan-300" to="/register">Try offline mode free</Link>
-              <a className="rounded-xl border border-slate-700 px-6 py-3 font-semibold text-white hover:border-slate-500" href="#faq">How syncing works</a>
+      <header className="fm-hero fm-map-grid" aria-labelledby="hero-title">
+        <div className="fm-hero-inner">
+          <Reveal>
+            <p className="fm-eyebrow">Connected-vehicle telematics · Uganda-ready</p>
+            <h1 id="hero-title">Know exactly what your vehicle costs you — and when it needs care.</h1>
+            <p className="fm-lede">{APP_DESCRIPTION} GPS trips, fuel in litres and UGX, ML cost forecasts and service reminders for cars and bikes.</p>
+            <div className="fm-hero-cta">
+              <Link className="fm-btn fm-btn--primary" to="/register">Get started</Link>
+              <a className="fm-btn fm-btn--ghost" href="#how-it-works">See how it works</a>
             </div>
+            <div className="fm-hero-badges">
+              <SyncIndicator state="synced" />
+              <span className="fm-badge fm-badge--accent">UGX · km · L/100 km</span>
+              <span className="fm-badge">Offline-first PWA</span>
+            </div>
+          </Reveal>
+          <Reveal delay={1} className="fm-hero-visual fm-card">
+            <RouteAnimation chips={['Trip 42 km', 'Fuel 3.4 L', 'UGX 18,700']} />
+            <div className="fm-hero-gauges">
+              <Gauge label="Speed" value={86} max={200} unit="km/h" display="86" />
+              <Gauge label="Fuel level" value={68} max={100} unit="%" display="68%" />
+            </div>
+          </Reveal>
+        </div>
+      </header>
+
+      <section className="fm-section" id="features" aria-labelledby="features-title">
+        <div className="fm-wrap">
+          <Reveal>
+            <p className="fm-eyebrow">Features</p>
+            <h2 id="features-title">Everything a kilometre depends on.</h2>
+          </Reveal>
+          <div className="fm-grid fm-grid--3">
+            {FEATURES.map(([path, title, text], i) => (
+              <Reveal as="article" key={title} delay={i % 3} className="fm-card fm-card--lift fm-feature">
+                <span className="fm-feature-icon"><FeatureIcon path={path} /></span>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </Reveal>
+            ))}
           </div>
-          <div className="grid gap-4">{offlinePoints.map(([title, description]) => <article key={title} className="rounded-2xl border border-slate-800 bg-slate-900 p-6"><h3 className="text-lg font-bold text-cyan-300">{title}</h3><p className="mt-2 leading-7 text-slate-300">{description}</p></article>)}</div>
         </div>
       </section>
 
-      <section className="bg-slate-100 px-6 py-20 text-slate-900 lg:px-10" id="packages">
-        <div className="mx-auto max-w-7xl">
-          <div className="max-w-2xl">
-            <p className="text-sm font-bold uppercase tracking-[0.2em] text-blue-700">Plans that fit your operation</p>
-            <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Choose the access your organization needs.</h2>
-            <p className="mt-4 leading-7 text-slate-600">Features are delivered through organization packages and protected by role permissions. Active subscriptions keep access available only during the plan period.</p>
+      <section className="fm-section fm-section--alt" id="how-it-works" aria-labelledby="how-title">
+        <div className="fm-wrap">
+          <Reveal>
+            <p className="fm-eyebrow">How it works</p>
+            <h2 id="how-title">From signup to savings in four stops.</h2>
+          </Reveal>
+          <ol className="fm-timeline">
+            {[['Add your vehicle', 'Register cars and motorcycles with plate, fuel type and odometer.'], ['Record fuel and trips', 'Log fill-ups and journeys online or offline — the app never blocks on network.'], ['Learn your vehicle', 'ML studies each vehicle\u2019s own consumption behaviour over real trips.'], ['Get predictions & reminders', 'Trip cost ranges before you drive; service alerts before parts wear out.']].map(([title, text], i) => (
+              <Reveal as="li" key={title} delay={i % 4} className="fm-card fm-timeline-step">
+                <span className="fm-step-num" aria-hidden="true">{i + 1}</span>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </Reveal>
+            ))}
+          </ol>
+        </div>
+      </section>
+      <section className="fm-section" id="prediction" aria-labelledby="prediction-title">
+        <div className="fm-wrap fm-split">
+          <Reveal>
+            <p className="fm-eyebrow">Cost prediction</p>
+            <h2 id="prediction-title">A range you can plan around.</h2>
+            <p className="fm-muted">Sample data — the model forecasts a cost band from the vehicle\u2019s own history, then compares it with what you actually spent.</p>
+            <div className="fm-pred-chart" role="img" aria-label="Sample predicted versus actual fuel cost chart">
+              <svg viewBox="0 0 320 140" aria-hidden="true">
+                <g stroke="currentColor" opacity="0.15">{[20, 50, 80, 110].map((y) => <line key={y} x1="0" y1={y} x2="320" y2={y} />)}</g>
+                <path d="M10 110 L70 92 L130 96 L190 70 L250 74 L310 48" fill="none" stroke="var(--fm-accent)" strokeWidth="3" strokeLinecap="round" className="fm-route-draw" />
+                <path d="M10 116 L70 100 L130 88 L190 80 L250 68 L310 58" fill="none" stroke="var(--fm-warn)" strokeWidth="2.5" strokeDasharray="6 5" strokeLinecap="round" />
+              </svg>
+              <div className="fm-legend"><span><i className="fm-dot fm-dot--accent" />Predicted</span><span><i className="fm-dot fm-dot--warn" />Actual</span></div>
+            </div>
+          </Reveal>
+          <Reveal delay={1}>
+            <article className="fm-card fm-trip-card">
+              <p className="fm-eyebrow">Sample trip · Kampala → Entebbe</p>
+              <dl>
+                <div><dt>Distance</dt><dd className="fm-tnum">42 km</dd></div>
+                <div><dt>Fuel</dt><dd className="fm-tnum">3.4 L</dd></div>
+                <div><dt>Estimate</dt><dd className="fm-tnum">UGX 17,900 – 19,500</dd></div>
+                <div><dt>Actual</dt><dd className="fm-tnum">UGX 18,700</dd></div>
+              </dl>
+              <span className="fm-badge fm-badge--ok">Within range</span>
+            </article>
+          </Reveal>
+        </div>
+      </section>
+
+      <section className="fm-section fm-section--alt" id="maintenance" aria-labelledby="maint-title">
+        <div className="fm-wrap fm-split">
+          <Reveal className="fm-engine-wrap">
+            <EngineLine />
+          </Reveal>
+          <Reveal delay={1}>
+            <p className="fm-eyebrow">Maintenance</p>
+            <h2 id="maint-title">Service before the warning light.</h2>
+            <p className="fm-muted">Sample data — mileage and date reminders with a live countdown to the next service.</p>
+            <div className="fm-service-bar">
+              <div className="fm-service-bar-top"><span>Next service in <strong className="fm-tnum"><Counter to={1800} format={(n) => Math.round(n).toLocaleString()} /> km</strong></span><span className="fm-tnum">72%</span></div>
+              <div className="fm-progress" role="progressbar" aria-valuenow={72} aria-valuemin={0} aria-valuemax={100} aria-label="Distance to next service"><span style={{ width: '72%' }} /></div>
+              <p className="fm-muted">Oil &amp; filter · due at 44,380 km</p>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      <section className="fm-section" id="offline" aria-labelledby="offline-title">
+        <div className="fm-wrap fm-split">
+          <Reveal>
+            <p className="fm-eyebrow">Works offline</p>
+            <h2 id="offline-title">Record anywhere. Sync later.</h2>
+            <p className="fm-muted">The app shell loads from the service-worker cache after the first visit. Fuel, trips and maintenance save on-device first, then sync — the UI always shows connection and sync state.</p>
+            <div className="fm-sync-row">
+              <SyncIndicator state="offline" />
+              <span className="fm-sync-arrow" aria-hidden="true">→</span>
+              <SyncIndicator state="syncing" />
+              <span className="fm-sync-arrow" aria-hidden="true">→</span>
+              <SyncIndicator state="synced" />
+            </div>
+          </Reveal>
+          <Reveal delay={1}>
+            <ol className="fm-steps">
+              <li><strong>Record anywhere</strong><span>Log fuel, trips and maintenance with zero bars.</span></li>
+              <li><strong>Stored on-device</strong><span>Dexie (web) and SQLite (mobile) keep every entry safe.</span></li>
+              <li><strong>Sync when online</strong><span>Queued records upload and reconcile with server truth.</span></li>
+            </ol>
+          </Reveal>
+        </div>
+      </section>
+      <section className="fm-section fm-section--alt" id="vehicles" aria-labelledby="vehicles-title">
+        <div className="fm-wrap">
+          <Reveal>
+            <p className="fm-eyebrow">Cars and bikes</p>
+            <h2 id="vehicles-title">One app for every road user.</h2>
+          </Reveal>
+          <div className="fm-tabs" role="tablist" aria-label="Vehicle type">
+            <button type="button" role="tab" aria-selected={vehicle === 'car'} className={vehicle === 'car' ? 'is-active' : ''} onClick={() => setVehicle('car')}>Cars</button>
+            <button type="button" role="tab" aria-selected={vehicle === 'bike'} className={vehicle === 'bike' ? 'is-active' : ''} onClick={() => setVehicle('bike')}>Motorcycles</button>
           </div>
-          <div className="mt-10 grid gap-6 md:grid-cols-3">{packages.map(([title, description, items], index) => <article key={title} className={`flex flex-col rounded-2xl border p-6 ${index === 1 ? 'border-blue-600 bg-white shadow-xl shadow-blue-900/10' : 'border-slate-200 bg-white/70'}`}><div className="flex items-center justify-between"><h3 className="text-xl font-bold">{title}</h3>{index === 1 && <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-bold text-blue-800">POPULAR</span>}</div><p className="mt-3 leading-7 text-slate-600">{description}</p><ul className="mt-5 space-y-3 text-sm text-slate-700">{items.map((item) => <li key={item} className="flex gap-2"><span className="font-bold text-emerald-600">\u2713</span>{item}</li>)}</ul><Link className={`mt-6 rounded-xl px-5 py-2.5 text-center font-bold ${index === 1 ? 'bg-blue-700 text-white hover:bg-blue-800' : 'border border-slate-300 text-slate-900 hover:border-slate-500'}`} to="/register">Start with {title}</Link></article>)}</div>
-          <p className="mt-8 text-sm text-slate-500">Package availability and feature access are managed for each organization. <Link className="font-semibold text-blue-700 hover:text-blue-900" to="/register">Create an account to get started.</Link></p>
+          <Reveal className="fm-card fm-vehicle-card" role="tabpanel">
+            {vehicle === 'car' ? (
+              <svg viewBox="0 0 260 90" role="img" aria-label="Stylised car silhouette"><g fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 62 C 20 48, 44 44, 62 42 L 84 24 C 88 20, 94 20, 100 20 L 160 20 C 168 20, 172 22, 178 28 L 198 44 C 220 46, 240 50, 246 62 L 246 68 L 14 68 Z" /><circle cx="70" cy="68" r="12" /><circle cx="190" cy="68" r="12" /><path d="M82 68h96" /></g></svg>
+            ) : (
+              <svg viewBox="0 0 260 90" role="img" aria-label="Stylised motorcycle silhouette"><g fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="52" cy="64" r="16" /><circle cx="208" cy="64" r="16" /><path d="M52 64 L96 34 L132 64 M96 34 L118 34 L142 64 M132 64 L168 40 L208 64 M118 34 L112 22 M104 22h16" /></g></svg>
+            )}
+            <div>
+              <h3>{vehicle === 'car' ? 'Cars & SUVs' : 'Boda & sport bikes'}</h3>
+              <p className="fm-muted">{vehicle === 'car' ? 'Track litres per 100 km, service intervals and trip costs across the family fleet.' : 'Track small-tank fill-ups, daily stage distances and maintenance built for high mileage.'}</p>
+              <p className="fm-stat"><strong className="fm-tnum">{vehicle === 'car' ? '7.8 L/100 km' : '3.1 L/100 km'}</strong><span>Sample fleet average</span></p>
+            </div>
+          </Reveal>
         </div>
       </section>
 
-      <section className="bg-white px-6 py-20 text-slate-900 lg:px-10" id="testimonials" aria-labelledby="stories-title">
-        <div className="mx-auto max-w-7xl">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-blue-700">Loved on the road</p>
-          <h2 id="stories-title" className="mt-4 max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">Operators who stopped guessing.</h2>
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
-            <figure className="rounded-2xl border border-slate-200 bg-slate-50 p-6"><div className="text-amber-500" aria-label="5 out of 5 stars">\u2605\u2605\u2605\u2605\u2605</div><blockquote className="mt-4 leading-7 text-slate-700">\u201CFuel logs finally match the pump receipts. We spotted one vehicle burning 12% more and fixed a dragging brake.\u201D</blockquote><figcaption className="mt-5 text-sm"><strong className="block">Brian M.</strong><span className="text-slate-500">Private owner · Kampala</span></figcaption></figure>
-            <figure className="rounded-2xl border border-slate-200 bg-slate-50 p-6"><div className="text-amber-500" aria-label="5 out of 5 stars">\u2605\u2605\u2605\u2605\u2605</div><blockquote className="mt-4 leading-7 text-slate-700">\u201CService reminders arrive before the odometer hits the limit. Our Hilux has not missed a service since.\u201D</blockquote><figcaption className="mt-5 text-sm"><strong className="block">Sarah N.</strong><span className="text-slate-500">Fleet manager · Entebbe</span></figcaption></figure>
-            <figure className="rounded-2xl border border-slate-200 bg-slate-50 p-6"><div className="text-amber-500" aria-label="5 out of 5 stars">\u2605\u2605\u2605\u2605\u2605</div><blockquote className="mt-4 leading-7 text-slate-700">\u201COffline logging is the killer feature. Drivers record fuel up-country with no signal, and it syncs later.\u201D</blockquote><figcaption className="mt-5 text-sm"><strong className="block">David O.</strong><span className="text-slate-500">Logistics lead · Jinja</span></figcaption></figure>
+      <section className="fm-section" id="packages" aria-labelledby="packages-title">
+        <div className="fm-wrap">
+          <Reveal>
+            <p className="fm-eyebrow">Access</p>
+            <h2 id="packages-title">Features unlock through organization packages.</h2>
+            <p className="fm-muted">Contact us for fleet pricing — packages grant dashboard features per organization while subscriptions stay active.</p>
+          </Reveal>
+          <div className="fm-grid fm-grid--3">
+            {[['Essentials', 'Core tracking for owners.', ['Vehicle records', 'Fuel & trip tracking', 'Maintenance history']], ['Fleet', 'Shared visibility for teams.', ['Everything in Essentials', 'Organization roles', 'Package-based access']], ['Scale', 'For growing operations.', ['Time-limited subscriptions', 'Central access', 'Expanding fleets']]].map(([title, text, items], i) => (
+              <Reveal as="article" key={title} delay={i % 3} className={`fm-card fm-card--lift fm-package${i === 1 ? ' fm-package--hot' : ''}`}>
+                <div className="fm-package-top"><h3>{title}</h3>{i === 1 && <span className="fm-badge fm-badge--accent">Popular</span>}</div>
+                <p className="fm-muted">{text}</p>
+                <ul>{items.map((item) => <li key={item}>{item}</li>)}</ul>
+                <Link className={`fm-btn ${i === 1 ? 'fm-btn--primary' : 'fm-btn--ghost'}`} to="/register">Start with {title}</Link>
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-slate-950 px-6 py-20 lg:px-10" id="faq" aria-labelledby="faq-title">
-        <div className="mx-auto max-w-4xl">
-          <p className="text-sm font-bold uppercase tracking-[0.2em] text-cyan-400">Questions, answered</p>
-          <h2 id="faq-title" className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">Frequently asked questions.</h2>
-          <div className="mt-10 space-y-4">{faqs.map(([question, answer]) => <details key={question} className="group rounded-2xl border border-slate-800 bg-slate-900 px-6 py-5"><summary className="cursor-pointer list-none font-semibold marker:hidden [&::-webkit-details-marker]:hidden">{question}<span className="float-right text-cyan-400 transition group-open:rotate-45">+</span></summary><p className="mt-3 leading-7 text-slate-300">{answer}</p></details>)}</div>
-        </div>
-      </section>
-
-      <section className="relative overflow-hidden bg-gradient-to-br from-blue-700 via-blue-800 to-slate-950 px-6 py-20 text-center lg:px-10" aria-labelledby="cta-title">
-        <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl" />
-        <div className="relative mx-auto max-w-3xl">
-          <p className="text-sm font-bold uppercase tracking-[0.25em] text-cyan-300">Ready when you are</p>
-          <h2 id="cta-title" className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">Stop guessing. Start tracking every litre.</h2>
-          <p className="mx-auto mt-5 max-w-xl text-lg leading-8 text-blue-100">Join FuelMaintenance today — log your first fill-up in minutes and see exactly what each kilometre costs.</p>
-          <div className="mt-9 flex flex-wrap justify-center gap-4">
-            <Link className="rounded-xl bg-cyan-400 px-8 py-3.5 font-bold text-slate-950 hover:bg-cyan-300" to="/register">Create your free account</Link>
-            <Link className="rounded-xl border border-white/30 px-8 py-3.5 font-semibold text-white hover:border-white/60" to="/login">Sign in</Link>
+      <section className="fm-section fm-section--alt" id="faq" aria-labelledby="faq-title">
+        <div className="fm-wrap fm-wrap--narrow">
+          <Reveal>
+            <p className="fm-eyebrow">FAQ</p>
+            <h2 id="faq-title">Questions, answered.</h2>
+          </Reveal>
+          <div className="fm-faq">
+            {[['Does it work offline?', 'Yes. The app shell loads from cache, records save on-device first (Dexie on web, SQLite on mobile), and everything syncs when you are back online. Sign-in needs the network the first time.'], ['Do I need an OBD-II adapter?', 'No. Telemetry lights up when you connect one; fuel, trips and maintenance work fully without hardware.'], ['Cars and motorcycles?', 'Both. Fuel in litres, distances in km, consumption in L/100 km and UGX costs work for any vehicle with an odometer.'], ['How do teams work?', 'Organizations group vehicles and members with roles from owner to viewer; packages unlock features per organization.'], ['Is my data private?', 'Every API call needs JWT auth and is scoped to you — clients never supply an owner id.']].map(([q, a]) => (
+              <details key={q} className="fm-card"><summary>{q}</summary><p className="fm-muted">{a}</p></details>
+            ))}
           </div>
-          <p className="mt-6 text-sm text-blue-200">Free to start · No credit card · Works offline</p>
         </div>
       </section>
 
-      <footer className="border-t border-slate-800 bg-slate-950 px-6 py-14 text-sm text-slate-400 lg:px-10">
-        <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-4">
+      <section className="fm-cta fm-map-grid" id="contact" aria-labelledby="cta-title">
+        <Reveal className="fm-wrap fm-cta-inner">
+          <p className="fm-eyebrow">Ready when you are</p>
+          <h2 id="cta-title">Stop guessing. Start tracking every litre.</h2>
+          <p className="fm-lede">Create a free account and log your first fill-up in minutes.</p>
+          <div className="fm-hero-cta">
+            <Link className="fm-btn fm-btn--primary" to="/register">Create your free account</Link>
+            <Link className="fm-btn fm-btn--ghost" to="/login">Sign in</Link>
+          </div>
+          <p className="fm-muted">Contact: hello@{APP_NAME.toLowerCase()}.app · Free to start · Works offline</p>
+        </Reveal>
+      </section>
+
+      <footer className="fm-footer">
+        <div className="fm-wrap fm-footer-grid">
           <div>
-            <Link to="#top" className="text-lg font-bold tracking-tight text-white">Fuel<span className="text-cyan-400">Maintenance</span></Link>
-            <p className="mt-4 max-w-xs leading-7">Fuel costs, trips and maintenance in one offline-first home for every vehicle you run.</p>
+            <Link to="#top" className="fm-brand"><span className="fm-brand-name">{APP_NAME}</span></Link>
+            <p className="fm-muted">{APP_DESCRIPTION}</p>
           </div>
-          <nav aria-label="Product">
-            <h3 className="font-bold uppercase tracking-widest text-slate-200">Product</h3>
-            <ul className="mt-4 space-y-3"><li><a className="hover:text-white" href="#features">Features</a></li><li><a className="hover:text-white" href="#modules">Dashboard modules</a></li><li><a className="hover:text-white" href="#packages">Packages</a></li><li><a className="hover:text-white" href="#faq">FAQ</a></li></ul>
-          </nav>
-          <nav aria-label="Account">
-            <h3 className="font-bold uppercase tracking-widest text-slate-200">Account</h3>
-            <ul className="mt-4 space-y-3"><li><Link className="hover:text-white" to="/register">Create account</Link></li><li><Link className="hover:text-white" to="/login">Sign in</Link></li><li><Link className="hover:text-white" to="/dashboard">Open dashboard</Link></li></ul>
-          </nav>
-          <div>
-            <h3 className="font-bold uppercase tracking-widest text-slate-200">Stay efficient</h3>
-            <p className="mt-4 leading-7">Fuel-saving tips and product updates, once a month. No spam.</p>
-            <form className="mt-4 flex gap-2" onSubmit={(event) => event.preventDefault()}>
-              <label className="sr-only" htmlFor="newsletter-email">Email address</label>
-              <input id="newsletter-email" type="email" required placeholder="you@example.com" className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none" />
-              <button type="submit" className="rounded-lg bg-cyan-400 px-4 py-2 font-bold text-slate-950 hover:bg-cyan-300">Join</button>
-            </form>
-          </div>
+          <nav aria-label="Product"><h3>Product</h3><ul><li><a href="#features">Features</a></li><li><a href="#how-it-works">How it works</a></li><li><a href="#offline">Offline</a></li><li><a href="#packages">Packages</a></li></ul></nav>
+          <nav aria-label="Account"><h3>Account</h3><ul><li><Link to="/register">Create account</Link></li><li><Link to="/login">Sign in</Link></li><li><Link to="/dashboard">Open dashboard</Link></li></ul></nav>
         </div>
-        <div className="mx-auto mt-12 flex max-w-7xl flex-col items-center justify-between gap-3 border-t border-slate-800 pt-6 text-xs sm:flex-row">
-          <p>FuelMaintenance · Keep moving with confidence.</p>
-          <p>© 2026 FuelMaintenance. All rights reserved.</p>
+        <div className="fm-wrap fm-footer-base">
+          <p>{APP_NAME} · Sample data is labelled wherever shown.</p>
+          <p>© 2026 {APP_NAME}. All rights reserved.</p>
         </div>
       </footer>
     </main>
