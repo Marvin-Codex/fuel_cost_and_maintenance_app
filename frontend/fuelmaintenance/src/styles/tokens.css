@@ -1,0 +1,112 @@
+/* Design tokens — single source of truth for colour, radius, spacing and type.
+ * Light theme is the default (landing page). Dark theme feels like a car
+ * dashboard at night. Honour prefers-color-scheme until the user overrides. */
+
+:root {
+  --fm-font-display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --fm-font-text: 'Space Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --fm-radius-sm: 5px;
+  --fm-radius-md: 9px;
+  --fm-radius-lg: 16px;
+  --fm-radius-xl: 24px;
+  --fm-space-1: 4px;
+  --fm-space-2: 8px;
+  --fm-space-3: 12px;
+  --fm-space-4: 16px;
+  --fm-space-5: 24px;
+  --fm-space-6: 32px;
+  --fm-space-7: 48px;
+  --fm-space-8: 80px;
+  --fm-type-xs: 10px;
+  --fm-type-sm: 12px;
+  --fm-type-md: 14px;
+  --fm-type-lg: 20px;
+  --fm-type-xl: 30px;
+  --fm-type-2xl: 44px;
+  --fm-type-hero: clamp(40px, 7vw, 72px);
+  --fm-accent: #0ea5c4;
+  --fm-accent-strong: #0891b2;
+  --fm-accent-soft: rgba(14, 165, 196, 0.12);
+  --fm-ok: #16a34a;
+  --fm-ok-bg: #e7f7ee;
+  --fm-warn: #b45309;
+  --fm-warn-bg: #fdf1e0;
+  --fm-danger: #dc2626;
+  --fm-danger-bg: #fdecec;
+  --fm-bg: #f4f7fb;
+  --fm-bg-soft: #ffffff;
+  --fm-surface: #ffffff;
+  --fm-surface-2: #eef3f9;
+  --fm-ink: #0e1b2e;
+  --fm-ink-soft: #3d4c63;
+  --fm-muted: #64748b;
+  --fm-line: #dbe4ef;
+  --fm-line-strong: #b9c7da;
+  --fm-shadow: 0 20px 40px -18px rgba(14, 27, 46, 0.25);
+  --fm-shadow-sm: 0 8px 20px -12px rgba(14, 27, 46, 0.3);
+  --fm-map-grid: rgba(14, 27, 46, 0.07);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --fm-accent: #42d8f4;
+    --fm-accent-strong: #7ae8fa;
+    --fm-accent-soft: rgba(66, 216, 244, 0.12);
+    --fm-ok: #4fe1a5;
+    --fm-ok-bg: #142820;
+    --fm-warn: #ffb957;
+    --fm-warn-bg: #2a241d;
+    --fm-danger: #ff8a8a;
+    --fm-danger-bg: #2b1a1e;
+    --fm-bg: #080f20;
+    --fm-bg-soft: #0d1528;
+    --fm-surface: #141e33;
+    --fm-surface-2: #101a2d;
+    --fm-ink: #f0f4ff;
+    --fm-ink-soft: #c4cede;
+    --fm-muted: #9aa8c5;
+    --fm-line: #1c2943;
+    --fm-line-strong: #35425b;
+    --fm-shadow: 0 24px 50px -20px rgba(0, 0, 0, 0.6);
+    --fm-shadow-sm: 0 10px 24px -14px rgba(0, 0, 0, 0.6);
+    --fm-map-grid: rgba(240, 244, 255, 0.06);
+  }
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --fm-accent: #42d8f4;
+  --fm-accent-strong: #7ae8fa;
+  --fm-accent-soft: rgba(66, 216, 244, 0.12);
+  --fm-ok: #4fe1a5;
+  --fm-ok-bg: #142820;
+  --fm-warn: #ffb957;
+  --fm-warn-bg: #2a241d;
+  --fm-danger: #ff8a8a;
+  --fm-danger-bg: #2b1a1e;
+  --fm-bg: #080f20;
+  --fm-bg-soft: #0d1528;
+  --fm-surface: #141e33;
+  --fm-surface-2: #101a2d;
+  --fm-ink: #f0f4ff;
+  --fm-ink-soft: #c4cede;
+  --fm-muted: #9aa8c5;
+  --fm-line: #1c2943;
+  --fm-line-strong: #35425b;
+  --fm-shadow: 0 24px 50px -20px rgba(0, 0, 0, 0.6);
+  --fm-shadow-sm: 0 10px 24px -14px rgba(0, 0, 0, 0.6);
+  --fm-map-grid: rgba(240, 244, 255, 0.06);
+}
+
+/* Numbers always use tabular figures so UGX amounts never jitter. */
+.fm-tnum,
+.fm-card-value,
+.fm-stat strong {
+  font-variant-numeric: tabular-nums;
+}
