@@ -2,12 +2,13 @@ import { Link } from 'react-router-dom'
 import LoginForm from '../components/LoginForm'
 import './Login.css'
 
-/** Web entry screen — blue-themed login for the Fuel cost and maintenance app. */
+/** Auth entry screen — dashboard-themed login for the Fuel cost and maintenance app. */
 export default function Login() {
   return (
     <main className="login-page">
       <div className="login-card">
         <header className="login-brand">
+          <p className="login-eyebrow">FUELMAINTENANCE</p>
           <div className="login-logo" aria-hidden="true">
             <svg
               width="28"
@@ -25,20 +26,20 @@ export default function Login() {
               <circle cx="17" cy="17" r="2" />
             </svg>
           </div>
-          <h1 className="login-title">Fuel cost and maintenance app</h1>
+          <h1 className="login-title">Welcome back</h1>
           <p className="login-subtitle">
             Sign in to track fuel, trips and maintenance for your vehicles.
           </p>
         </header>
         <LoginForm />
-        <p className="mt-5 text-center text-sm text-slate-600">
+        <p className="auth-switch">
           New to Fuel Maintenance?{' '}
-          <Link className="font-semibold text-blue-700 hover:text-blue-800" to="/register">
+          <Link className="auth-link" to="/register">
             Create an account
           </Link>
         </p>
-        <p className="mt-3 text-center text-sm">
-          <Link className="text-slate-500 hover:text-blue-700" to="/">
+        <p className="auth-home">
+          <Link className="auth-link auth-link--muted" to="/">
             ← Back to home
           </Link>
         </p>

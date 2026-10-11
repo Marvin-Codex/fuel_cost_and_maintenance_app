@@ -147,7 +147,7 @@ export default function Dashboard() {
         ) : activeTab === 'system' ? (
           <System key={selectedVehicle.id} onBack={() => setActiveTab('overview')} vehicle={selectedVehicle} />
         ) : (
-          <>
+          <div className="overview-grid">
         <section className="metric-grid">
           <Metric label="ODOMETER" value={selectedVehicle.odometer} detail="KM CURRENT  ↗ +180 km wk" accent="cyan" icon={<Icon><path d="M4 18a8 8 0 1 1 16 0" /><path d="m12 14 3-3M4 18h16" /></Icon>} />
           <Metric label="EFFICIENCY" value={selectedVehicle.efficiency} detail="L/100KM   Target: 7.2" accent="amber" icon={<Icon><path d="M12 3a9 9 0 1 1-9 9" /><path d="M12 7v5l3 2" /></Icon>} />
@@ -162,7 +162,7 @@ export default function Dashboard() {
         <section className="panel alert-panel predictive"><div className="panel-accent cyan-line" /><div className="card-top"><span className="service-icon cyan-bg"><Icon><rect x="4" y="7" width="16" height="12" rx="2" /><path d="M8 7V4h8v3M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01" /></Icon></span><div><small>PREDICTIVE TELEMETRY</small><h2>85 km Frequent Trip</h2></div><b className="optimized">OPTIMIZED</b></div><p className="route">△ &nbsp;Home&nbsp; → &nbsp;Industrial Area <small>Morning Route</small></p><div className="prediction-stats"><div><small>ESTIMATED BURN</small><strong>6.7 Liters</strong></div><div><small>PROJECTED COST</small><strong>UGX 28,000</strong></div></div><div className="predictive-footer"><p>Live congestion &amp; engine load<br />forecasted</p><button>START<br />TRIP <span>→</span></button></div></section>
 
         <section className="panel reminders"><div className="panel-title"><h2><span className="warning">△</span> ALERTS &amp; REMINDERS</h2><b>2 ACTIVE</b></div><div className="reminder"><i /><div><strong>Fuel consumption higher than usual</strong><p>Surged +0.9 L/100km on uphill driving &amp; continuous heavy AC compressor load.</p></div><small>Yesterday</small></div><div className="reminder"><i /><div><strong>Service due in 850 km</strong><p>Engine oil viscosity degrading; schedule service before hitting 43,430 km odometer mark.</p></div><small className="warning-text">Warning</small></div><button className="diagnostic-button"><Icon size={16}><rect x="4" y="5" width="16" height="14" rx="2" /><path d="M8 5V3h8v2M8 12h3M14 12h3M8 15h3" /></Icon> RUN FULL DIAGNOSTIC SCAN</button></section>
-          </>
+          </div>
         )}
       </section>
 

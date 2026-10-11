@@ -1,61 +1,72 @@
-/* Login page — blue gradient backdrop with a centred white card. */
+/* Auth pages — dashboard theme: dark navy shell, cyan accents, Space Mono/Barlow. */
 
 .login-page {
+  --ink: #f0f4ff;
+  --muted: #9aa8c5;
+  --panel: #141e33;
+  --cyan: #42d8f4;
   display: grid;
   place-items: center;
   flex: 1;
   min-height: 100svh;
   padding: 24px;
+  color: var(--ink);
+  font-family: 'Space Mono', monospace;
   background:
-    radial-gradient(1100px 500px at 85% -10%, rgba(96, 165, 250, 0.35), transparent 60%),
-    radial-gradient(900px 500px at -15% 110%, rgba(30, 64, 175, 0.35), transparent 55%),
-    linear-gradient(160deg, var(--fm-blue-100) 0%, var(--fm-blue-200) 35%, var(--fm-blue-600) 100%);
+    radial-gradient(900px 420px at 85% -10%, rgba(66, 216, 244, 0.12), transparent 60%),
+    radial-gradient(800px 420px at -15% 110%, rgba(66, 216, 244, 0.07), transparent 55%),
+    #080f20;
 }
 
 .login-card {
   width: 100%;
   max-width: 420px;
-  background: var(--fm-surface);
-  border-radius: 20px;
-  box-shadow: var(--fm-shadow);
-  padding: 40px 28px;
+  background: var(--panel);
+  border: 1px solid #1c2943;
+  border-radius: 9px;
+  padding: 32px 26px;
 }
 
 .login-brand {
   text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
+}
+
+.login-eyebrow {
+  color: var(--cyan);
+  font-size: 10px;
+  letter-spacing: 1px;
 }
 
 .login-logo {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 16px;
+  width: 48px;
+  height: 48px;
+  margin: 10px auto 14px;
   display: grid;
   place-items: center;
-  border-radius: 14px;
-  background: linear-gradient(135deg, var(--fm-blue-500), var(--fm-blue-700));
-  color: #ffffff;
+  border-radius: 6px;
+  background: #1c2943;
+  color: var(--cyan);
 }
 
 .login-title {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: var(--fm-navy-900);
-  letter-spacing: -0.02em;
-  line-height: 1.3;
+  font: 600 30px/1 'Barlow Condensed', sans-serif;
+  letter-spacing: 1px;
+  color: #f0f4ff;
 }
 
 .login-subtitle {
-  margin-top: 6px;
-  font-size: 0.9rem;
-  color: var(--fm-muted);
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
 }
 
 /* Form */
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .form-field {
@@ -65,9 +76,9 @@
 }
 
 .form-field label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--fm-text);
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  color: #c4cede;
 }
 
 .input-wrap {
@@ -79,7 +90,7 @@
 .input-icon {
   position: absolute;
   left: 12px;
-  color: var(--fm-muted);
+  color: var(--cyan);
   pointer-events: none;
   display: grid;
   place-items: center;
@@ -87,24 +98,23 @@
 
 .form-field input {
   width: 100%;
-  padding: 12px 44px 12px 40px;
-  border: 1px solid var(--fm-border);
-  border-radius: 10px;
-  background: var(--fm-surface);
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
+  padding: 11px 44px 11px 40px;
+  border: 1px solid #35425b;
+  border-radius: 5px;
+  background: #101a2d;
+  color: #f0f4ff;
+  font: 11px 'Space Mono', monospace;
 }
 
 .form-field input::placeholder {
-  color: var(--fm-muted);
-  opacity: 0.8;
+  color: #8391aa;
+  opacity: 1;
 }
 
 .form-field input:focus {
-  outline: none;
-  border-color: var(--fm-blue-600);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  outline: 2px solid var(--cyan);
+  outline-offset: 1px;
+  border-color: var(--cyan);
 }
 
 .password-toggle {
@@ -112,37 +122,46 @@
   right: 8px;
   border: 0;
   background: transparent;
-  color: var(--fm-muted);
+  color: var(--muted);
   cursor: pointer;
   padding: 6px;
-  border-radius: 8px;
+  border-radius: 6px;
   display: grid;
   place-items: center;
 }
 
 .password-toggle:hover {
-  color: var(--fm-blue-700);
-  background: var(--fm-blue-50);
+  color: var(--cyan);
+  background: #1b2b41;
+}
+
+.password-toggle:focus-visible,
+.form-field input:focus-visible,
+.login-submit:focus-visible,
+.auth-link:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
 }
 
 /* Feedback (error / success) */
 .form-banner {
   margin: 0;
   padding: 10px 12px;
-  border-radius: 10px;
-  font-size: 0.875rem;
+  border-radius: 6px;
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 .form-banner--error {
-  background: var(--fm-danger-bg);
-  border: 1px solid var(--fm-danger-border);
-  color: var(--fm-danger);
+  background: #2a241d;
+  border: 1px solid #725530;
+  color: #ffb957;
 }
 
 .form-banner--success {
-  background: var(--fm-success-bg);
-  border: 1px solid var(--fm-success-border);
-  color: var(--fm-success);
+  background: #142820;
+  border: 1px solid #2d624e;
+  color: #71e5ad;
 }
 
 /* Submit */
@@ -152,31 +171,31 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 13px 16px;
-  border: 0;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--fm-blue-500), var(--fm-blue-700));
-  color: #ffffff;
-  font-weight: 600;
+  padding: 12px 16px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: var(--cyan);
+  color: #07101f;
+  font: 700 11px 'Space Mono', monospace;
+  letter-spacing: 0.6px;
   cursor: pointer;
-  transition: filter 0.15s;
 }
 
 .login-submit:hover:not(:disabled) {
-  filter: brightness(1.05);
+  background: #7ae8fa;
 }
 
 .login-submit:disabled {
-  opacity: 0.7;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
 .spinner {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  border-top-color: #ffffff;
+  border: 2px solid rgba(7, 16, 31, 0.3);
+  border-top-color: #07101f;
   animation: spin 0.7s linear infinite;
 }
 
@@ -184,4 +203,45 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.auth-switch,
+.auth-home {
+  margin-top: 18px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.auth-switch {
+  margin-top: 20px;
+}
+
+.auth-home {
+  margin-top: 10px;
+}
+
+.auth-link {
+  color: var(--cyan);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+}
+
+.auth-link--muted {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.auth-link--muted:hover {
+  color: var(--cyan);
+}
+
+@media (max-width: 400px) {
+  .login-page { padding: 16px; }
+  .login-card { padding: 26px 18px; }
+  .login-title { font-size: 26px; }
 }

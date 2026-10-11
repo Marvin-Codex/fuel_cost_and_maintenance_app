@@ -12,7 +12,52 @@
 .alert-panel { padding: 16px 15px 14px 21px; overflow: hidden; }.panel-accent { position: absolute; inset: 0 auto 0 0; width: 5px; }.amber-line { background: var(--amber); }.cyan-line { background: var(--cyan); }.card-top { gap: 10px; }.card-top > div { flex: 1; }.card-top small, .prediction-stats small { color: var(--amber); font-size: 8px; }.card-top h2 { margin-top: 4px; font: 600 22px 'Barlow Condensed'; }.card-top > b { align-self: start; color: #e2e9f5; font-size: 9px; font-weight: 400; }.service-meter { margin: 15px 0 9px; color: #d2d9e6; font-size: 8px; }.service-meter span { display: flex; justify-content: space-between; }.service-meter b { color: var(--amber); font-weight: 400; }.meter i { width: 54%; background: var(--amber); }.service-bottom, .predictive-footer { justify-content: space-between; }.service-bottom p, .predictive-footer p { color: #d9e0ed; font-size: 10px; line-height: 1.5; }.service-bottom button, .predictive-footer button { display: flex; align-items: center; gap: 8px; padding: 10px 13px; border: 0; border-radius: 4px; background: var(--amber); color: #1a1720; font: 9px 'Space Mono'; }.cyan-bg { color: var(--cyan); }.predictive .card-top small { color: var(--cyan); }.optimized { padding: 5px 7px; color: #52e3a8 !important; background: #102e35; }.route { margin: 17px 0; color: #e8edf6; font-size: 12px; }.route small { float: right; color: #d5ddeb; font-size: 8px; }.prediction-stats { gap: 60px; }.prediction-stats div { display: grid; gap: 6px; }.prediction-stats strong { color: var(--cyan); font: 17px 'Barlow Condensed'; }.prediction-stats div + div strong { color: #e6eaf3; }.predictive-footer { margin-top: 15px; }.predictive-footer button { background: var(--cyan); }.predictive-footer button span { font-size: 18px; }
 .reminders .panel-title > b { padding: 5px 10px; color: #291b05; background: #f5a812; border-radius: 4px; font-size: 8px; font-weight: 400; }.warning { color: var(--amber); }.reminder { display: grid; grid-template-columns: 8px 1fr auto; gap: 9px; margin-top: 18px; }.reminder > i { width: 8px; height: 8px; margin-top: 4px; border-radius: 50%; background: var(--amber); }.reminder strong { color: #eef2fb; font: 14px 'Space Mono'; }.reminder p { margin-top: 6px; color: #c2cada; font-size: 9px; line-height: 1.6; }.reminder small { color: #dce3ef; font-size: 8px; }.warning-text { color: var(--amber) !important; }.diagnostic-button { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 18px; padding: 11px; border: 0; border-radius: 4px; color: var(--cyan); background: #202b42; font-size: 9px; }
 .bottom-nav { position: fixed; right: 0; bottom: 0; left: 0; z-index: 10; display: flex; justify-content: center; gap: clamp(15px, 7vw, 50px); padding: 12px 10px 10px; background: #0d1528; border-top: 1px solid #1c2941; }.bottom-nav button { display: grid; justify-items: center; gap: 4px; border: 0; color: #c4cede; background: transparent; font-size: 8px; }.bottom-nav button.selected { color: var(--cyan); }.bottom-nav button.selected svg { filter: drop-shadow(0 0 5px rgba(66,216,244,.5)); }
-@media (min-width: 800px) { .dashboard-shell { padding-bottom: 0; }.dashboard-content { padding-bottom: 35px; }.bottom-nav { position: sticky; top: 0; margin: 0 auto; max-width: 760px; border: 1px solid #1c2941; border-radius: 5px; }.dashboard-topbar { padding-inline: calc((100vw - 760px) / 2); } }
+/* Small-screen hardening: no horizontal overflow, safe-area aware nav. */
+.bottom-nav { padding-bottom: calc(10px + env(safe-area-inset-bottom)); overflow-x: auto; }
+.bottom-nav button { flex: 0 0 auto; }
+.dashboard-topbar { min-height: 70px; height: auto; padding-top: 10px; padding-bottom: 10px; row-gap: 10px; flex-wrap: wrap; }
+.vehicle-summary > div, .card-top > div { min-width: 0; }
+.trip-labels { overflow-x: auto; }
+
+@media (min-width: 640px) {
+  .dashboard-content { width: min(100% - 40px, 760px); }
+  .metric-grid { gap: 10px; }
+  .chart { height: 240px; }
+}
+
+/* Tablet / small laptop: wider content well, two-column overview grid. */
+@media (min-width: 900px) {
+  .dashboard-shell { padding-bottom: 0; }
+  .dashboard-content { width: min(100% - 48px, 1080px); padding-bottom: 40px; }
+  .dashboard-topbar { padding-inline: max(24px, calc((100vw - 1080px) / 2)); }
+  .overview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+  .overview-grid .metric-grid { grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 0; }
+  .overview-grid .telemetry-panel { grid-column: 1 / -1; margin-top: 0; }
+  .overview-grid .panel { margin-top: 0; }
+  .overview-grid .reminders { grid-column: 1 / -1; }
+  .chart { height: 260px; }
+  .bottom-nav { position: sticky; top: 12px; margin: 0 auto; max-width: 1080px; border: 1px solid #1c2941; border-radius: 8px; }
+}
+
+/* Desktop: fixed left sidebar nav + wide content. */
+@media (min-width: 1200px) {
+  .dashboard-shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); grid-template-rows: auto 1fr; align-items: start; }
+  .dashboard-topbar { grid-column: 1 / -1; padding-inline: 28px; }
+  .dashboard-content { grid-column: 2; grid-row: 2; width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 28px 48px; }
+  .bottom-nav { grid-column: 1; grid-row: 2; position: sticky; top: 0; height: 100svh; max-width: none; margin: 0; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 6px; padding: 20px 12px calc(20px + env(safe-area-inset-bottom)); border: 0; border-right: 1px solid #1c2941; border-radius: 0; overflow-x: visible; overflow-y: auto; }
+  .bottom-nav button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 12px; border-radius: 8px; font-size: 11px; letter-spacing: .6px; }
+  .bottom-nav button.selected { background: #18253c; }
+  .metric-card strong { font-size: 42px; }
+}
+
+@media (max-width: 380px) {
+  .metric-grid { gap: 6px; }
+  .metric-card { padding: 9px; }
+  .metric-card strong { font-size: 30px; }
+  .health-bars { gap: 10px; }
+  .prediction-stats { gap: 24px; }
+  .vin { max-width: 55vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
 
 /* Keep dashboard labels and supporting text readable alongside the large metrics. */
 .wordmark small { font-size: 9px; }

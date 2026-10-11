@@ -103,6 +103,21 @@
 .trip-statistics > div > small { color: #9aa8c5; font-size: 8px; }
 .trips-demo-note { padding: 0 3px; color: #8391aa; font-size: 8px; line-height: 1.5; }
 
+
+/* Responsive: wider metric rows on tablet, two-column panels on desktop. */
+@media (min-width: 700px) {
+  .performance-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .route-map { height: 220px; }
+}
+@media (min-width: 1100px) {
+  .trips-view { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .trips-heading,
+  .trip-notice,
+  .trip-statistics,
+  .trips-demo-note { grid-column: 1 / -1; }
+  .current-trip-panel { grid-column: 1 / -1; }
+  .route-map { height: 250px; }
+}
 @media (max-width: 400px) {
   .trips-panel { padding: 12px; }
   .current-trip-metrics { gap: 5px; }

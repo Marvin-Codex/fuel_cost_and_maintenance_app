@@ -93,3 +93,13 @@
   .connection-row strong { font-size: 7px; }
   .diagnostic-row { font-size: 8px; }
 }
+
+/* Responsive: two-column panels on desktop, denser stat grids on tablet. */
+@media (min-width: 700px) {
+  .data-stat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (min-width: 1100px) {
+  .system-view { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .system-heading,
+  .system-notice { grid-column: 1 / -1; }
+}
