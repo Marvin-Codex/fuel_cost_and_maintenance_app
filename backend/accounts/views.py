@@ -13,6 +13,7 @@ from .serializers import (
     LoginSerializer,
     OrganizationSerializer,
     PlanSerializer,
+    PublicOrganizationSerializer,
     RegisterSerializer,
     SubscriptionSerializer,
     UserSerializer,
@@ -81,6 +82,25 @@ class PlanListView(generics.ListAPIView):
 
     def get_queryset(self):
         return Plan.objects.filter(is_active=True).prefetch_related('features')
+
+
+class PublicPlanListView(generics.ListAPIView):
+    """GET /api/v1/auth/plans/public/ — packages for the registration flow."""
+
+    permission_classes = [AllowAny]
+    serializer_class = PlanSerializer
+
+    def get_queryset(self):
+        return Plan.objects.filter(is_active=True).prefetch_related('features')
+
+
+class PublicOrganizationListView(generics.ListAPIView):
+    """GET /api/v1/auth/organizations/public/ — organizations that registration
+    can join. Exposes only id/name/slug (see PublicOrganizationSerializer)."""
+
+    permission_classes = [AllowAny]
+    serializer_class = PublicOrganizationSerializer
+    queryset = Organization.objects.all().only('id', 'name', 'slug')
 
 
 class OrganizationSubscriptionView(APIView):

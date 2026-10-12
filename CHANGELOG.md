@@ -7,6 +7,36 @@ the date, the component touched, the files involved, and how it was verified.
 
 ## [Unreleased]
 
+### Added — Registration account types and packages (React web and backend)
+
+- **Account-type selection** — `frontend/fuelmaintenance/src/pages/Register.jsx`:
+  registration now starts with a Personal / Organization choice. Personal
+  accounts register exactly as before. Organization accounts choose between
+  joining an existing organization (picked from a list) or creating a new one
+  (name + package). Styles added in `src/pages/Auth.css` (`fm-choice-card`,
+  `fm-segmented`, `fm-plan-card`, and a matching `select` control).
+- **Auth API** — `frontend/fuelmaintenance/src/api/auth.js`: `register()` accepts
+  an options object (`accountType`, `organizationId` or `organizationName` +
+  `planId`); added pre-auth `getPublicPlans()` and `getPublicOrganizations()`.
+- **Registration backend** — `backend/accounts/serializers.py`:
+  `RegisterSerializer` now accepts `account_type` (`personal` default,
+  `organization`), joins an existing organization with a driver membership
+  (`organization_id`) or creates the organization with an owner membership and
+  a one-year subscription to the chosen package (`organization_name` +
+  `plan_id`); validates that the two modes are not mixed and that
+  organization-name registrations include an active package. The response
+  includes an `organization` summary (id/name/slug/role).
+- **Public list endpoints** — `backend/accounts/views.py` +
+  `urls.py`: `GET /api/v1/auth/plans/public/` and
+  `GET /api/v1/auth/organizations/public/` (AllowAny) power the register-page
+  selections; the organizations endpoint exposes only id/name/slug via
+  `PublicOrganizationSerializer`.
+- **Tests** — `backend/accounts/tests.py`: added `RegistrationFlowTests`
+  covering personal default, join-as-driver, create-with-package
+  (owner + subscription), missing-details/package/package-on-join rejection,
+  personal-with-organization-details rejection, and unauthenticated access to
+  the public list endpoints.
+
 ### Added — Vehicle-aware dashboard and tabs (React web)
 
 - **Vehicle switcher** — `frontend/fuelmaintenance/src/pages/Dashboard.jsx`

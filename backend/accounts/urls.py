@@ -6,6 +6,8 @@ from .views import (
     MeView,
     OrganizationListCreateView,
     OrganizationMemberCreateView,
+    PublicOrganizationListView,
+    PublicPlanListView,
     RegisterView,
     OrganizationSubscriptionView,
     PlanListView,
@@ -19,6 +21,12 @@ urlpatterns = [
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('me/', MeView.as_view(), name='me'),
     path('plans/', PlanListView.as_view(), name='plan-list'),
+    path('plans/public/', PublicPlanListView.as_view(), name='plan-list-public'),
+    path(
+        'organizations/public/',
+        PublicOrganizationListView.as_view(),
+        name='organization-list-public',
+    ),
     path(
         'organizations/<uuid:organization_id>/subscription/',
         OrganizationSubscriptionView.as_view(),

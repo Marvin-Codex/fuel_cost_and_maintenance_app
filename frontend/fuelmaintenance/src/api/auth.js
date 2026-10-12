@@ -7,6 +7,8 @@ const USE_MOCK = import.meta.env.VITE_USE_MOCK_AUTH === 'true'
 
 const LOGIN_PATH = '/api/v1/auth/login/'
 const REGISTER_PATH = '/api/v1/auth/register/'
+const PLANS_PUBLIC_PATH = '/api/v1/auth/plans/public/'
+const ORGANIZATIONS_PUBLIC_PATH = '/api/v1/auth/organizations/public/'
 
 const ACCESS_TOKEN_KEY = 'fuelmaintenance.accessToken'
 const REFRESH_TOKEN_KEY = 'fuelmaintenance.refreshToken'
@@ -49,14 +51,47 @@ export function getSubscription(organizationId) {
   return authenticatedGet(`${ORGANIZATIONS_PATH}${organizationId}/subscription/`)
 }
 
-/** Create a user account. */
-export async function register(username, email, password) {
+async function publicGet(path, fallbackMessage) {
+  let response
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`)
+  } catch {
+    throw new Error('Cannot reach the server. Check your connection and try again.')
+  }
+  if (!response.ok) throw new Error(fallbackMessage)
+  return response.json()
+}
+
+/** Return active plans/packages shown on the registration page (no auth). */
+export function getPublicPlans() {
+  return publicGet(PLANS_PUBLIC_PATH, 'Unable to load packages right now.')
+}
+
+/** Return organizations selectable when joining during registration (no auth). */
+export function getPublicOrganizations() {
+  return publicGet(ORGANIZATIONS_PUBLIC_PATH, 'Unable to load organizations right now.')
+}
+
+/**
+ * Create a user account. Pass an options object for organization registration:
+ * { accountType: 'organization', organizationId } to join an existing org, or
+ * { accountType: 'organization', organizationName, planId } to create one.
+ */
+export async function register(username, email, password, options = {}) {
+  const body = { username, email, password }
+  if (options.accountType === 'organization') {
+    body.account_type = 'organization'
+    if (options.organizationId) body.organization_id = options.organizationId
+    if (options.organizationName) body.organization_name = options.organizationName
+    if (options.planId) body.plan_id = options.planId
+  }
+
   let response
   try {
     response = await fetch(`${API_BASE_URL}${REGISTER_PATH}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, email, password }),
+      body: JSON.stringify(body),
     })
   } catch {
     throw new Error('Cannot reach the server. Check your connection and try again.')
