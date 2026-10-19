@@ -1,121 +1,119 @@
-const SUPER_ADMIN_PERMISSIONS = new Set([
-  'vehicle.view', 'vehicle.create', 'vehicle.update', 'vehicle.delete',
-  'fuel.view', 'fuel.create', 'fuel.update', 'fuel.delete',
-  'trip.view', 'trip.create', 'trip.update', 'trip.delete',
-  'maintenance.view', 'maintenance.create', 'maintenance.update', 'maintenance.delete',
-  'system.view', 'system.update', 'member.manage',
-])
+/**
+ * Permission helpers for the web dashboard.
+ *
+ * There is no role table here on purpose: role templates, packages and
+ * per-user grants all live in the backend (see docs/ACCESS_CONTROL_SPEC.md).
+ * The client receives a flat list of permission codes for the active
+ * workspace and asks plain questions of it. Anything not in that list is
+ * denied — an unknown user is never silently treated as an owner.
+ *
+ * The server re-checks every request; these helpers only decide what to show.
+ */
 
-export function normalizeRoleKey(role) {
-  const raw = String(role ?? 'viewer').trim()
-  const normalized = raw.toLowerCase().replace(/[_\s-]+/g, '_')
-  if (normalized === 'super_admin' || normalized === 'superadmin' || normalized === 'super admin') {
-    return 'super_admin'
-  }
-  return normalized
+/** Permission code required for each dashboard section. */
+export const TAB_PERMISSIONS = {
+  overview: ['analytics.view'],
+  telemetry: ['analytics.view'],
+  fuel: ['fuel.view'],
+  services: ['maintenance.view'],
+  trips: ['trips.view'],
+  system: ['workspace.manage'],
 }
 
-export function resolveEffectiveRole({ user, organization, fallback = 'viewer' }) {
-  if (user?.is_superuser === true) return 'super_admin'
-
-  const orgRole = organization?.role ? normalizeRoleKey(organization.role) : null
-  if (orgRole) return orgRole
-
-  if (user) return 'owner'
-  return normalizeRoleKey(fallback)
-}
-
-export const ROLE_PERMISSIONS = {
-  owner: SUPER_ADMIN_PERMISSIONS,
-  admin: SUPER_ADMIN_PERMISSIONS,
-  super_admin: SUPER_ADMIN_PERMISSIONS,
-  superadmin: SUPER_ADMIN_PERMISSIONS,
-  fleet_manager: new Set([
-    'vehicle.view', 'vehicle.create', 'vehicle.update', 'vehicle.delete',
-    'fuel.view', 'fuel.create', 'fuel.update', 'fuel.delete',
-    'trip.view', 'trip.create', 'trip.update', 'trip.delete',
-    'maintenance.view', 'maintenance.create', 'maintenance.update', 'maintenance.delete',
-    'system.view', 'system.update',
-  ]),
-  maintenance_manager: new Set([
-    'vehicle.view', 'vehicle.update',
-    'fuel.view', 'trip.view',
-    'maintenance.view', 'maintenance.create', 'maintenance.update', 'maintenance.delete',
-    'system.view',
-  ]),
-  driver: new Set([
-    'vehicle.view', 'fuel.view', 'fuel.create',
-    'trip.view', 'trip.create', 'maintenance.view', 'system.view',
-  ]),
-  viewer: new Set([
-    'vehicle.view', 'fuel.view', 'trip.view', 'maintenance.view', 'system.view',
-  ]),
+/** Permission code required for each write action in the UI. */
+export const ACTION_PERMISSIONS = {
+  addVehicle: 'vehicles.add',
+  editVehicle: 'vehicles.edit',
+  deleteVehicle: 'vehicles.delete',
+  addFuel: 'fuel.add',
+  editFuel: 'fuel.edit',
+  deleteFuel: 'fuel.delete',
+  addTrip: 'trips.add',
+  editTrip: 'trips.edit',
+  deleteTrip: 'trips.delete',
+  addMaintenance: 'maintenance.add',
+  editMaintenance: 'maintenance.edit',
+  deleteMaintenance: 'maintenance.delete',
+  exportReport: 'analytics.export',
+  usePredictions: 'predictions.use',
+  findServiceCentres: 'servicecentres.view',
+  manageMembers: 'members.manage',
+  manageRoles: 'roles.manage',
+  manageWorkspace: 'workspace.manage',
+  manageBilling: 'billing.manage',
+  viewAuditLog: 'audit.view',
 }
 
 export const ROLE_LABELS = {
   owner: 'Owner',
   admin: 'Admin',
-  super_admin: 'Super Admin',
-  superadmin: 'Super Admin',
-  fleet_manager: 'Fleet Manager',
-  maintenance_manager: 'Maintenance Manager',
-  driver: 'Driver',
+  manager: 'Manager',
+  staff: 'Staff',
   viewer: 'Viewer',
+  super_admin: 'Platform admin',
 }
 
-export function normalizePlanFeatures(planFeatures) {
-  if (!Array.isArray(planFeatures)) return new Set()
-  return new Set(planFeatures.map((feature) => String(feature).trim()).filter(Boolean))
+export function normalizeRoleKey(role) {
+  const raw = String(role ?? '').trim()
+  const normalized = raw.toLowerCase().replace(/[\s-]+/g, '_')
+  if (normalized === 'superadmin' || normalized === 'super admin') return 'super_admin'
+  return normalized
 }
 
-export function hasRolePermission(role, permission) {
-  const normalizedRole = normalizeRoleKey(role)
-  return ROLE_PERMISSIONS[normalizedRole]?.has(permission) ?? false
+export function roleLabel(roleKey) {
+  const key = normalizeRoleKey(roleKey)
+  if (!key) return 'No role'
+  return ROLE_LABELS[key] ?? key.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
 }
 
-export function hasPlanFeature(permission, planFeatures) {
-  return normalizePlanFeatures(planFeatures).has(permission)
-}
-
-export function hasDashboardPermission({ role, permission, planFeatures = [], allowNoPackageAccess = false }) {
-  const normalizedRole = normalizeRoleKey(role)
-  if (normalizedRole === 'super_admin') return true
-  if (allowNoPackageAccess && ['owner', 'admin'].includes(normalizedRole)) return true
-
-  const roleAllowed = hasRolePermission(role, permission)
-  const featureAllowed = hasPlanFeature(permission, planFeatures)
-
-  if (normalizedRole === 'owner' || normalizedRole === 'admin') {
-    return roleAllowed || featureAllowed || allowNoPackageAccess
-  }
-
-  return roleAllowed && featureAllowed
-}
-
-export function getDashboardAccess({ role, planFeatures = [], allowNoPackageAccess = false }) {
-  const permissions = {
-    vehicleView: hasDashboardPermission({ role, permission: 'vehicle.view', planFeatures, allowNoPackageAccess }),
-    fuelView: hasDashboardPermission({ role, permission: 'fuel.view', planFeatures, allowNoPackageAccess }),
-    fuelCreate: hasDashboardPermission({ role, permission: 'fuel.create', planFeatures, allowNoPackageAccess }),
-    tripView: hasDashboardPermission({ role, permission: 'trip.view', planFeatures, allowNoPackageAccess }),
-    tripCreate: hasDashboardPermission({ role, permission: 'trip.create', planFeatures, allowNoPackageAccess }),
-    maintenanceView: hasDashboardPermission({ role, permission: 'maintenance.view', planFeatures, allowNoPackageAccess }),
-    maintenanceCreate: hasDashboardPermission({ role, permission: 'maintenance.create', planFeatures, allowNoPackageAccess }),
-    maintenanceUpdate: hasDashboardPermission({ role, permission: 'maintenance.update', planFeatures, allowNoPackageAccess }),
-    systemView: hasDashboardPermission({ role, permission: 'system.view', planFeatures, allowNoPackageAccess }),
-    memberManage: hasDashboardPermission({ role, permission: 'member.manage', planFeatures, allowNoPackageAccess }),
-  }
-
+/** Build the question-asker for one workspace entry of the snapshot. */
+export function accessFromSnapshot(entry) {
+  const permissions = new Set(entry?.permissions ?? [])
+  const limits = entry?.limits ?? {}
   return {
-    ...permissions,
-    canViewAny: Object.values(permissions).some(Boolean),
-    tabs: {
-      overview: permissions.systemView || permissions.fuelView || permissions.tripView || permissions.maintenanceView,
-      telemetry: permissions.systemView,
-      fuel: permissions.fuelView,
-      services: permissions.maintenanceView,
-      trips: permissions.tripView,
-      system: permissions.systemView,
+    entry,
+    workspace: entry?.workspace ?? null,
+    plan: entry?.plan ?? null,
+    role: entry?.role ?? null,
+    version: entry?.version ?? null,
+    vehicleScope: entry?.vehicle_scope ?? 'assigned',
+    can: (code) => permissions.has(code),
+    canAny: (codes) => codes.some((code) => permissions.has(code)),
+    /** limit === null means unlimited. */
+    limit: (key) => limits[key]?.limit ?? 0,
+    used: (key) => limits[key]?.used ?? 0,
+    remaining: (key) => {
+      const limit = limits[key]?.limit
+      if (limit === null || limit === undefined) return null
+      return Math.max(0, limit - (limits[key]?.used ?? 0))
     },
+    /** True when creating one more would be refused by the server. */
+    atLimit: (key) => {
+      const remaining = limits[key]?.limit
+      if (remaining === null || remaining === undefined) return false
+      return (limits[key]?.used ?? 0) >= remaining
+    },
+    tabs: Object.fromEntries(
+      Object.entries(TAB_PERMISSIONS).map(([tab, codes]) => [
+        tab,
+        codes.some((code) => permissions.has(code)),
+      ]),
+    ),
   }
+}
+
+/**
+ * Pick the workspace to show: the remembered one when it is still in the
+ * snapshot, otherwise the personal workspace, otherwise the first one.
+ */
+export function selectWorkspace(entries, rememberedId) {
+  if (!entries?.length) return null
+  if (rememberedId) {
+    const remembered = entries.find((e) => e.workspace?.id === rememberedId)
+    if (remembered) return remembered
+  }
+  return (
+    entries.find((e) => e.workspace?.kind === 'personal') ??
+    entries[0]
+  )
 }

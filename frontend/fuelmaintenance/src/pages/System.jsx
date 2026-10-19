@@ -1,48 +1,23 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import {
+  downloadDataExport,
+  fetchPreferences,
+  updatePreferences,
+  updateVehicle,
+} from '../api/resources'
 import './System.css'
 
-const initialVehicle = {
-  make: 'Toyota',
-  model: 'Premio',
-  year: '2018',
-  registration: 'UBA 123A',
-  vin: '************4821',
-  engine: '1.8L Petrol',
-  transmission: 'Automatic',
-  odometer: '42,580',
-}
-
-function vehicleDetails(vehicle) {
-  if (!vehicle) return initialVehicle
-  return {
-    make: vehicle.make,
-    model: vehicle.model,
-    year: String(vehicle.year),
-    registration: vehicle.registration,
-    vin: `************${vehicle.vinSuffix}`,
-    engine: vehicle.engine,
-    transmission: vehicle.transmission,
-    odometer: vehicle.odometer,
-  }
-}
-
-const initialAlerts = [
-  { id: 'lowFuel', label: 'Low fuel' },
-  { id: 'overheating', label: 'Engine overheating' },
-  { id: 'battery', label: 'Low battery' },
-  { id: 'service', label: 'Service due' },
-  { id: 'faultCodes', label: 'Fault codes' },
+const ALERT_FIELDS = [
+  { id: 'low_fuel', label: 'Low fuel' },
+  { id: 'engine_overheating', label: 'Engine overheating' },
+  { id: 'low_battery', label: 'Low battery' },
+  { id: 'service_due', label: 'Service due' },
+  { id: 'fault_codes', label: 'Fault codes' },
   { id: 'overspeed', label: 'Overspeed' },
-  { id: 'consumption', label: 'High fuel consumption' },
+  { id: 'high_fuel_consumption', label: 'High fuel consumption' },
 ]
 
-const initialDiagnostics = [
-  { name: 'Engine', detail: 'No fault codes detected' },
-  { name: 'Transmission', detail: 'Operating normally' },
-  { name: 'Battery', detail: 'Voltage within normal range' },
-  { name: 'Cooling system', detail: 'Temperature within normal range' },
-  { name: 'Sensors', detail: 'All simulated sensors responding' },
-]
+const DEFAULT_THRESHOLDS = { low_fuel_percent: 20, engine_temperature_c: 105, overspeed_kmh: 100 }
 
 function StatusDot({ tone = 'good' }) {
   return <i className={`system-status-dot ${tone}`} aria-hidden="true" />
@@ -60,102 +35,141 @@ function SystemSectionHeading({ eyebrow, title, action, id }) {
   )
 }
 
-export default function System({ onBack, vehicle: selectedVehicle }) {
-  const selectedVehicleDetails = vehicleDetails(selectedVehicle)
-  const [vehicle, setVehicle] = useState(selectedVehicleDetails)
-  const [vehicleDraft, setVehicleDraft] = useState(selectedVehicleDetails)
+export default function System({ onBack, vehicle, access, onVehiclesChanged }) {
+  const [preferences, setPreferences] = useState(null)
+  const [prefsLoading, setPrefsLoading] = useState(true)
+  const [prefsError, setPrefsError] = useState(null)
+  const [vehicleDraft, setVehicleDraft] = useState(() => ({
+    name: vehicle?.name ?? '',
+    make: vehicle?.make ?? '',
+    model: vehicle?.model ?? '',
+    year: vehicle?.year ?? '',
+    license_plate: vehicle?.registration ?? '',
+    odometer_km: vehicle?.odometer ?? '',
+  }))
   const [editingVehicle, setEditingVehicle] = useState(false)
-  const [alerts, setAlerts] = useState(() => Object.fromEntries(initialAlerts.map(({ id }) => [id, true])))
-  const [thresholds, setThresholds] = useState({ lowFuel: '20', temperature: '105', overspeed: '100' })
-  const [diagnostics, setDiagnostics] = useState(initialDiagnostics)
-  const [scanning, setScanning] = useState(false)
-  const [diagnosticMessage, setDiagnosticMessage] = useState('')
-  const [units, setUnits] = useState('Metric')
-  const [currency, setCurrency] = useState('UGX')
-  const [language, setLanguage] = useState('English')
-  const [notifications, setNotifications] = useState(true)
+  const [vehicleSaving, setVehicleSaving] = useState(false)
   const [notice, setNotice] = useState('')
   const [aboutDocument, setAboutDocument] = useState('')
 
-  function updateVehicle(event) {
+  const canEditVehicle = Boolean(access?.can('vehicles.edit'))
+  const canExport = Boolean(access?.can('analytics.export'))
+
+  useEffect(() => {
+    setVehicleDraft({
+      name: vehicle?.name ?? '',
+      make: vehicle?.make ?? '',
+      model: vehicle?.model ?? '',
+      year: vehicle?.year ?? '',
+      license_plate: vehicle?.registration ?? '',
+      odometer_km: vehicle?.odometer ?? '',
+    })
+  }, [vehicle])
+
+  useEffect(() => {
+    let mounted = true
+    setPrefsLoading(true)
+    fetchPreferences()
+      .then((prefs) => {
+        if (mounted) {
+          setPreferences(prefs)
+          setPrefsError(null)
+        }
+      })
+      .catch((err) => {
+        if (mounted) setPrefsError(err.message)
+      })
+      .finally(() => {
+        if (mounted) setPrefsLoading(false)
+      })
+    return () => { mounted = false }
+  }, [])
+
+  function updateDraft(event) {
     setVehicleDraft((current) => ({ ...current, [event.target.name]: event.target.value }))
   }
 
-  function saveVehicle(event) {
+  async function saveVehicle(event) {
     event.preventDefault()
-    setVehicle(vehicleDraft)
-    setEditingVehicle(false)
-    setNotice('Vehicle information updated for this session.')
+    if (!vehicle?.rawId) return
+    setVehicleSaving(true)
+    setNotice('')
+    try {
+      const payload = {
+        make: vehicleDraft.make.trim(),
+        model: vehicleDraft.model.trim(),
+        license_plate: vehicleDraft.license_plate.trim(),
+        odometer_km: Number(vehicleDraft.odometer_km),
+      }
+      if (vehicleDraft.name.trim()) payload.name = vehicleDraft.name.trim()
+      if (String(vehicleDraft.year).trim()) payload.year = Number(vehicleDraft.year)
+      await updateVehicle(vehicle.rawId, payload)
+      setEditingVehicle(false)
+      setNotice('Vehicle details saved to your workspace.')
+      if (onVehiclesChanged) await onVehiclesChanged()
+    } catch (err) {
+      setNotice(err.message)
+    } finally {
+      setVehicleSaving(false)
+    }
   }
 
-  function updateThreshold(event) {
-    setThresholds((current) => ({ ...current, [event.target.name]: event.target.value }))
+  /** PATCH the workspace preferences; the server answer becomes the new state. */
+  async function savePreferences(patch) {
+    setPrefsError(null)
+    try {
+      const updated = await updatePreferences(patch)
+      setPreferences(updated)
+      return updated
+    } catch (err) {
+      setPrefsError(err.message)
+      return null
+    }
   }
 
   function toggleAlert(id) {
-    setAlerts((current) => ({ ...current, [id]: !current[id] }))
+    const current = preferences?.alert_settings ?? {}
+    savePreferences({ alert_settings: { ...current, [id]: !current[id] } })
   }
 
-  function runDiagnostic() {
-    if (scanning) return
-    setScanning(true)
-    setDiagnosticMessage('Scanning simulated vehicle systems…')
-    setDiagnostics(initialDiagnostics.map(({ name }) => ({ name, detail: 'Scanning…' })))
-    window.setTimeout(() => {
-      setDiagnostics(initialDiagnostics)
-      setDiagnosticMessage('Diagnostic complete. No critical problems detected.')
-      setScanning(false)
-    }, 1300)
+  function updateThreshold(event) {
+    const { name, value } = event.target
+    const current = preferences?.thresholds ?? DEFAULT_THRESHOLDS
+    savePreferences({ thresholds: { ...current, [name]: Number(value) } })
   }
 
-  function downloadFile(filename, type, content) {
-    const file = new Blob([content], { type })
-    const url = URL.createObjectURL(file)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = filename
-    link.click()
-    URL.revokeObjectURL(url)
+  function updateSetting(field, value) {
+    savePreferences({ [field]: value })
   }
 
-  function exportData() {
-    const lines = [
-      'category,record_count',
-      'telemetry,12480',
-      'trips,86',
-      'services,24',
-    ]
-    downloadFile('vehicle-data-export.csv', 'text/csv;charset=utf-8', lines.join('\n'))
-    setNotice('Sample data export downloaded as CSV.')
+  function reloadPreferences() {
+    setPrefsLoading(true)
+    setPrefsError(null)
+    fetchPreferences()
+      .then((prefs) => {
+        setPreferences(prefs)
+        setPrefsError(null)
+      })
+      .catch((err) => {
+        setPrefsError(err.message)
+      })
+      .finally(() => {
+        setPrefsLoading(false)
+      })
   }
 
-  function backupData() {
-    const backup = {
-      vehicle,
-      connections: { obd: 'Connected', gps: 'Active', telemetry: 'Receiving', internet: 'Connected' },
-      alerts,
-      thresholds,
-      appSettings: { units, currency, language, notifications },
-      exportedAt: new Date().toISOString(),
-      note: 'Simulated sample data backup',
+  async function exportData() {
+    setNotice('')
+    try {
+      await downloadDataExport()
+      setNotice('Workspace data export downloaded as CSV.')
+    } catch (err) {
+      setNotice(err.message)
     }
-    downloadFile('vehicle-system-backup.json', 'application/json', JSON.stringify(backup, null, 2))
-    setNotice('Settings backup downloaded as JSON.')
   }
 
-  function clearCache() {
-    setNotice('Simulated cache-clear complete. No persisted records were changed.')
-  }
-
-  function resetSettings() {
-    setAlerts(Object.fromEntries(initialAlerts.map(({ id }) => [id, true])))
-    setThresholds({ lowFuel: '20', temperature: '105', overspeed: '100' })
-    setUnits('Metric')
-    setCurrency('UGX')
-    setLanguage('English')
-    setNotifications(true)
-    setNotice('Alert and app preferences restored to their defaults.')
-  }
+  const alerts = preferences?.alert_settings ?? {}
+  const thresholds = { ...DEFAULT_THRESHOLDS, ...(preferences?.thresholds ?? {}) }
 
   return (
     <section className="system-view" aria-labelledby="system-title">
@@ -168,12 +182,13 @@ export default function System({ onBack, vehicle: selectedVehicle }) {
         <div>
           <p className="system-eyebrow">VEHICLE CONTROL CENTER</p>
           <h2 id="system-title">System</h2>
-          <p className="system-vehicle">{vehicle.make} {vehicle.model} · {vehicle.registration}</p>
+          <p className="system-vehicle">{vehicle ? `${vehicle.make} ${vehicle.model} · ${vehicle.registration}` : 'No vehicle selected'}</p>
         </div>
-        <span className="system-live-badge"><StatusDot /> SIMULATED</span>
+        <span className="system-live-badge"><StatusDot tone={prefsLoading ? 'warning' : 'good'} /> {prefsLoading ? 'LOADING' : 'SYNCED'}</span>
       </header>
 
       {notice && <p className="system-notice" role="status">{notice}</p>}
+      {prefsError && <p className="system-notice error" role="alert">{prefsError}</p>}
 
       <section className="system-panel" aria-labelledby="vehicle-info-title">
         <SystemSectionHeading
@@ -181,48 +196,58 @@ export default function System({ onBack, vehicle: selectedVehicle }) {
           eyebrow="YOUR VEHICLE"
           title="Vehicle information"
           action={
-            <button
-              className="system-text-button"
-              type="button"
-              onClick={() => {
-                setVehicleDraft(vehicle)
-                setEditingVehicle((current) => !current)
-              }}
-            >
-              {editingVehicle ? 'CANCEL' : 'EDIT VEHICLE'}
-            </button>
+            canEditVehicle ? (
+              <button
+                className="system-text-button"
+                type="button"
+                onClick={() => {
+                  if (editingVehicle) {
+                    setVehicleDraft({
+                      name: vehicle?.name ?? '',
+                      make: vehicle?.make ?? '',
+                      model: vehicle?.model ?? '',
+                      year: vehicle?.year ?? '',
+                      license_plate: vehicle?.registration ?? '',
+                      odometer_km: vehicle?.odometer ?? '',
+                    })
+                  }
+                  setEditingVehicle((current) => !current)
+                }}
+              >
+                {editingVehicle ? 'CANCEL' : 'EDIT VEHICLE'}
+              </button>
+            ) : null
           }
         />
         {editingVehicle ? (
           <form className="vehicle-edit-form" onSubmit={saveVehicle}>
             {[
+              ['name', 'Name'],
               ['make', 'Make'],
               ['model', 'Model'],
               ['year', 'Year'],
-              ['registration', 'Registration'],
-              ['vin', 'VIN'],
-              ['engine', 'Engine'],
-              ['transmission', 'Transmission'],
-              ['odometer', 'Odometer (km)'],
+              ['license_plate', 'License plate'],
+              ['odometer_km', 'Odometer (km)'],
             ].map(([name, label]) => (
               <label key={name}>
                 {label}
-                <input name={name} value={vehicleDraft[name]} onChange={updateVehicle} required />
+                <input name={name} value={vehicleDraft[name]} onChange={updateDraft} required={name !== 'name'} />
               </label>
             ))}
-            <button className="system-primary-button form-full" type="submit">SAVE VEHICLE</button>
+            <button className="system-primary-button form-full" type="submit" disabled={vehicleSaving}>
+              {vehicleSaving ? 'SAVING…' : 'SAVE VEHICLE'}
+            </button>
           </form>
         ) : (
           <div className="vehicle-info-grid">
             {[
-              ['Make', vehicle.make],
-              ['Model', vehicle.model],
-              ['Year', vehicle.year],
-              ['Registration', vehicle.registration],
-              ['VIN', vehicle.vin],
-              ['Engine', vehicle.engine],
-              ['Transmission', vehicle.transmission],
-              ['Odometer', `${vehicle.odometer} km`],
+              ['Name', vehicle?.name ?? '—'],
+              ['Make', vehicle?.make ?? '—'],
+              ['Model', vehicle?.model ?? '—'],
+              ['Year', vehicle?.year ?? '—'],
+              ['Registration', vehicle?.registration ?? '—'],
+              ['Fuel type', vehicle?.engine ?? '—'],
+              ['Odometer', vehicle?.odometer !== undefined && vehicle?.odometer !== null ? `${Number(vehicle.odometer).toLocaleString('en-UG')} km` : '—'],
             ].map(([label, value]) => (
               <div className="vehicle-info-item" key={label}><span>{label}</span><strong>{value}</strong></div>
             ))}
@@ -234,89 +259,129 @@ export default function System({ onBack, vehicle: selectedVehicle }) {
         <SystemSectionHeading id="connection-title" eyebrow="DEVICE STATUS" title="Connection" />
         <div className="connection-grid">
           {[
-            ['OBD-II adapter', 'Connected'],
-            ['GPS', 'Active'],
-            ['Telemetry', 'Receiving'],
-            ['Internet', 'Connected'],
-          ].map(([label, state]) => (
-            <div className="connection-row" key={label}><span>{label}</span><strong><StatusDot /> {state}</strong></div>
+            ['OBD-II adapter', 'Not connected', 'offline'],
+            ['GPS tracking', 'Not connected', 'offline'],
+            ['Telemetry stream', 'Not connected', 'offline'],
+            ['Account sync', 'Online', 'good'],
+          ].map(([label, state, tone]) => (
+            <div className="connection-row" key={label}><span>{label}</span><strong><StatusDot tone={tone === 'offline' ? 'offline' : 'good'} /> {state}</strong></div>
           ))}
         </div>
-        <p className="system-last-update">Last update <strong>Just now</strong></p>
+        <p className="system-last-update">Live adapters are not part of this release — trips and fill-ups are recorded manually.</p>
       </section>
 
-      <section className="system-panel" aria-labelledby="diagnostics-title">
-        <SystemSectionHeading
-          id="diagnostics-title"
-          eyebrow="SIMULATED OBD-II CHECK"
-          title="Diagnostics"
-          action={<span className={`diagnostic-state ${scanning ? 'scanning' : ''}`}><StatusDot tone={scanning ? 'warning' : 'good'} /> {scanning ? 'SCANNING' : 'READY'}</span>}
-        />
-        <div className="diagnostic-list">
-          {diagnostics.map((item) => (
-            <div className="diagnostic-row" key={item.name}>
-              <span><StatusDot tone={scanning ? 'warning' : 'good'} /> {item.name}</span>
-              <small>{item.detail}</small>
-            </div>
-          ))}
-        </div>
-        {diagnosticMessage && <p className="diagnostic-message" role="status">{diagnosticMessage}</p>}
-        <button className="system-primary-button" type="button" onClick={runDiagnostic} disabled={scanning}>
-          {scanning ? 'SCANNING SYSTEMS…' : 'RUN FULL DIAGNOSTIC'}
-        </button>
-      </section>
-
-      <section className="system-panel" aria-labelledby="alert-settings-title">
-        <SystemSectionHeading id="alert-settings-title" eyebrow="NOTIFICATION RULES" title="Alert settings" />
-        <div className="system-alert-list">
-          {initialAlerts.map(({ id, label }) => (
-            <label className="system-toggle-row" key={id}>
-              <span>{label}</span>
-              <input type="checkbox" role="switch" checked={alerts[id]} onChange={() => toggleAlert(id)} />
-              <span className="system-toggle" aria-hidden="true" />
-            </label>
-          ))}
-        </div>
-        <div className="threshold-grid">
-          <label>Low fuel threshold <span><input name="lowFuel" type="number" min="1" max="100" value={thresholds.lowFuel} onChange={updateThreshold} /> %</span></label>
-          <label>Engine temperature <span><input name="temperature" type="number" min="50" max="160" value={thresholds.temperature} onChange={updateThreshold} /> °C</span></label>
-          <label>Overspeed limit <span><input name="overspeed" type="number" min="20" max="300" value={thresholds.overspeed} onChange={updateThreshold} /> km/h</span></label>
-        </div>
-      </section>
+      {!access ? (
+        <section className="system-panel" aria-labelledby="connect-settings-title">
+          <SystemSectionHeading id="connect-settings-title" eyebrow="WORKSPACE" title="Connect your workspace" />
+          <p className="system-empty">
+            Settings are empty because the workspace connection could not be verified. Your account was signed in, but the app could not reach the server to load this workspace's data.
+            <button type="button" className="dashboard-retry" onClick={() => (access?.refresh ? access.refresh() : undefined)}>Try again</button>
+            {' '}— check that the backend is running at http://localhost:8000 and refresh the page.
+          </p>
+        </section>
+      ) : prefsLoading ? (
+        <section className="system-panel" aria-labelledby="prefs-loading-title">
+          <p className="system-empty">Loading your workspace preferences…</p>
+        </section>
+      ) : prefsError ? (
+        <section className="system-panel" aria-labelledby="prefs-error-title">
+          <p className="system-notice error" role="alert">{prefsError} <button type="button" className="dashboard-retry" onClick={reloadPreferences}>Try again</button></p>
+        </section>
+      ) : preferences ? (
+        <section className="system-panel" aria-labelledby="alert-settings-title">
+          <SystemSectionHeading id="alert-settings-title" eyebrow="NOTIFICATION RULES" title="Alert settings" />
+          <div className="system-alert-list">
+            {ALERT_FIELDS.map(({ id, label }) => (
+              <label className="system-toggle-row" key={id}>
+                <span>{label}</span>
+                <input type="checkbox" role="switch" checked={Boolean(alerts[id])} onChange={() => toggleAlert(id)} />
+                <span className="system-toggle" aria-hidden="true" />
+              </label>
+            ))}
+          </div>
+          <div className="threshold-grid">
+            <label>Low fuel threshold <span><input name="low_fuel_percent" type="number" min="1" max="100" value={thresholds.low_fuel_percent} onChange={updateThreshold} /> %</span></label>
+            <label>Engine temperature <span><input name="engine_temperature_c" type="number" min="50" max="160" value={thresholds.engine_temperature_c} onChange={updateThreshold} /> °C</span></label>
+            <label>Overspeed limit <span><input name="overspeed_kmh" type="number" min="20" max="300" value={thresholds.overspeed_kmh} onChange={updateThreshold} /> km/h</span></label>
+          </div>
+        </section>
+      ) : (
+        <section className="system-panel" aria-labelledby="alert-settings-title">
+          <SystemSectionHeading id="alert-settings-title" eyebrow="NOTIFICATION RULES" title="Alert settings" />
+          <div className="system-alert-list">
+            {ALERT_FIELDS.map(({ id, label }) => (
+              <label className="system-toggle-row" key={id}>
+                <span>{label}</span>
+                <input type="checkbox" role="switch" defaultChecked onChange={() => toggleAlert(id)} />
+                <span className="system-toggle" aria-hidden="true" />
+              </label>
+            ))}
+          </div>
+          <div className="threshold-grid">
+            <label>Low fuel threshold <span><input name="low_fuel_percent" type="number" min="1" max="100" value={thresholds.low_fuel_percent} onChange={updateThreshold} /> %</span></label>
+            <label>Engine temperature <span><input name="engine_temperature_c" type="number" min="50" max="160" value={thresholds.engine_temperature_c} onChange={updateThreshold} /> °C</span></label>
+            <label>Overspeed limit <span><input name="overspeed_kmh" type="number" min="20" max="300" value={thresholds.overspeed_kmh} onChange={updateThreshold} /> km/h</span></label>
+          </div>
+        </section>
+      )}
 
       <section className="system-panel" aria-labelledby="data-management-title">
-        <SystemSectionHeading id="data-management-title" eyebrow="LOCAL SAMPLE DATA" title="Data management" />
-        <div className="data-stat-grid">
-          <div><span>Storage used</span><strong>248 MB</strong></div>
-          <div><span>Telemetry records</span><strong>12,480</strong></div>
-          <div><span>Trip records</span><strong>86</strong></div>
-          <div><span>Service records</span><strong>24</strong></div>
-        </div>
+        <SystemSectionHeading id="data-management-title" eyebrow="YOUR DATA" title="Data management" />
+        <p className="system-empty">Download every vehicle, fuel record, service and trip in this workspace as CSV.</p>
         <div className="system-actions-grid">
-          <button className="system-primary-button" type="button" onClick={exportData}>EXPORT DATA · CSV</button>
-          <button className="system-secondary-button" type="button" onClick={backupData}>BACKUP SETTINGS</button>
-          <button className="system-secondary-button form-full" type="button" onClick={clearCache}>CLEAR TEMPORARY CACHE</button>
+          {canExport ? (
+            <button className="system-primary-button" type="button" onClick={exportData}>EXPORT DATA · CSV</button>
+          ) : (
+            <p className="system-empty form-full">Your role cannot export workspace data.</p>
+          )}
         </div>
       </section>
 
       <section className="system-panel" aria-labelledby="app-settings-title">
         <SystemSectionHeading id="app-settings-title" eyebrow="PREFERENCES" title="App settings" />
-        <div className="app-settings-list">
-          <div className="app-setting-row"><span>Dark mode</span><span className="locked-setting">ON · LOCKED</span></div>
-          <label className="app-setting-row">Units<select value={units} onChange={(event) => setUnits(event.target.value)}><option>Metric</option><option>Imperial</option></select></label>
-          <label className="app-setting-row">Currency<select value={currency} onChange={(event) => setCurrency(event.target.value)}><option>UGX</option><option>USD</option><option>EUR</option><option>GBP</option></select></label>
-          <label className="app-setting-row">Language<select value={language} onChange={(event) => setLanguage(event.target.value)}><option>English</option><option>Swahili</option></select></label>
-          <label className="system-toggle-row"><span>Notifications</span><input type="checkbox" role="switch" checked={notifications} onChange={() => setNotifications((current) => !current)} /><span className="system-toggle" aria-hidden="true" /></label>
-        </div>
-        <button className="system-secondary-button reset-settings-button" type="button" onClick={resetSettings}>RESET ALERTS &amp; PREFERENCES</button>
+        {prefsLoading ? (
+          <p className="system-empty">Loading your workspace preferences…</p>
+        ) : (
+          <div className="app-settings-list">
+            <label className="app-setting-row">Units
+              <select value={preferences?.units ?? 'metric'} onChange={(event) => updateSetting('units', event.target.value)}>
+                <option value="metric">Metric</option>
+                <option value="imperial">Imperial</option>
+              </select>
+            </label>
+            <label className="app-setting-row">Currency
+              <select value={preferences?.currency ?? 'UGX'} onChange={(event) => updateSetting('currency', event.target.value)}>
+                <option>UGX</option>
+                <option>USD</option>
+                <option>EUR</option>
+                <option>GBP</option>
+              </select>
+            </label>
+            <label className="app-setting-row">Language
+              <select value={preferences?.language ?? 'en'} onChange={(event) => updateSetting('language', event.target.value)}>
+                <option value="en">English</option>
+                <option value="sw">Swahili</option>
+              </select>
+            </label>
+            <label className="system-toggle-row">
+              <span>Notifications</span>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={preferences?.notifications_enabled !== false}
+                onChange={(event) => updateSetting('notifications_enabled', event.target.checked)}
+              />
+              <span className="system-toggle" aria-hidden="true" />
+            </label>
+          </div>
+        )}
       </section>
 
       <section className="system-panel about-panel" aria-labelledby="about-title">
         <SystemSectionHeading id="about-title" eyebrow="APPLICATION" title="About" />
-        <div className="about-app-name">Vehicle Smart Performance</div>
+        <div className="about-app-name">FuelMaintenance</div>
         <div className="about-meta"><span>Version</span><strong>1.0.0</strong></div>
-        <div className="about-meta"><span>Telemetry Engine</span><strong>v1.0</strong></div>
-        <p className="about-copyright">© 2026 Vehicle Smart Performance</p>
+        <p className="about-copyright">© 2026 FuelMaintenance</p>
         <div className="about-links">
           <button type="button" onClick={() => setAboutDocument((current) => current === 'privacy' ? '' : 'privacy')}>Privacy Policy</button>
           <button type="button" onClick={() => setAboutDocument((current) => current === 'terms' ? '' : 'terms')}>Terms of Service</button>
@@ -324,11 +389,10 @@ export default function System({ onBack, vehicle: selectedVehicle }) {
         {aboutDocument && (
           <div className="about-document" role="region" aria-label={aboutDocument === 'privacy' ? 'Privacy policy' : 'Terms of service'}>
             {aboutDocument === 'privacy'
-              ? 'This simulated demo keeps your edits and preferences in the current session. It does not connect to or transmit vehicle, location, or diagnostic data.'
-              : 'This demonstration uses simulated vehicle and diagnostic data. Do not rely on it for vehicle operation, repair decisions, or emergency assistance.'}
+              ? 'Your vehicle, fuel, service and trip records stay inside your workspace. Exports are limited to members with the analytics.export permission.'
+              : 'Record only journeys and vehicles you are authorised to track. Service and fuel entries should reflect real vehicle activity.'}
           </div>
         )}
-        <p className="system-demo-note">Connection, diagnostics, and data figures are simulated. Settings and edits are kept for this session only.</p>
       </section>
     </section>
   )

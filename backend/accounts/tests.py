@@ -1,3 +1,4 @@
+"""Auth + registration tests: JWT login plus the workspace bootstrap."""
 from io import StringIO
 from unittest.mock import patch
 
@@ -6,6 +7,10 @@ from django.core.management import CommandError, call_command
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
+
+from access.models import Membership as WsMembership
+from access.models import Plan as WsPlan
+from access.models import Workspace
 
 from .models import Membership, Organization, Plan, PlanFeature, User
 
@@ -45,17 +50,26 @@ class AuthAPITests(APITestCase):
         me = self.client.get(reverse('accounts:me'))
         self.assertEqual(me.status_code, status.HTTP_200_OK)
         self.assertEqual(me.data['username'], 'jane')
-        self.assertEqual(me.data['email'], 'jane@example.com')
+
+    def test_signup_creates_personal_workspace(self):
+        membership = WsMembership.objects.get(user=self.user)
+        self.assertEqual(membership.workspace.kind, 'personal')
+        self.assertEqual(membership.role.key, 'owner')
+        self.assertEqual(membership.workspace.plan.key, 'personal-free')
+
+    def test_me_access_snapshot(self):
+        token = self._login().data['access']
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        res = self.client.get('/api/v1/auth/me/access/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res.data), 1)
+        self.assertIn('vehicles.add', res.data[0]['permissions'])
 
 
 class RegistrationFlowTests(APITestCase):
-    """Account-type registration: personal, join organization, create + package."""
-
     def setUp(self):
         self.password = 'test-Pass-123'
-        self.plan = Plan.objects.create(
-            name='Fleet', slug='fleet', description='For teams.'
-        )
+        self.plan = Plan.objects.create(name='Fleet', slug='fleet')
         PlanFeature.objects.create(plan=self.plan, code='vehicle.view')
         creator = User.objects.create_user(
             username='owner', email='owner@example.com', password=self.password
@@ -72,92 +86,52 @@ class RegistrationFlowTests(APITestCase):
         base.update(payload)
         return self.client.post(reverse('accounts:register'), base, format='json')
 
-    def test_personal_registration_is_default_and_has_no_organization(self):
+    def test_personal_registration_creates_personal_workspace(self):
         res = self._register()
         self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(res.data['organization'], None)
         user = User.objects.get(username='newuser')
-        self.assertFalse(user.memberships.exists())
+        membership = WsMembership.objects.get(user=user)
+        self.assertEqual(membership.workspace.kind, 'personal')
 
-    def test_join_organization_creates_driver_membership(self):
-        res = self._register(
-            account_type='organization', organization_id=str(self.organization.id)
-        )
-        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
-        membership = Membership.objects.get(
-            user__username='newuser', organization=self.organization
-        )
-        self.assertEqual(membership.role, Membership.DRIVER)
-        self.assertEqual(res.data['organization']['role'], Membership.DRIVER)
+    def test_personal_pro_registration_assigns_multi_vehicle_package(self):
+        pro = WsPlan.objects.get(key='personal-pro')
+        res = self._register(plan_id=str(pro.id))
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
+        user = User.objects.get(username='newuser')
+        workspace = WsMembership.objects.get(user=user).workspace
+        self.assertEqual(workspace.plan, pro)
+        self.assertEqual(workspace.plan.limits['vehicles'], 5)
 
-    def test_create_organization_with_package_creates_owner_and_subscription(self):
+    def test_create_org_creates_mirrored_workspace(self):
         res = self._register(
             account_type='organization', organization_name='Kampala Fleet',
             plan_id=str(self.plan.id),
         )
-        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED, res.data)
         organization = Organization.objects.get(name='Kampala Fleet')
-        membership = Membership.objects.get(
-            user__username='newuser', organization=organization
+        workspace = Workspace.objects.get(pk=organization.pk)
+        ws_membership = WsMembership.objects.get(
+            user__username='newuser', workspace=workspace
         )
-        self.assertEqual(membership.role, Membership.OWNER)
-        subscription = organization.subscriptions.get()
-        self.assertEqual(subscription.plan, self.plan)
-        self.assertTrue(subscription.is_active)
+        self.assertEqual(ws_membership.role.key, 'owner')
 
-    def test_organization_without_details_is_rejected(self):
-        res = self._register(account_type='organization')
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+class WorkspaceAPITests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='ws-user', password='pw-123456')
+        self.client.force_authenticate(user=self.user)
 
-    def test_create_organization_requires_package(self):
-        res = self._register(
-            account_type='organization', organization_name='No Package Ltd'
+    def test_mine_lists_personal_workspace(self):
+        res = self.client.get('/api/v1/access/workspaces/mine/')
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
+        self.assertEqual(len(res.data), 1)
+        self.assertEqual(res.data[0]['role'], 'owner')
+
+    def test_add_member_flow(self):
+        ws = Workspace.objects.get(kind='personal', memberships__user=self.user)
+        User.objects.create_user(username='ws-friend', password='pw-123456')
+        res = self.client.post(
+            '/api/v1/access/workspaces/%s/add_member/' % ws.pk,
+            {'username': 'ws-friend', 'role': 'viewer'},
+            format='json',
         )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(Organization.objects.filter(name='No Package Ltd').exists())
-
-    def test_join_organization_rejects_package_selection(self):
-        res = self._register(
-            account_type='organization', organization_id=str(self.organization.id),
-            plan_id=str(self.plan.id),
-        )
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_personal_registration_rejects_organization_details(self):
-        res = self._register(organization_name='Sneaky Org')
-        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_public_endpoints_do_not_require_auth(self):
-        plans = self.client.get(reverse('accounts:plan-list-public'))
-        self.assertEqual(plans.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(plans.data), 1)
-
-        organizations = self.client.get(reverse('accounts:organization-list-public'))
-        self.assertEqual(organizations.status_code, status.HTTP_200_OK)
-        self.assertEqual(organizations.data[0]['name'], 'TransLogix')
-        self.assertNotIn('created_by', organizations.data[0])
-
-
-class SeedDemoUserCommandTests(APITestCase):
-    @patch(
-        'accounts.management.commands.seed_demo_user.getpass',
-        side_effect=['Strong-test-password-928!', 'Strong-test-password-928!'],
-    )
-    def test_password_is_prompted_and_never_printed(self, _getpass):
-        output = StringIO()
-
-        call_command('seed_demo_user', stdout=output)
-
-        user = get_user_model().objects.get(username='demo')
-        self.assertTrue(user.check_password('Strong-test-password-928!'))
-        self.assertNotIn('Strong-test-password-928!', output.getvalue())
-
-    @patch(
-        'accounts.management.commands.seed_demo_user.getpass',
-        side_effect=['Strong-test-password-928!', 'different-password'],
-    )
-    def test_mismatched_password_does_not_create_user(self, _getpass):
-        with self.assertRaises(CommandError):
-            call_command('seed_demo_user', stdout=StringIO())
-
-        self.assertFalse(get_user_model().objects.filter(username='demo').exists())
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)

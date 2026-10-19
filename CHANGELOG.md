@@ -7,6 +7,31 @@ the date, the component touched, the files involved, and how it was verified.
 
 ## [Unreleased]
 
+### Added — Full-field superadmin console (React web and backend)
+
+- Backend (`backend/access/views.py`, `urls.py`): new superuser-only `WorkspaceAdminViewSet` at `GET/POST/PATCH/DELETE /api/v1/access/super-workspaces/` exposing every tenant field — name, kind, plan assignment, `limit_overrides`, `entitlement_grants`, `entitlement_revokes`, status — with soft-deactivate on delete; new `GET /api/v1/access/superadmin/permissions/` permission catalog (code/group/label) for the entitlement pickers; new read-only `GET /api/v1/access/super-roles/` role reference (template + custom).
+- Frontend (`SuperAdminManage.jsx`, `api/access.js`): every manage page now edits all fields. Plans: key (locked for seeded packages), name, kind, description, public/default flags, limits JSON, feature-ceiling picker, billing JSON. Users: username, email, first/last name, password (blank on edit keeps it), staff/superuser flags. Workspaces: name, kind, package dropdown, limit-override JSON, grant/revoke pickers. Memberships: searchable user/workspace/role pickers (custom roles filtered to their workspace) + vehicle scope. Vehicle presets: all spec fields incl. tank capacity. New read-only Roles page. Reference data loads via `fetchAdminReference()`; dialogs prefill from rows and strip read-only leftovers on submit.
+- `Dashboard.jsx`: removed the duplicated thin inline CRUD on the `/super-admin` overview; the single "Platform actions" panel now links to each full manage page (incl. Roles). Sidebar gained the ROLES entry.
+- Verified: `npm run lint` (0 warnings/errors), `npm run build` (✓ built), Django `check` clean, live endpoint probe (200s, create + deactivate round-trip), and 5 new `SuperadminConsole` tests + 4 preset tests passing (9/9 in the targeted run).
+
+### Added — Live packages on the landing page (React web)
+
+- Replaced the static Essentials / Fleet / Scale cards in `frontend/fuelmaintenance/src/pages/Landing.jsx` with the live public plans from `GET /api/v1/auth/plans/public/` (same endpoint + pagination shape as the registration page), grouped into "For individuals" (Personal, Personal Pro) and "For teams & organizations" (Group, Enterprise), each showing vehicle/member limits and feature highlights mapped from entitlement codes. Verified with `npm run lint` (0 warnings/errors) and `npm run build` (✓ built).
+- Each card's CTA deep-links to `/register?account=<personal|organization>&plan=<id>`; `Register.jsx` reads the query params to preselect the account type (organization links open the "create" flow) and the package once the plan list loads. Fallback mirror cards from `backend/access/defaults.py` render if the API is unreachable.
+- Updated the packages heading/copy and the teams FAQ to describe the real one-package-per-workspace model instead of fleet-pricing contact text; added `fm-packages` / `fm-package-group` styles in `Landing.css`.
+
+### Added — Superadmin dashboard foundation and theme support (React web)
+
+- Added a dedicated `/super-admin` dashboard branch for platform superusers in `frontend/fuelmaintenance/src/pages/Dashboard.jsx`, with overview, tenants, plans, roles, audit, and settings navigation.
+- Added the superadmin visual shell and responsive layout in `Dashboard.css`; current metric values and action controls are still demo data and are not API-backed.
+- Added workspace-aware access loading and switching through `GET /api/v1/auth/me/access/`, cached permissions, and the active `X-Workspace` context.
+- Added light/dark/system theme support through `ThemeProvider`, shared design tokens, and `ThemeToggle`; the superadmin dashboard supports light mode as well as dark mode.
+- **Next TODO:** replace demo metrics/actions with protected API-backed platform summaries and management screens for plans, roles, workspaces, memberships, audit history, and support access.
+
+### Updated — Project status documentation
+
+- Updated `README.md` and `WEB_TODO.md` to distinguish completed access/dashboard/theme foundations from remaining API integration, offline sync, billing, invitation, audit, and production work.
+
 ### Added — Registration account types and packages (React web and backend)
 
 - **Account-type selection** — `frontend/fuelmaintenance/src/pages/Register.jsx`:

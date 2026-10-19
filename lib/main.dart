@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'models/fuel_record.dart';
 import 'models/vehicle.dart';
-import 'services/local_vehicle_store.dart';
+import 'services/access.dart';
 import 'services/local_fuel_store.dart';
+import 'services/local_vehicle_store.dart';
 
 const supportedCurrencies = ['UGX', 'USD', 'EUR', 'GBP', 'KES', 'TZS'];
 
@@ -38,6 +39,18 @@ class _DashboardPageState extends State<DashboardPage> {
   String _currency = 'UGX';
   final LocalVehicleStore _vehicleStore = LocalVehicleStore();
   final LocalFuelStore _fuelStore = LocalFuelStore();
+
+  /// Rights for the workspace currently in use, from the server snapshot.
+  ///
+  /// Until that snapshot arrives this is `Access.unknown()`, which denies
+  /// everything — we never assume a user may do something and take it back.
+  Access _access = const Access.unknown();
+
+  /// Applied when the snapshot loads; `null` means the fetch failed and we keep
+  /// the last known rights.
+  void applyAccessSnapshot(Map<String, dynamic> entry) {
+    setState(() => _access = Access.fromSnapshot(entry));
+  }
 
   void _showFuelPriceDialog() {
     final controller = TextEditingController(
@@ -235,12 +248,14 @@ class _DashboardPageState extends State<DashboardPage> {
         vehicles: _vehicleStore.vehicles,
         fuelPricePerLitre: _fuelPricePerLitre,
         currency: _currency,
-        onAdd: _showAddVehicleDialog,
+        access: _access,
+        onAdd: _access.canAddVehicle ? _showAddVehicleDialog : null,
       ),
       _FuelContent(
         records: _fuelStore.records,
         currency: _currency,
-        onAdd: _showAddFuelDialog,
+        access: _access,
+        onAdd: _access.canLogFuel ? _showAddFuelDialog : null,
       ),
       const _SimpleSection(
           icon: Icons.build_outlined,
@@ -284,15 +299,19 @@ class _DashboardPageState extends State<DashboardPage> {
         ],
       ),
       floatingActionButton: _selectedIndex == 1
-          ? FloatingActionButton.extended(
-              onPressed: _showAddVehicleDialog,
-              icon: const Icon(Icons.add),
-              label: const Text('Vehicle'))
-          : _selectedIndex == 2
+          ? (_access.canAddVehicle
               ? FloatingActionButton.extended(
-                  onPressed: _showAddFuelDialog,
+                  onPressed: _showAddVehicleDialog,
                   icon: const Icon(Icons.add),
-                  label: const Text('Fuel'))
+                  label: const Text('Vehicle'))
+              : null)
+          : _selectedIndex == 2
+              ? (_access.canLogFuel
+                  ? FloatingActionButton.extended(
+                      onPressed: _showAddFuelDialog,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Fuel'))
+                  : null)
               : null,
     );
   }
@@ -395,11 +414,16 @@ class _FuelContent extends StatelessWidget {
   const _FuelContent({
     required this.records,
     required this.currency,
-    required this.onAdd,
+    required this.access,
+    this.onAdd,
   });
   final List<FuelRecord> records;
   final String currency;
-  final VoidCallback onAdd;
+  final Access access;
+
+  /// Null when this user's role lacks `fuel.add` — the button is not rendered
+  /// at all rather than shown and disabled.
+  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -432,10 +456,15 @@ class _FuelContent extends StatelessWidget {
             ),
           ),
           if (records.isNotEmpty) const SizedBox(height: 8),
-          OutlinedButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add),
-              label: const Text('Log a fuel purchase')),
+          if (onAdd != null)
+            OutlinedButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add),
+                label: const Text('Log a fuel purchase'))
+          else
+            const _ReadOnlyMessage(
+              message: 'Your role can view fuel records but not log new ones.',
+            ),
         ],
       );
 }
@@ -471,12 +500,16 @@ class _VehiclesContent extends StatelessWidget {
     required this.vehicles,
     required this.fuelPricePerLitre,
     required this.currency,
-    required this.onAdd,
+    required this.access,
+    this.onAdd,
   });
   final List<Vehicle> vehicles;
   final double fuelPricePerLitre;
   final String currency;
-  final VoidCallback onAdd;
+  final Access access;
+
+  /// Null when this user's role lacks `vehicles.add`.
+  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -507,11 +540,44 @@ class _VehiclesContent extends StatelessWidget {
                 ),
               )),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add),
-              label: const Text('Add another vehicle')),
+          if (onAdd != null)
+            OutlinedButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add),
+                label: const Text('Add another vehicle'))
+          else
+            const _ReadOnlyMessage(
+              message: 'Your role can view vehicles but not add new ones.',
+            ),
         ],
+      );
+}
+
+/// Shown in place of an add button when the role lacks the permission, so the
+/// absence of a button reads as a rule rather than a bug.
+class _ReadOnlyMessage extends StatelessWidget {
+  const _ReadOnlyMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Icon(Icons.lock_outline,
+                size: 16, color: Theme.of(context).colorScheme.outline),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+              ),
+            ),
+          ],
+        ),
       );
 }
 

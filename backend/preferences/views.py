@@ -4,10 +4,11 @@ from django.http import HttpResponse
 from rest_framework import generics
 from rest_framework.exceptions import PermissionDenied
 
+from access.drf import WorkspacePermission
 from fuel.models import FuelRecord
 from maintenance.models import MaintenanceRecord
 from trips.models import Trip
-from vehicles.resource_scoping import vehicles_visible_to_request
+from vehicles.resource_scoping import check_vehicle_permission, vehicles_visible_to_request
 
 from .models import UserPreference
 from .serializers import UserPreferenceSerializer
@@ -21,19 +22,31 @@ def _safe_csv_cell(value):
 
 class UserPreferenceView(generics.RetrieveUpdateAPIView):
     serializer_class = UserPreferenceSerializer
+    permission_classes = [WorkspacePermission]
+    permission_map = {
+        'get': 'workspace.manage',
+        'put': 'workspace.manage',
+        'patch': 'workspace.manage',
+    }
+
+    def permission_for_action(self):
+        return 'workspace.manage'
 
     def get_object(self):
-        membership, _ = vehicles_visible_to_request(
-            self.request, 'system.view' if self.request.method == 'GET' else 'system.update'
-        )
-        if membership is None and not self.request.user.is_authenticated:
+        if not self.request.user.is_authenticated:
             raise PermissionDenied('Authentication is required.')
         return UserPreference.objects.get_or_create(user=self.request.user)[0]
 
 
 class DataExportView(generics.GenericAPIView):
+    permission_classes = [WorkspacePermission]
+    permission_map = {'get': 'analytics.export'}
+
+    def permission_for_action(self):
+        return 'analytics.export'
+
     def get(self, request):
-        _, vehicles = vehicles_visible_to_request(request, 'system.view')
+        _, vehicles = vehicles_visible_to_request(request)
         vehicle_ids = vehicles.values('pk')
 
         response = HttpResponse(content_type='text/csv; charset=utf-8')

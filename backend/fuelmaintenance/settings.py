@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'drf_spectacular',
     # Local apps
+    'access',
     'accounts',
     'vehicles',
     'fuel',
@@ -130,10 +131,9 @@ else:
 AUTH_USER_MODEL = 'accounts.User'
 
 # CORS — allow the Vite dev server (and future web builds) to call this API
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-]
+# The Vite dev server proxies /api to this host, so the browser never crosses
+# origins. CORS_ALLOW_ALL_ORIGINS is a DEV safety net for remote hosts/tunnels.
+CORS_ALLOW_ALL_ORIGINS = DEBUG
 
 # Django REST Framework — every endpoint requires JWT auth by default
 REST_FRAMEWORK = {
@@ -146,6 +146,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'EXCEPTION_HANDLER': 'access.drf.access_exception_handler',
 }
 
 # OpenAPI schema (drf-spectacular)

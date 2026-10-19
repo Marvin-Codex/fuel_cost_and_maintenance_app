@@ -7,14 +7,15 @@ from rest_framework.test import APITestCase
 
 from accounts.models import User
 from vehicles.models import Vehicle
+from vehicles.test_helpers import make_vehicle
 
 
 class PreferencesAPITests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='prefs-user', password='test-pass-123')
         self.other = User.objects.create_user(username='prefs-other', password='test-pass-123')
-        Vehicle.objects.create(owner=self.user, name='Mine', license_plate='PREF1')
-        Vehicle.objects.create(owner=self.other, name='Theirs', license_plate='PREF2')
+        make_vehicle(self.user, name='Mine', license_plate='PREF1')
+        make_vehicle(self.other, name='Theirs', license_plate='PREF2')
         self.client.force_authenticate(user=self.user)
 
     def test_preferences_defaults_and_update(self):

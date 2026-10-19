@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import * as auth from '../api/auth'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import { Gauge, RouteAnimation } from '../components/animations'
@@ -9,14 +9,19 @@ import './Auth.css'
 /** Split-layout registration sharing the auth card styles. */
 export default function Register() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  // The landing page links here with ?account=personal|organization&plan=<id>.
+  const preselectedAccount = searchParams.get('account') === 'organization' ? 'organization' : 'personal'
+  const preselectedPlan = searchParams.get('plan') || ''
   const [form, setForm] = useState({ username: '', email: '', password: '', confirmPassword: '' })
-  const [accountType, setAccountType] = useState('personal')
-  const [orgMode, setOrgMode] = useState('join')
+  const [accountType, setAccountType] = useState(preselectedAccount)
+  const [orgMode, setOrgMode] = useState(preselectedAccount === 'organization' ? 'create' : 'join')
   const [organizations, setOrganizations] = useState([])
   const [organizationId, setOrganizationId] = useState('')
   const [organizationName, setOrganizationName] = useState('')
   const [plans, setPlans] = useState([])
   const [planId, setPlanId] = useState('')
+  const [expandedPlans, setExpandedPlans] = useState({})
   const [listError, setListError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
@@ -29,18 +34,30 @@ export default function Register() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', on) }
   }, [])
   useEffect(() => {
-    if (accountType !== 'organization') return
     let cancelled = false
-    Promise.all([auth.getPublicOrganizations(), auth.getPublicPlans()])
-      .then(([orgs, planList]) => {
+    const requests = [auth.getPublicPlans()]
+    if (accountType === 'organization') requests.push(auth.getPublicOrganizations())
+    Promise.all(requests)
+      .then(([planList, orgs]) => {
         if (cancelled) return
-        setOrganizations(Array.isArray(orgs) ? orgs : [])
-        setPlans(Array.isArray(planList) ? planList : [])
+        // Django REST Framework paginates list endpoints as { results: [...] }.
+        const plansResult = Array.isArray(planList) ? planList : (planList?.results || [])
+        setPlans(plansResult)
+        // Preselect the package the visitor clicked on the landing page, when it exists.
+        // Keep the id's original type so the radio checked-state and submit match.
+        setPlanId((current) => {
+          if (current) return current
+          const match = plansResult.find((plan) => String(plan.id) === preselectedPlan)
+          return match ? match.id : current
+        })
+        if (accountType === 'organization') {
+          setOrganizations(Array.isArray(orgs) ? orgs : (orgs?.results || []))
+        }
         setListError('')
       })
-      .catch((err) => { if (!cancelled) setListError(err instanceof Error ? err.message : 'Unable to load organizations and packages.') })
+      .catch((err) => { if (!cancelled) setListError(err instanceof Error ? err.message : 'Unable to load packages.') })
     return () => { cancelled = true }
-  }, [accountType])
+  }, [accountType, preselectedPlan])
   function update(e) { setForm({ ...form, [e.target.name]: e.target.value }) }
   async function submit(e) {
     e.preventDefault()
@@ -51,6 +68,10 @@ export default function Register() {
     if (form.password !== form.confirmPassword) return setError('Passwords do not match.')
 
     const options = { accountType }
+    if (accountType === 'personal') {
+      if (!planId) return setError('Choose a personal package.')
+      options.planId = planId
+    }
     if (accountType === 'organization') {
       if (orgMode === 'join') {
         if (!organizationId) return setError('Select an organization to join.')
@@ -73,6 +94,36 @@ export default function Register() {
       setSubmitting(false)
     }
   }
+  function renderPlanCard(plan) {
+    const expanded = Boolean(expandedPlans[plan.id])
+    return (
+      <label key={plan.id} className={`fm-plan-card${planId === plan.id ? ' fm-plan-card--selected' : ''}`}>
+        <input type="radio" name="planId" value={plan.id} checked={planId === plan.id} onChange={() => setPlanId(plan.id)} disabled={submitting} />
+        <strong>{plan.name}</strong>
+        {plan.kind === 'personal' && <span>Vehicles: {plan.limits?.vehicles ?? 'Unlimited'}</span>}
+        <button
+          type="button"
+          className="fm-plan-details-toggle"
+          aria-expanded={expanded}
+          onClick={(e) => {
+            e.preventDefault()
+            setExpandedPlans((current) => ({ ...current, [plan.id]: !expanded }))
+          }}
+        >
+          {expanded ? 'Hide details' : 'Show details'}
+        </button>
+        {expanded && (
+          <div className="fm-plan-details">
+            <span>{plan.description}</span>
+            {!!plan.features?.length && (
+              <ul>{plan.features.map((feature) => <li key={feature}>{feature}</li>)}</ul>
+            )}
+          </div>
+        )}
+      </label>
+    )
+  }
+
   return (
     <main className="fm-auth">
       <div className="fm-auth-form">
@@ -98,6 +149,17 @@ export default function Register() {
                 </label>
               </div>
             </fieldset>
+
+            {accountType === 'personal' && (
+              <fieldset className="fm-fieldset">
+                <legend>Personal package</legend>
+                {listError && <p className="form-banner form-banner--error" role="alert">{listError}</p>}
+                {plans.length === 0 && !listError && <p className="fm-hint">Loading packages...</p>}
+                <div className="fm-plan-grid">
+                  {plans.filter((plan) => plan.kind === 'personal').map(renderPlanCard)}
+                </div>
+              </fieldset>
+            )}
 
             {accountType === 'organization' && (
               <fieldset className="fm-fieldset">
@@ -125,14 +187,7 @@ export default function Register() {
                       <span className="fm-legend">Package</span>
                       {plans.length === 0 && !listError && <p className="fm-hint">Loading packages...</p>}
                       <div className="fm-plan-grid">
-                        {plans.map((plan) => (
-                          <label key={plan.id} className={`fm-plan-card${planId === plan.id ? ' fm-plan-card--selected' : ''}`}>
-                            <input type="radio" name="planId" value={plan.id} checked={planId === plan.id} onChange={() => setPlanId(plan.id)} disabled={submitting} />
-                            <strong>{plan.name}</strong>
-                            <span>{plan.description}</span>
-                            <ul>{(plan.features || []).map((feature) => <li key={feature}>{feature}</li>)}</ul>
-                          </label>
-                        ))}
+                        {plans.filter((plan) => plan.kind !== 'personal').map(renderPlanCard)}
                       </div>
                     </div>
                   </>

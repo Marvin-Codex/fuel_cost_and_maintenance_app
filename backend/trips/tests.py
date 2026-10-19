@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import User
-from vehicles.models import Vehicle
+from vehicles.test_helpers import make_vehicle
 
 from .models import Trip
 
@@ -16,11 +16,11 @@ class TripAPITests(APITestCase):
     def setUp(self):
         self.owner = User.objects.create_user(username='trip-owner', password='test-pass-123')
         self.other = User.objects.create_user(username='trip-other', password='test-pass-123')
-        self.vehicle = Vehicle.objects.create(
-            owner=self.owner, name='Premio', license_plate='TRIP1', odometer_km=10000
+        self.vehicle = make_vehicle(
+            self.owner, name='Premio', license_plate='TRIP1', odometer_km=10000
         )
-        self.other_vehicle = Vehicle.objects.create(
-            owner=self.other, name='Hilux', license_plate='TRIP2', odometer_km=20000
+        self.other_vehicle = make_vehicle(
+            self.other, name='Hilux', license_plate='TRIP2', odometer_km=20000
         )
         self.client.force_authenticate(user=self.owner)
 

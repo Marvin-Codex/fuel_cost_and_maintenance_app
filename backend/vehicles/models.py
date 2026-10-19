@@ -22,6 +22,18 @@ class Vehicle(models.Model):
         on_delete=models.CASCADE,
         related_name='vehicles',
     )
+    # The tenant this vehicle belongs to (spec §2: vehicles belong to a
+    # workspace, not to a user). Null during the migration window only;
+    # new rows always get the active workspace server-side.
+    workspace = models.ForeignKey(
+        'access.Workspace',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='vehicles',
+    )
+    # Legacy tenant pointer. Kept (nullable) so the org->workspace data
+    # migration can map old rows; new code must use `workspace`.
     # Null means this is a personal vehicle. Organization vehicles are tenant-scoped.
     organization = models.ForeignKey(
         Organization,
@@ -29,6 +41,14 @@ class Vehicle(models.Model):
         null=True,
         blank=True,
         related_name='vehicles',
+    )
+    # Per-driver visibility for `assigned`-scope roles (spec: VehicleAssignment
+    # on the membership). Kept alongside the legacy assigned_drivers M2M
+    # during migration; new code uses VehicleAssignment.
+    assigned_memberships = models.ManyToManyField(
+        'access.Membership',
+        blank=True,
+        related_name='assigned_vehicles',
     )
     assigned_drivers = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
@@ -63,3 +83,34 @@ class Vehicle(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class VehicleAssignment(models.Model):
+    """Which vehicles a membership with scope `assigned` may see.
+
+    Canonical per spec §3 (lives in the vehicles app, points at
+    access.Membership). Mirrors the legacy `assigned_drivers` user M2M so old
+    driver rows keep working until removed.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    membership = models.ForeignKey(
+        'access.Membership',
+        on_delete=models.CASCADE,
+        related_name='vehicle_assignments',
+    )
+    vehicle = models.ForeignKey(
+        Vehicle,
+        on_delete=models.CASCADE,
+        related_name='assignments',
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['membership', 'vehicle'], name='one_assignment_per_pair'
+            )
+        ]
+
+    def __str__(self):
+        return f'{self.membership} → {self.vehicle}'

@@ -2,17 +2,19 @@
 // Set VITE_USE_MOCK_AUTH=true for a clearly marked offline demo that never
 // touches the network; otherwise all calls hit the Django backend.
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? '' : 'http://localhost:8000')
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_AUTH === 'true'
 
 const LOGIN_PATH = '/api/v1/auth/login/'
 const REGISTER_PATH = '/api/v1/auth/register/'
+const REFRESH_PATH = '/api/v1/auth/refresh/'
 const PLANS_PUBLIC_PATH = '/api/v1/auth/plans/public/'
 const ORGANIZATIONS_PUBLIC_PATH = '/api/v1/auth/organizations/public/'
 
 const ACCESS_TOKEN_KEY = 'fuelmaintenance.accessToken'
 const REFRESH_TOKEN_KEY = 'fuelmaintenance.refreshToken'
 const USER_KEY = 'fuelmaintenance.user'
+const ACTIVE_WORKSPACE_KEY = 'fuelmaintenance.activeWorkspace'
 const ORGANIZATIONS_PATH = '/api/v1/auth/organizations/'
 
 // "Remember me" off → sessionStorage so the session ends with the tab.
@@ -32,11 +34,13 @@ function readToken() {
   }
 }
 
-async function authenticatedGet(path) {
+async function authenticatedGet(path, workspaceId = null) {
   const token = readToken()
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
+  const headers = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+  // Scopes the request to one workspace; omitting it means "personal".
+  if (workspaceId) headers['X-Workspace'] = String(workspaceId)
+  const response = await fetch(`${API_BASE_URL}${path}`, { headers })
   if (!response.ok) throw new Error('Unable to load account information.')
   return response.json()
 }
@@ -143,7 +147,48 @@ export async function login(username, password, { remember = true } = {}) {
   if (data.access) storage(remember).setItem(ACCESS_TOKEN_KEY, data.access)
   if (data.refresh) storage(remember).setItem(REFRESH_TOKEN_KEY, data.refresh)
   if (data.user) storage(remember).setItem(USER_KEY, JSON.stringify(data.user))
+  // Clear any stale workspace choice from a previous user/session so the
+  // next access snapshot establishes the correct default for this user.
+  try {
+    localStorage.removeItem(ACTIVE_WORKSPACE_KEY)
+    sessionStorage.removeItem(ACTIVE_WORKSPACE_KEY)
+  } catch {
+    /* storage unavailable — nothing to clear */
+  }
   return data
+}
+
+/** Exchange the stored refresh token for a new access token. Returns the new access token or null on failure. */
+export async function refresh() {
+  const stored = readToken()
+  let refreshToken = null
+  try {
+    refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY) ?? sessionStorage.getItem(REFRESH_TOKEN_KEY)
+  } catch {
+    /* storage unavailable — nothing to read */
+  }
+  if (!stored || !refreshToken) return null
+  let response
+  try {
+    response = await fetch(`${API_BASE_URL}${REFRESH_PATH}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh: refreshToken }),
+    })
+  } catch {
+    return null
+  }
+  if (!response.ok) return null
+  const data = await response.json().catch(() => ({}))
+  if (data.access) {
+    try {
+      localStorage.setItem(ACCESS_TOKEN_KEY, data.access)
+      sessionStorage.setItem(ACCESS_TOKEN_KEY, data.access)
+    } catch {
+      /* storage unavailable — token not persisted */
+    }
+  }
+  return data.access ?? null
 }
 
 export function getStoredUser() {
@@ -166,9 +211,11 @@ export function logout() {
     localStorage.removeItem(ACCESS_TOKEN_KEY)
     localStorage.removeItem(REFRESH_TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
+    localStorage.removeItem(ACTIVE_WORKSPACE_KEY)
     sessionStorage.removeItem(ACCESS_TOKEN_KEY)
     sessionStorage.removeItem(REFRESH_TOKEN_KEY)
     sessionStorage.removeItem(USER_KEY)
+    sessionStorage.removeItem(ACTIVE_WORKSPACE_KEY)
   } catch {
     /* storage unavailable — nothing to clear */
   }

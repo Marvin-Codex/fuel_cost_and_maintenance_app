@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { APP_NAME, APP_DESCRIPTION } from '../config/brand'
+import { getPublicPlans } from '../api/auth'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import { Counter, EngineLine, Gauge, Reveal, RouteAnimation, SyncIndicator } from '../components/animations'
 import './Landing.css'
@@ -31,9 +32,73 @@ function FeatureIcon({ path }) {
   )
 }
 
+/** Friendly labels for plan entitlement codes shown on the marketing cards. */
+const FEATURE_LABELS = {
+  'vehicles.view': 'Vehicle records',
+  'fuel.view': 'Fuel & trip tracking',
+  'fuel.add': 'Log fill-ups',
+  'trips.add': 'Trip logging',
+  'maintenance.view': 'Maintenance history',
+  'analytics.view': 'Analytics dashboard',
+  'analytics.export': 'Export reports',
+  'predictions.use': 'Cost prediction (ML)',
+  'servicecentres.view': 'Service-centre finder',
+  'members.view': 'Team visibility',
+  'members.invite': 'Invite members',
+  'members.manage': 'Manage roles',
+  'workspace.manage': 'Workspace settings',
+  'billing.manage': 'Billing & subscriptions',
+}
+
+/** Curated highlights per plan kind so the marketing cards stay readable. */
+function highlightFeatures(plan) {
+  const codes = Array.isArray(plan?.features) ? plan.features : []
+  const picks = (plan?.kind === 'personal'
+    ? ['vehicles.view', 'fuel.view', 'maintenance.view', 'analytics.view', 'predictions.use']
+    : ['vehicles.view', 'members.view', 'members.invite', 'members.manage', 'analytics.view', 'predictions.use']
+  )
+  const labels = picks.filter((code) => codes.includes(code)).map((code) => FEATURE_LABELS[code])
+  const extras = codes.filter((code) => !picks.includes(code)).map((code) => FEATURE_LABELS[code]).filter(Boolean)
+  const items = [...labels, ...extras].filter(Boolean)
+  const seen = new Set()
+  return items.filter((label) => (seen.has(label) ? false : (seen.add(label), true))).slice(0, 6)
+}
+
+function formatLimit(value) {
+  if (value === null || value === undefined) return 'Unlimited'
+  return String(value)
+}
+
+/** Static cards mirroring backend/access/defaults.py; shown if the API is unreachable. */
+const FALLBACK_PACKAGES = [
+  { key: 'personal-free', title: 'Personal', text: 'Free. One person, one vehicle.', items: ['1 vehicle', '1 member', 'Vehicle records', 'Fuel & trip tracking', 'Maintenance history'] },
+  { key: 'personal-pro', title: 'Personal Pro', text: 'One person, more vehicles. Price grows with vehicle count (billing later).', items: ['5 vehicles', '1 member', 'Cost prediction (ML)', 'Export reports'] },
+  { key: 'group', title: 'Group', text: 'A family or small group sharing the same vehicles and statistics.', items: ['5 vehicles', '3 members', 'Team visibility', 'Manage roles'] },
+  { key: 'enterprise', title: 'Enterprise', text: 'Registered organization with roles. Limits are set per customer.', items: ['Unlimited vehicles', 'Unlimited members', 'Everything included'] },
+]
+
 export default function Landing() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [vehicle, setVehicle] = useState('car')
+  const [plans, setPlans] = useState([])
+  const [plansLoading, setPlansLoading] = useState(true)
+  useEffect(() => {
+    let cancelled = false
+    // Same public endpoint + pagination shape the registration page uses.
+    getPublicPlans()
+      .then((list) => {
+        if (cancelled) return
+        const items = Array.isArray(list) ? list : (list?.results || [])
+        setPlans(items)
+        setPlansLoading(false)
+      })
+      .catch(() => { if (!cancelled) { setPlans([]); setPlansLoading(false) } })
+    return () => { cancelled = true }
+  }, [])
+  const liveGroups = [
+    { heading: 'For individuals', plans: plans.filter((plan) => plan.kind === 'personal') },
+    { heading: 'For teams & organizations', plans: plans.filter((plan) => plan.kind !== 'personal') },
+  ].filter((group) => group.plans.length > 0)
   return (
     <main className="fm-landing" id="top">
       <nav className="fm-nav" aria-label="Primary">
@@ -379,13 +444,42 @@ export default function Landing() {
       <section className="fm-section" id="packages" aria-labelledby="packages-title">
         <div className="fm-wrap">
           <Reveal>
-            <p className="fm-eyebrow">Access</p>
-            <h2 id="packages-title">Features unlock through organization packages.</h2>
-            <p className="fm-muted">Contact us for fleet pricing — packages grant dashboard features per organization while subscriptions stay active.</p>
+            <p className="fm-eyebrow">Packages</p>
+            <h2 id="packages-title">One package per workspace — the plan is the ceiling.</h2>
+            <p className="fm-muted">Pick a personal package for yourself, or a team package when you register an organization. {plansLoading ? 'Loading live packages…' : 'Live from the server — the same packages you choose at sign-up.'}</p>
           </Reveal>
-          <div className="fm-grid fm-grid--3">
-            {[['Essentials', 'Core tracking for owners.', ['Vehicle records', 'Fuel & trip tracking', 'Maintenance history']], ['Fleet', 'Shared visibility for teams.', ['Everything in Essentials', 'Organization roles', 'Package-based access']], ['Scale', 'For growing operations.', ['Time-limited subscriptions', 'Central access', 'Expanding fleets']]].map(([title, text, items], i) => (
-              <Reveal as="article" key={title} delay={i % 3} className={`fm-card fm-card--lift fm-package${i === 1 ? ' fm-package--hot' : ''}`}>
+          <div className="fm-packages" role="list">
+            {plansLoading && (
+              <Reveal as="article" className="fm-card fm-package" aria-label="Loading packages">
+                <div className="fm-package-top"><h3>Loading packages…</h3></div>
+                <p className="fm-muted">Fetching the latest packages from the server.</p>
+              </Reveal>
+            )}
+            {!plansLoading && liveGroups.map((group) => (
+              <div key={group.heading} className="fm-package-group" role="list">
+                <p className="fm-package-group-heading">{group.heading}</p>
+                {group.plans.map((plan) => {
+                  const popular = plan.key === 'personal-pro' || plan.key === 'group'
+                  const accountType = plan.kind === 'personal' ? 'personal' : 'organization'
+                  return (
+                    <Reveal as="article" key={plan.key || plan.id} className={`fm-card fm-card--lift fm-package${popular ? ' fm-package--hot' : ''}`}>
+                      <div className="fm-package-top">
+                        <h3>{plan.name}</h3>
+                        {popular && <span className="fm-badge fm-badge--accent">Popular</span>}
+                      </div>
+                      <p className="fm-muted">{plan.description}</p>
+                      <ul>
+                        <li>{formatLimit(plan.limits?.vehicles)} {Number(plan.limits?.vehicles) === 1 ? 'vehicle' : 'vehicles'} · {formatLimit(plan.limits?.members)} {Number(plan.limits?.members) === 1 ? 'member' : 'members'}</li>
+                        {highlightFeatures(plan).map((item) => <li key={item}>{item}</li>)}
+                      </ul>
+                      <Link className={`fm-btn ${popular ? 'fm-btn--primary' : 'fm-btn--ghost'}`} to={`/register?account=${accountType}&plan=${encodeURIComponent(plan.id)}`}>Start with {plan.name}</Link>
+                    </Reveal>
+                  )
+                })}
+              </div>
+            ))}
+            {!plansLoading && liveGroups.length === 0 && FALLBACK_PACKAGES.map(({ key, title, text, items }, i) => (
+              <Reveal as="article" key={key} className={`fm-card fm-card--lift fm-package${i === 1 ? ' fm-package--hot' : ''}`}>
                 <div className="fm-package-top"><h3>{title}</h3>{i === 1 && <span className="fm-badge fm-badge--accent">Popular</span>}</div>
                 <p className="fm-muted">{text}</p>
                 <ul>{items.map((item) => <li key={item}>{item}</li>)}</ul>
@@ -403,7 +497,7 @@ export default function Landing() {
             <h2 id="faq-title">Questions, answered.</h2>
           </Reveal>
           <div className="fm-faq">
-            {[['Does it work offline?', 'Yes. The app shell loads from cache, records save on-device first (Dexie on web, SQLite on mobile), and everything syncs when you are back online. Sign-in needs the network the first time.'], ['Do I need an OBD-II adapter?', 'No. Telemetry lights up when you connect one; fuel, trips and maintenance work fully without hardware.'], ['Cars and motorcycles?', 'Both. Fuel in litres, distances in km, consumption in L/100 km and UGX costs work for any vehicle with an odometer.'], ['How do teams work?', 'Organizations group vehicles and members with roles from owner to viewer; packages unlock features per organization.'], ['Is my data private?', 'Every API call needs JWT auth and is scoped to you — clients never supply an owner id.']].map(([q, a]) => (
+            {[['Does it work offline?', 'Yes. The app shell loads from cache, records save on-device first (Dexie on web, SQLite on mobile), and everything syncs when you are back online. Sign-in needs the network the first time.'], ['Do I need an OBD-II adapter?', 'No. Telemetry lights up when you connect one; fuel, trips and maintenance work fully without hardware.'], ['Cars and motorcycles?', 'Both. Fuel in litres, distances in km, consumption in L/100 km and UGX costs work for any vehicle with an odometer.'], ['How do packages work?', 'Every workspace has one package: personal packages for individuals (Personal, Personal Pro), team packages for groups and organizations (Group, Enterprise). The package sets vehicle and member limits; roles decide what each person can do.'], ['Is my data private?', 'Every API call needs JWT auth and is scoped to you — clients never supply an owner id.']].map(([q, a]) => (
               <details key={q} className="fm-card"><summary>{q}</summary><p className="fm-muted">{a}</p></details>
             ))}
           </div>

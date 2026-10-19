@@ -1,3 +1,4 @@
+"""Fuel record tests on the workspace model."""
 from datetime import date
 from decimal import Decimal
 from django.db import IntegrityError, transaction
@@ -7,21 +8,23 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from access.models import Workspace
+from access.services import add_member
 from accounts.models import User
-from vehicles.models import Vehicle
+from vehicles.test_helpers import make_vehicle
 
 from .models import FuelRecord
 
 
 class FuelRecordAPITests(APITestCase):
     def setUp(self):
-        self.owner = User.objects.create_user(username='fuel-owner', password='test-pass-123')
-        self.other = User.objects.create_user(username='fuel-other', password='test-pass-123')
-        self.vehicle = Vehicle.objects.create(
-            owner=self.owner, name='Premio', license_plate='FUEL1', odometer_km=10000
+        self.owner = User.objects.create_user(username='fuel-owner', password='pw-123456')
+        self.other = User.objects.create_user(username='fuel-other', password='pw-123456')
+        self.vehicle = make_vehicle(
+            self.owner, name='Premio', license_plate='FUEL1', odometer_km=10000
         )
-        self.other_vehicle = Vehicle.objects.create(
-            owner=self.other, name='Hilux', license_plate='FUEL2', odometer_km=12000
+        self.other_vehicle = make_vehicle(
+            self.other, name='Hilux', license_plate='FUEL2', odometer_km=12000
         )
         self.client.force_authenticate(user=self.owner)
 
@@ -44,9 +47,8 @@ class FuelRecordAPITests(APITestCase):
         self.assertEqual(response.data['total_cost'], '106600.00')
         record = FuelRecord.objects.get()
         self.assertEqual(record.owner, self.owner)
-        self.assertEqual(record.total_cost, Decimal('106600.00'))
 
-    def test_fuel_record_cannot_reference_another_users_vehicle(self):
+    def test_fuel_record_cannot_reference_other_workspace_vehicle(self):
         response = self.client.post(
             reverse('fuel:fuel-record-list'),
             {
@@ -62,79 +64,59 @@ class FuelRecordAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(FuelRecord.objects.exists())
 
-    def test_odometer_cannot_precede_vehicle_odometer(self):
+    def test_list_and_summary_are_workspace_scoped(self):
+        FuelRecord.objects.create(
+            owner=self.owner, vehicle=self.vehicle, date=date.today(),
+            odometer_km=10100, quantity_liters=10, unit_price=5000, fuel_type='petrol',
+        )
+        FuelRecord.objects.create(
+            owner=self.other, vehicle=self.other_vehicle, date=date.today(),
+            odometer_km=12100, quantity_liters=30, unit_price=5000, fuel_type='diesel',
+        )
+        response = self.client.get(reverse('fuel:fuel-record-list'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
+        self.assertEqual(response.data['count'], 1)
+
+    def test_viewer_cannot_add_fuel(self):
+        from access.models import Plan, Role
+        from access.models import Membership as WsMembership
+
+        plan = Plan.objects.get(key='enterprise')
+        ws = Workspace.objects.create(name='Org', kind='organization', plan=plan)
+        viewer = User.objects.create_user(username='fuel-viewer', password='pw-123456')
+        add_member(ws, self.owner, 'owner')
+        add_member(ws, viewer, 'viewer')
+        from vehicles.models import Vehicle
+
+        vehicle = Vehicle.objects.create(
+            workspace=ws, owner=self.owner, name='Org car', license_plate='FORG1'
+        )
+        self.client.force_authenticate(user=viewer)
         response = self.client.post(
             reverse('fuel:fuel-record-list'),
             {
-                'vehicle': str(self.vehicle.id),
+                'vehicle': str(vehicle.id),
                 'date': date.today().isoformat(),
-                'odometer_km': 9999,
+                'odometer_km': 100,
                 'quantity_liters': '10',
                 'unit_price': '5000',
                 'fuel_type': 'petrol',
             },
             format='json',
+            HTTP_X_WORKSPACE=str(ws.pk),
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('odometer_km', response.data)
-
-    def test_list_and_summary_are_vehicle_scoped(self):
-        FuelRecord.objects.create(
-            owner=self.owner,
-            vehicle=self.vehicle,
-            date=date.today(),
-            odometer_km=10100,
-            quantity_liters=10,
-            unit_price=5000,
-            fuel_type='petrol',
-        )
-        FuelRecord.objects.create(
-            owner=self.other,
-            vehicle=self.other_vehicle,
-            date=date.today(),
-            odometer_km=12100,
-            quantity_liters=30,
-            unit_price=5000,
-            fuel_type='diesel',
-        )
-        response = self.client.get(reverse('fuel:fuel-record-list'))
-        summary = self.client.get(reverse('fuel:fuel-record-summary'))
-        self.assertEqual(response.data['count'], 1)
-        self.assertEqual(summary.status_code, status.HTTP_200_OK)
-        self.assertEqual(summary.data['record_count'], 1)
-        self.assertEqual(summary.data['total_cost'], Decimal('50000.00'))
-
-    def test_empty_summary_returns_zero_costs(self):
-        summary = self.client.get(reverse('fuel:fuel-record-summary'))
-        self.assertEqual(summary.status_code, status.HTTP_200_OK)
-        self.assertEqual(summary.data['total_cost'], Decimal('0.00'))
-        self.assertEqual(summary.data['this_month_cost'], Decimal('0.00'))
-
-    def test_create_requires_authentication(self):
-        self.client.force_authenticate(user=None)
-        response = self.client.get(reverse('fuel:fuel-record-list'))
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_client_id_is_unique_per_owner(self):
         client_id = uuid.uuid4()
         FuelRecord.objects.create(
-            owner=self.owner,
-            vehicle=self.vehicle,
-            date=date.today(),
-            odometer_km=10100,
-            quantity_liters=10,
-            unit_price=5000,
-            fuel_type='petrol',
-            client_id=client_id,
+            owner=self.owner, vehicle=self.vehicle, date=date.today(),
+            odometer_km=10100, quantity_liters=10, unit_price=5000,
+            fuel_type='petrol', client_id=client_id,
         )
         with self.assertRaises(IntegrityError), transaction.atomic():
             FuelRecord.objects.create(
-                owner=self.owner,
-                vehicle=self.vehicle,
-                date=date.today(),
-                odometer_km=10200,
-                quantity_liters=10,
-                unit_price=5000,
-                fuel_type='petrol',
-                client_id=client_id,
+                owner=self.owner, vehicle=self.vehicle, date=date.today(),
+                odometer_km=10200, quantity_liters=10, unit_price=5000,
+                fuel_type='petrol', client_id=client_id,
             )

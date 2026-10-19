@@ -27,6 +27,13 @@
 .trip-current-details { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 9px; margin-top: 17px; padding: 11px 0; border-top: 1px solid #2a3955; border-bottom: 1px solid #2a3955; color: #aebbd0; font-size: 8px; }
 .trip-current-details span { display: grid; gap: 5px; }
 .trip-current-details b { color: #e5f3ff; font-size: 9px; font-weight: 400; }
+.route-map { margin-top: 12px; height: 140px; border: 1px solid #2a3955; border-radius: 7px; background: #0f172a; overflow: hidden; position: relative; }
+.route-svg { width: 100%; height: 100%; display: block; }
+.route-map-hint { margin-top: 6px; color: #9aa8c5; font-size: 8px; text-align: center; }
+.trip-current-inputs { margin-top: 14px; display: grid; gap: 8px; }
+.trip-current-inputs label { display: grid; gap: 4px; font-size: 8px; color: #aebbd0; }
+.trip-current-inputs input { padding: 7px 9px; border: 1px solid #2c3b57; border-radius: 5px; background: #0f172a; color: #f0f4ff; font-size: 9px; }
+.trip-current-inputs input:focus { outline: none; border-color: var(--cyan); }
 .trip-toggle-button { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 39px; margin-top: 13px; padding: 10px; border: 1px solid transparent; border-radius: 5px; font: 700 9px 'Space Mono', monospace; cursor: pointer; }
 .trip-toggle-button.end { color: #ffe8e5; border-color: #763b40; background: #42252d; }
 .trip-toggle-button.end:hover { background: #593039; }
@@ -34,6 +41,21 @@
 .trip-toggle-button.start:hover { background: #7ae8fa; }
 .trip-idle-copy { margin-top: 14px; color: #aebbd0; font-size: 10px; line-height: 1.5; }
 .trip-notice { padding: 10px 12px; border: 1px solid #2d624e; border-radius: 6px; color: #71e5ad; background: #142820; font-size: 9px; }
+.trip-notice button { margin-left: 6px; padding: 3px 8px; border: 1px solid currentColor; border-radius: 4px; color: inherit; background: transparent; font-size: 8px; cursor: pointer; }
+.trip-notice:not(.success) { border-color: #725530; color: #f4d9ac; background: #2a241d; }
+.trips-empty { margin: 10px 0; color: #9aa8c5; font-size: 10px; line-height: 1.5; }
+.trips-add-toggle { margin-left: auto; padding: 8px 12px; border: 1px solid var(--cyan); border-radius: 5px; color: var(--cyan); background: #101a2d; font: 10px 'Space Mono', monospace; white-space: nowrap; cursor: pointer; }
+.trips-add-toggle:hover { background: #16233a; }
+.trip-add-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 13px; }
+.trip-add-form label { display: grid; gap: 5px; color: #c4cede; font-size: 10px; }
+.trip-add-form input,
+.trip-add-form textarea { padding: 8px 9px; border: 1px solid #35425b; border-radius: 4px; outline: none; color: #f0f4ff; background: #101a2d; font: 12px 'Space Mono', monospace; color-scheme: dark; }
+.trip-add-form input:focus-visible,
+.trip-add-form textarea:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.trip-form-wide { grid-column: 1 / -1; }
+.trip-save-button { grid-column: 1 / -1; padding: 10px; border: 0; border-radius: 5px; color: #07101f; background: var(--cyan); font: 600 12px 'Space Mono', monospace; cursor: pointer; }
+.trip-save-button:disabled { opacity: .6; cursor: wait; }
+.comparison-tag.worse { color: #f4d9ac; background: #2a241d; }
 .route-distance { color: var(--cyan); font: 600 16px 'Barlow Condensed', sans-serif; }
 .route-map { position: relative; height: 176px; margin-top: 13px; overflow: hidden; border: 1px solid #293a53; border-radius: 6px; background: linear-gradient(140deg, #17283a, #172235 60%, #1a2b36); }
 .map-grid { position: absolute; inset: 0; opacity: .52; background-image: linear-gradient(24deg, transparent 47%, #34465a 48%, #34465a 49%, transparent 50%), linear-gradient(111deg, transparent 47%, #2a3c50 48%, #2a3c50 49%, transparent 50%), linear-gradient(75deg, transparent 47%, #26394c 48%, #26394c 49%, transparent 50%); background-size: 92px 68px, 118px 72px, 160px 90px; }
@@ -115,11 +137,13 @@
   .trip-notice,
   .trip-statistics,
   .trips-demo-note { grid-column: 1 / -1; }
+  .trip-add-panel { grid-column: 1 / -1; }
   .current-trip-panel { grid-column: 1 / -1; }
   .route-map { height: 250px; }
 }
 @media (max-width: 400px) {
   .trips-panel { padding: 12px; }
+  .trip-add-form { grid-template-columns: 1fr; }
   .current-trip-metrics { gap: 5px; }
   .trip-metric > span { font-size: 7px; }
   .trip-current-details { font-size: 7px; }

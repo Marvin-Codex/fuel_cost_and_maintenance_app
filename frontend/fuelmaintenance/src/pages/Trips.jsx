@@ -1,107 +1,347 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { createTrip, fetchTripSummary, listTrips } from '../api/resources'
 import './Trips.css'
 
-const initialTrips = [
-  {
-    id: 1,
-    date: 'Today',
-    start: 'Kampala',
-    destination: 'Entebbe',
-    distance: 32.4,
-    duration: '48 min',
-    avgSpeed: 52,
-    maxSpeed: 86,
-    fuel: 2.7,
-    rpm: 2180,
-    maxRpm: 3920,
-    engineLoad: 38,
-  },
-  {
-    id: 2,
-    date: 'Yesterday',
-    start: 'Entebbe',
-    destination: 'Kampala',
-    distance: 34.1,
-    duration: '52 min',
-    avgSpeed: 48,
-    maxSpeed: 82,
-    fuel: 3.1,
-    rpm: 2260,
-    maxRpm: 4050,
-    engineLoad: 41,
-  },
-  {
-    id: 3,
-    date: '02 Oct',
-    start: 'Kampala',
-    destination: 'Jinja',
-    distance: 82.6,
-    duration: '1h 42m',
-    avgSpeed: 49,
-    maxSpeed: 91,
-    fuel: 6.8,
-    rpm: 2340,
-    maxRpm: 4180,
-    engineLoad: 44,
-  },
-]
-
-const fuelPrice = 5200
-const yesterdayTrip = initialTrips.find((trip) => trip.date === 'Yesterday')
-
 function formatUgx(value) {
-  return `UGX ${Math.round(value).toLocaleString('en-UG')}`
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '—'
+  return `UGX ${Math.round(number).toLocaleString('en-UG')}`
 }
 
-function TripMetric({ label, value, detail }) {
-  return (
-    <article className="trip-metric">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      {detail && <small>{detail}</small>}
-    </article>
-  )
+function formatDuration(seconds) {
+  const total = Number(seconds)
+  if (!Number.isFinite(total) || total <= 0) return '—'
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.round((total % 3600) / 60)
+  if (hours && minutes) return `${hours}h ${minutes}m`
+  if (hours) return `${hours}h`
+  return `${minutes} min`
 }
 
-export default function Trips({ onBack, vehicle }) {
-  const [isActive, setIsActive] = useState(true)
-  const [trips, setTrips] = useState(initialTrips)
-  const [expandedTrip, setExpandedTrip] = useState(null)
-  const [notice, setNotice] = useState('')
+function formatDateTime(value) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
 
-  const currentTrip = {
-    start: 'Kampala',
-    destination: 'Entebbe',
-    distance: 32.4,
-    duration: '48 min',
-    avgSpeed: 52,
-    maxSpeed: 86,
-    fuel: 2.7,
+function localDateTimeValue(date) {
+  const pad = (part) => String(part).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function tripConsumption(trip) {
+  const liters = Number(trip.fuel_consumed_liters)
+  const km = Number(trip.distance_km)
+  if (Number.isFinite(liters) && Number.isFinite(km) && km > 0) return (liters / km) * 100
+  return null
+}
+
+function dayKey(value) {
+  return String(value ?? '').slice(0, 10)
+}
+
+function summarizeTrips(rows) {
+  const distances = rows.map((trip) => Number(trip.distance_km)).filter(Number.isFinite)
+  const fuels = rows.map((trip) => Number(trip.fuel_consumed_liters)).filter(Number.isFinite)
+  const durations = rows.map((trip) => Number(trip.duration_seconds)).filter(Number.isFinite)
+  const consumptions = rows.map(tripConsumption).filter(Number.isFinite)
+  const sum = (values) => values.reduce((total, value) => total + value, 0)
+  return {
+    count: rows.length,
+    distance: distances.length ? sum(distances) : null,
+    fuel: fuels.length ? sum(fuels) : null,
+    duration: durations.length ? sum(durations) : null,
+    consumption: consumptions.length ? sum(consumptions) / consumptions.length : null,
   }
-  const currentCost = currentTrip.fuel * fuelPrice
+}
 
-  function toggleTrip() {
-    if (isActive) {
-      const completedTrip = {
-        id: Date.now(),
-        date: 'Just now',
-        ...currentTrip,
-        rpm: 2180,
-        maxRpm: 3920,
-        engineLoad: 38,
+export default function Trips({ onBack, vehicle, access }) {
+  const vehicleId = vehicle?.rawId ?? vehicle?.id ?? null
+  const [trips, setTrips] = useState([])
+  const [summary, setSummary] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [expandedTrip, setExpandedTrip] = useState(null)
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState(null)
+  const [savedMessage, setSavedMessage] = useState('')
+  const [form, setForm] = useState(() => {
+    const now = new Date()
+    const earlier = new Date(now.getTime() - 60 * 60 * 1000)
+    return {
+      start_location: '',
+      destination: '',
+      started_at: localDateTimeValue(earlier),
+      ended_at: localDateTimeValue(now),
+      distance_km: '',
+      fuel_consumed_liters: '',
+      fuel_price_per_liter: '',
+      notes: '',
+    }
+  })
+
+  const canAddTrips = Boolean(access?.can('trips.add'))
+
+  /* ── Real-time GPS trip recording ── */
+  const [isRecording, setIsRecording] = useState(false)
+  const [tripPoints, setTripPoints] = useState([])
+  const [tripWatchId, setTripWatchId] = useState(null)
+  const [tripStartTime, setTripStartTime] = useState(null)
+  const [tripDestination, setTripDestination] = useState('')
+  const [tripStartLocation, setTripStartLocation] = useState('')
+  const [tripRecordingError, setTripRecordingError] = useState(null)
+
+  const EARTH_RADIUS_KM = 6371
+
+  /** Geolocation gives DOMHighResTimeStamp; older code/points may be epoch ms, undefined, or 0. */
+  function toTripISO(value) {
+    return toTripISOTime(value).toISOString()
+  }
+
+  function toTripISOTime(value) {
+    const now = Date.now()
+    const boot = now - (typeof performance !== 'undefined' ? performance.now() : 0)
+    if (!Number.isFinite(value) || value <= 0) return new Date(now)
+    // Epoch milliseconds (>= year 2001) convert directly; anything smaller is high-res relative to boot.
+    if (value > 1e12) return new Date(value)
+    return new Date(boot + value)
+  }
+
+  function haversineDistance(lat1, lon1, lat2, lon2) {
+    const toRad = (deg) => (deg * Math.PI) / 180
+    const dLat = toRad(lat2 - lat1)
+    const dLon = toRad(lon2 - lon1)
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+    return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(a))
+  }
+
+  function formatDistance(km) {
+    const n = Number(km)
+    if (!Number.isFinite(n)) return '—'
+    return n.toFixed(2)
+  }
+
+  function formatSpeed(kmh) {
+    const n = Number(kmh)
+    if (!Number.isFinite(n)) return '—'
+    return n.toFixed(0)
+  }
+
+  function startTrip() {
+    if (!navigator.geolocation) {
+      setTripRecordingError('Geolocation is not available in this browser.')
+      return
+    }
+    setTripRecordingError(null)
+    setTripPoints([])
+    setTripStartTime(Date.now())
+    setIsRecording(true)
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords
+        setTripPoints((prev) => [...prev, { latitude, longitude, timestamp: pos.timestamp }])
+      },
+      (err) => {
+        setTripRecordingError(err.message || 'Unable to access GPS.')
+        setIsRecording(false)
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
+    )
+    setTripWatchId(watchId)
+  }
+
+  async function stopTrip() {
+    if (tripWatchId !== null) {
+      navigator.geolocation.clearWatch(tripWatchId)
+      setTripWatchId(null)
+    }
+
+    if (!vehicleId || tripPoints.length < 2) {
+      setIsRecording(false)
+      setTripRecordingError('Not enough GPS points recorded to save a trip.')
+      return
+    }
+
+    const start = tripPoints[0]
+    const end = tripPoints[tripPoints.length - 1]
+    let totalDistance = 0
+    for (let i = 1; i < tripPoints.length; i++) {
+      totalDistance += haversineDistance(
+        tripPoints[i - 1].latitude,
+        tripPoints[i - 1].longitude,
+        tripPoints[i].latitude,
+        tripPoints[i].longitude,
+      )
+    }
+    const startTimeMs = toTripISOTime(start.timestamp).getTime()
+    const endTimeMs = toTripISOTime(end.timestamp).getTime()
+    const durationSeconds = Math.max(0, (endTimeMs - startTimeMs) / 1000)
+    // Keep end strictly after start — backend validates ended_at > started_at.
+    const startedAt = toTripISO(start.timestamp)
+    let endedAt = toTripISO(end.timestamp)
+    if (endedAt <= startedAt) {
+      endedAt = new Date(toTripISOTime(start.timestamp).getTime() + 1000).toISOString()
+    }
+
+    setSaving(true)
+    try {
+      const gpsSummary = tripPoints.length
+        ? `${tripPoints.length} GPS points tracked this session.`
+        : ''
+      const payload = {
+        vehicle: vehicleId,
+        start_location: tripStartLocation.trim() || 'GPS start',
+        destination: tripDestination.trim() || 'Free destination',
+        started_at: startedAt,
+        ended_at: endedAt,
+        distance_km: Math.round(totalDistance * 100) / 100,
       }
-      setTrips((current) => [completedTrip, ...current])
-      setNotice('Trip ended and added to your trip history.')
-      setIsActive(false)
-    } else {
-      setNotice('New simulated trip started from Kampala.')
-      setIsActive(true)
+      if (gpsSummary) payload.notes = gpsSummary
+      await createTrip(payload)
+      const [rows, tripSummary] = await Promise.all([
+        listTrips({ vehicle: vehicleId }),
+        fetchTripSummary({ vehicle: vehicleId }),
+      ])
+      setTrips(rows)
+      setSummary(tripSummary)
+      setSavedMessage(
+        `${tripStartLocation || 'GPS start'} → ${tripDestination || 'Free destination'} recorded (${formatDistance(totalDistance)} km).`,
+      )
+    } catch (err) {
+      setTripRecordingError(err.message || 'Failed to save GPS trip.')
+    } finally {
+      setSaving(false)
+      setIsRecording(false)
+      setTripPoints([])
+      setTripStartTime(null)
+      setTripDestination('')
+      setTripStartLocation('')
+      setTripWatchId(null)
     }
   }
 
-  const todayEfficiency = currentTrip.fuel / currentTrip.distance * 100
-  const yesterdayEfficiency = yesterdayTrip.fuel / yesterdayTrip.distance * 100
-  const efficiencyGain = Math.round((yesterdayEfficiency - todayEfficiency) / yesterdayEfficiency * 100)
+  useEffect(() => {
+    return () => {
+      if (tripWatchId !== null) {
+        navigator.geolocation.clearWatch(tripWatchId)
+      }
+    }
+  }, [tripWatchId])
+
+  const totalDistanceKm = useMemo(() => {
+    let d = 0
+    for (let i = 1; i < tripPoints.length; i++) {
+      d += haversineDistance(
+        tripPoints[i - 1].latitude,
+        tripPoints[i - 1].longitude,
+        tripPoints[i].latitude,
+        tripPoints[i].longitude,
+      )
+    }
+    return d
+  }, [tripPoints])
+
+  const currentDurationSeconds = useMemo(() => {
+    if (!tripStartTime || tripPoints.length === 0) return 0
+    return (Date.now() - tripStartTime) / 1000
+  }, [tripStartTime, tripPoints.length])
+
+  const currentAvgSpeed = useMemo(() => {
+    const hours = currentDurationSeconds / 3600
+    return hours > 0 ? totalDistanceKm / hours : 0
+  }, [totalDistanceKm, currentDurationSeconds])
+
+  useEffect(() => {
+    if (!vehicleId) {
+      setTrips([])
+      setSummary(null)
+      setLoading(false)
+      return undefined
+    }
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    Promise.all([listTrips({ vehicle: vehicleId }), fetchTripSummary({ vehicle: vehicleId })])
+      .then(([rows, tripSummary]) => {
+        if (cancelled) return
+        setTrips(rows)
+        setSummary(tripSummary)
+        setLoading(false)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(err.message)
+        setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [vehicleId, reloadKey])
+
+  const orderedTrips = useMemo(
+    () => [...trips].sort((a, b) => String(b.started_at || b.created_at).localeCompare(String(a.started_at || a.created_at))),
+    [trips],
+  )
+
+  const todayTrips = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    return orderedTrips.filter((trip) => dayKey(trip.started_at) === today)
+  }, [orderedTrips])
+  const yesterdayTrips = useMemo(() => {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    return orderedTrips.filter((trip) => dayKey(trip.started_at) === yesterday)
+  }, [orderedTrips])
+  const todayStats = summarizeTrips(todayTrips)
+  const yesterdayStats = summarizeTrips(yesterdayTrips)
+  const comparisonReady = todayStats.count > 0 && yesterdayStats.count > 0
+  const efficiencyGain = comparisonReady && yesterdayStats.consumption && todayStats.consumption
+    ? Math.round(((yesterdayStats.consumption - todayStats.consumption) / yesterdayStats.consumption) * 100)
+    : null
+
+  function updateForm(event) {
+    setForm((current) => ({ ...current, [event.target.name]: event.target.value }))
+  }
+
+  async function saveTrip(event) {
+    event.preventDefault()
+    setFormError(null)
+    if (!vehicleId) {
+      setFormError('Select a vehicle before logging a trip.')
+      return
+    }
+    const payload = {
+      vehicle: vehicleId,
+      start_location: form.start_location.trim(),
+      destination: form.destination.trim(),
+      started_at: form.started_at,
+      ended_at: form.ended_at,
+      distance_km: Number(form.distance_km),
+    }
+    if (Number(form.fuel_consumed_liters) > 0) payload.fuel_consumed_liters = Number(form.fuel_consumed_liters)
+    if (Number(form.fuel_price_per_liter) > 0) payload.fuel_price_per_liter = Number(form.fuel_price_per_liter)
+    if (form.notes.trim()) payload.notes = form.notes.trim()
+    setSaving(true)
+    try {
+      await createTrip(payload)
+      const [rows, tripSummary] = await Promise.all([
+        listTrips({ vehicle: vehicleId }),
+        fetchTripSummary({ vehicle: vehicleId }),
+      ])
+      setTrips(rows)
+      setSummary(tripSummary)
+      setSavedMessage(`${payload.start_location} → ${payload.destination} recorded.`)
+      setForm((current) => ({ ...current, distance_km: '', fuel_consumed_liters: '', notes: '' }))
+      setIsFormOpen(false)
+    } catch (err) {
+      setFormError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <section className="trips-view" aria-labelledby="trips-title">
@@ -114,114 +354,246 @@ export default function Trips({ onBack, vehicle }) {
         <div>
           <p className="trips-eyebrow">VEHICLE JOURNEYS</p>
           <h2 id="trips-title">Trips</h2>
-          <p className="trips-vehicle">{vehicle ? `${vehicle.make} ${vehicle.model} · ${vehicle.registration}` : 'Toyota Premio · UBA 123A'}</p>
+          <p className="trips-vehicle">{vehicle ? `${vehicle.make} ${vehicle.model} · ${vehicle.registration}` : 'Select a vehicle to see trips'}</p>
         </div>
-        <span className={`trip-live-pill ${isActive ? 'active' : 'stopped'}`}><i /> {isActive ? 'LIVE' : 'IDLE'}</span>
+        {canAddTrips && (
+          <button className="trips-add-toggle" type="button" onClick={() => { setIsFormOpen((open) => !open); setSavedMessage(''); setFormError(null) }}>
+            {isFormOpen ? '− CANCEL' : '+ LOG TRIP'}
+          </button>
+        )}
       </header>
 
-      {notice && <p className="trip-notice" role="status">{notice}</p>}
-
-      <section className="trips-panel current-trip-panel" aria-labelledby="current-trip-title">
-        <div className="trips-section-heading">
-          <div>
-            <p className="trips-eyebrow">CURRENT TRIP</p>
-            <h3 id="current-trip-title">{isActive ? `${currentTrip.start} → ${currentTrip.destination}` : 'No active trip'}</h3>
-          </div>
-          <span className={`trip-state ${isActive ? 'active' : 'stopped'}`}><i /> {isActive ? 'ACTIVE' : 'ENDED'}</span>
-        </div>
-        {isActive ? (
-          <>
-            <div className="current-trip-metrics">
-              <TripMetric label="DISTANCE" value={`${currentTrip.distance} km`} />
-              <TripMetric label="DURATION" value={currentTrip.duration} />
-              <TripMetric label="AVG SPEED" value={`${currentTrip.avgSpeed} km/h`} />
+      {isRecording && (
+        <section className="trips-panel current-trip-panel" aria-label="Current trip recording">
+          <div className="trips-section-heading">
+            <div>
+              <p className="trips-eyebrow">LIVE GPS TRIP</p>
+              <h3>Trip in progress</h3>
             </div>
-            <div className="trip-current-details">
-              <span>MAX SPEED <b>{currentTrip.maxSpeed} km/h</b></span>
-              <span>FUEL USED <b>{currentTrip.fuel.toFixed(1)} L</b></span>
-              <span>ARRIVAL <b>11:48 AM</b></span>
+            <span className={`trip-state ${isRecording ? 'active' : 'stopped'}`}>
+              <i /> {isRecording ? 'RECORDING' : 'STOPPED'}
+            </span>
+          </div>
+
+          {tripRecordingError && (
+            <p className="trip-notice" role="alert">{tripRecordingError}</p>
+          )}
+
+          <div className="route-map">
+            <svg viewBox="0 0 100 100" className="route-svg" aria-hidden="true">
+              {tripPoints.length > 0 && (
+                <polyline
+                  points={tripPoints
+                    .map((p) => `${p.latitude % 1000},${p.longitude % 1000}`)
+                    .join(' ')}
+                  fill="none"
+                  stroke="var(--cyan)"
+                  strokeWidth="2"
+                />
+              )}
+              {tripPoints.length > 0 && (
+                <circle
+                  cx={tripPoints[0].latitude % 1000}
+                  cy={tripPoints[0].longitude % 1000}
+                  r="3"
+                  fill="#4fe1a5"
+                />
+              )}
+              {tripPoints.length > 0 && (
+                <circle
+                  cx={tripPoints[tripPoints.length - 1].latitude % 1000}
+                  cy={tripPoints[tripPoints.length - 1].longitude % 1000}
+                  r="3"
+                  fill="#ff4d4f"
+                />
+              )}
+            </svg>
+            <p className="route-map-hint">
+              {tripPoints.length} GPS point{tripPoints.length === 1 ? '' : 's'} captured
+            </p>
+          </div>
+
+          <div className="current-trip-metrics">
+            <div className="trip-metric">
+              <span>DISTANCE</span>
+              <strong>{formatDistance(totalDistanceKm)}</strong>
+              <small>KM</small>
             </div>
-          </>
-        ) : (
-          <p className="trip-idle-copy">Start a simulated trip to begin tracking distance, time, speed and fuel use.</p>
-        )}
-        <button className={`trip-toggle-button ${isActive ? 'end' : 'start'}`} type="button" onClick={toggleTrip}>
-          {isActive ? 'END TRIP' : 'START TRIP'}
-        </button>
-      </section>
-
-      <section className="trips-panel route-panel" aria-labelledby="route-title">
-        <div className="trips-section-heading">
-          <div>
-            <p className="trips-eyebrow">SIMULATED ROUTE</p>
-            <h3 id="route-title">Route overview</h3>
+            <div className="trip-metric">
+              <span>DURATION</span>
+              <strong>{formatDuration(currentDurationSeconds)}</strong>
+              <small>ELAPSED</small>
+            </div>
+            <div className="trip-metric">
+              <span>AVG SPEED</span>
+              <strong>{formatSpeed(currentAvgSpeed)}</strong>
+              <small>KM/H</small>
+            </div>
           </div>
-          <span className="route-distance">{currentTrip.distance} KM</span>
-        </div>
-        <div className="route-map" role="img" aria-label="Illustrated route from Kampala to Entebbe via Kira">
-          <div className="map-grid" />
-          <div className="map-road road-one" />
-          <div className="map-road road-two" />
-          <div className="map-road road-three" />
-          <svg className="route-path" viewBox="0 0 600 190" preserveAspectRatio="none" aria-hidden="true">
-            <path d="M110 40 C118 65 130 74 196 94 S310 123 380 110 S470 104 515 151" />
-          </svg>
-          <span className="route-stop route-start"><i /> <b>KAMPALA</b></span>
-          <span className="route-stop route-kira"><i /> <b>KIRA</b></span>
-          <span className="route-stop route-end"><i /> <b>ENTEBBE</b></span>
-          <span className="route-map-caption">Kampala · Central Region</span>
-        </div>
-        <div className="route-info"><span>Current location <b>Entebbe Road</b></span><span>Estimated arrival <b>11:48 AM</b></span></div>
-      </section>
 
-      <div className="trip-highlight-grid">
-        <section className="trips-panel trip-highlight">
-          <p className="trips-eyebrow">TRIP FUEL</p>
-          <strong>{currentTrip.fuel.toFixed(1)} <small>L</small></strong>
-          <p>{formatUgx(currentCost)} estimated cost</p>
-          <span>{todayEfficiency.toFixed(1)} L/100 km · {formatUgx(currentCost / currentTrip.distance)}/km</span>
+          <div className="trip-current-details">
+            <div>
+              <span>FROM</span>
+              <b>{tripStartLocation || 'GPS start'}</b>
+            </div>
+            <div>
+              <span>TO</span>
+              <b>{tripDestination || 'Free destination'}</b>
+            </div>
+          </div>
+
+          <div className="trip-current-inputs">
+            <label>
+              Start location
+              <input
+                type="text"
+                placeholder="Optional"
+                value={tripStartLocation}
+                onChange={(e) => setTripStartLocation(e.target.value)}
+              />
+            </label>
+            <label>
+              Destination (set or free)
+              <input
+                type="text"
+                placeholder="Optional — leave blank for free destination"
+                value={tripDestination}
+                onChange={(e) => setTripDestination(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <button
+            className="trip-toggle-button end"
+            type="button"
+            onClick={stopTrip}
+            disabled={saving}
+          >
+            {saving ? 'SAVING…' : 'END TRIP'}
+          </button>
         </section>
-        <section className="trips-panel trip-highlight score-highlight">
-          <p className="trips-eyebrow">TRIP EFFICIENCY</p>
-          <strong>84<small>%</small></strong>
-          <p className="score-good"><i /> GOOD</p>
-          <span>Fuel and speed behaviour</span>
+      )}
+
+      {!isRecording && canAddTrips && (
+        <section className="trips-panel current-trip-panel" aria-label="Start GPS trip">
+          <div className="trips-section-heading">
+            <div>
+              <p className="trips-eyebrow">START TRIP</p>
+              <h3>Record a live journey</h3>
+            </div>
+          </div>
+          <p className="trip-idle-copy">
+            Tap <strong>START TRIP</strong> to begin recording your journey in real time using GPS.
+            Your route, distance, duration and average speed will be tracked live on the map below.
+            You can set a destination or leave it as a free destination.
+          </p>
+          <button
+            className="trip-toggle-button start"
+            type="button"
+            onClick={startTrip}
+            disabled={saving || !navigator.geolocation}
+          >
+            {saving ? 'STARTING…' : '▶ START TRIP'}
+          </button>
+          {!navigator.geolocation && (
+            <p className="trip-notice" role="alert">
+              Geolocation is not available in this browser.
+            </p>
+          )}
         </section>
-      </div>
+      )}
 
-      <section className="trips-panel" aria-labelledby="trip-performance-title">
-        <div className="trips-section-heading">
-          <div>
-            <p className="trips-eyebrow">HOW THE VEHICLE PERFORMED</p>
-            <h3 id="trip-performance-title">Trip performance</h3>
+      {error && (
+        <p className="trip-notice" role="alert">
+          {error} <button type="button" onClick={() => setReloadKey((key) => key + 1)}>Retry</button>
+        </p>
+      )}
+      {savedMessage && <p className="trip-notice success" role="status">{savedMessage}</p>}
+      {formError && <p className="trip-notice" role="alert">{formError}</p>}
+
+      {isFormOpen && (
+        <section className="trips-panel trip-add-panel" aria-labelledby="trip-add-title">
+          <div className="trips-section-heading">
+            <div>
+              <p className="trips-eyebrow">NEW RECORD</p>
+              <h3 id="trip-add-title">Log a trip</h3>
+            </div>
           </div>
+          <form className="trip-add-form" onSubmit={saveTrip}>
+            <label>From
+              <input name="start_location" type="text" placeholder="e.g. Kampala" value={form.start_location} onChange={updateForm} required />
+            </label>
+            <label>To
+              <input name="destination" type="text" placeholder="e.g. Entebbe" value={form.destination} onChange={updateForm} required />
+            </label>
+            <label>Start
+              <input name="started_at" type="datetime-local" value={form.started_at} onChange={updateForm} required />
+            </label>
+            <label>End
+              <input name="ended_at" type="datetime-local" value={form.ended_at} onChange={updateForm} required />
+            </label>
+            <label>Distance (km)
+              <input name="distance_km" type="number" min="0.01" step="0.1" inputMode="decimal" value={form.distance_km} onChange={updateForm} required />
+            </label>
+            <label>Fuel used (L)
+              <input name="fuel_consumed_liters" type="number" min="0" step="0.01" inputMode="decimal" value={form.fuel_consumed_liters} onChange={updateForm} />
+            </label>
+            <label>Fuel price (UGX / L)
+              <input name="fuel_price_per_liter" type="number" min="0" step="1" inputMode="numeric" value={form.fuel_price_per_liter} onChange={updateForm} />
+            </label>
+            <label className="trip-form-wide">Notes
+              <textarea name="notes" rows="2" placeholder="Optional notes" value={form.notes} onChange={updateForm} />
+            </label>
+            <button className="trip-save-button" type="submit" disabled={saving}>{saving ? 'SAVING…' : 'SAVE TRIP'}</button>
+          </form>
+        </section>
+      )}
+
+      <section className="trip-statistics" aria-label="Trip statistics">
+        <div>
+          <p className="trips-eyebrow">TODAY</p>
+          <strong>{summary ? summary.today.trip_count : '—'}</strong>
+          <span>{summary ? `${Number(summary.today.distance_km).toFixed(0)} km · ${formatDuration(summary.today.duration_seconds)}` : 'Loading…'}</span>
+          <small>{summary ? `${Number(summary.today.fuel_used_liters).toFixed(1)} L fuel` : ''}</small>
         </div>
-        <div className="performance-metrics">
-          <TripMetric label="CURRENT SPEED" value="64 km/h" />
-          <TripMetric label="FUEL EFFICIENCY" value={`${todayEfficiency.toFixed(1)} L/100 km`} />
-          <TripMetric label="AVERAGE RPM" value="2,180" />
-          <TripMetric label="MAXIMUM RPM" value="3,920" />
-          <TripMetric label="ENGINE LOAD" value="38%" />
-          <TripMetric label="MAX SPEED" value={`${currentTrip.maxSpeed} km/h`} />
+        <div>
+          <p className="trips-eyebrow">THIS MONTH</p>
+          <strong>{summary ? summary.this_month.trip_count : '—'}</strong>
+          <span>{summary ? `${Number(summary.this_month.distance_km).toFixed(0)} km · ${formatDuration(summary.this_month.duration_seconds)}` : 'Loading…'}</span>
+          <small>{summary ? `${Number(summary.this_month.fuel_used_liters).toFixed(1)} L fuel` : ''}</small>
         </div>
       </section>
 
-      <section className="trips-panel" aria-labelledby="driving-behaviour-title">
-        <div className="trips-section-heading">
-          <div>
-            <p className="trips-eyebrow">DRIVER INSIGHTS</p>
-            <h3 id="driving-behaviour-title">Driving behaviour</h3>
+      {comparisonReady && (
+        <section className="trips-panel" aria-labelledby="trip-comparison-title">
+          <div className="trips-section-heading">
+            <div>
+              <p className="trips-eyebrow">COMPARE JOURNEYS</p>
+              <h3 id="trip-comparison-title">Today vs yesterday</h3>
+            </div>
+            {efficiencyGain !== null && (
+              <span className={`comparison-tag ${efficiencyGain < 0 ? 'worse' : ''}`}>
+                {efficiencyGain >= 0 ? '−' : '+'}{Math.abs(efficiencyGain)}% FUEL
+              </span>
+            )}
           </div>
-          <span className="smooth-score">86% smooth</span>
-        </div>
-        <div className="driving-events">
-          <div><span className="event-warning">!</span><span>Hard acceleration</span><b>3</b></div>
-          <div><span className="event-warning">!</span><span>Hard braking</span><b>2</b></div>
-          <div><span className="event-warning">!</span><span>Overspeed</span><b>1</b></div>
-          <div><span className="event-good">✓</span><span>Excessive idle</span><b>0</b></div>
-          <div><span className="event-good">✓</span><span>Smooth driving</span><b>86%</b></div>
-        </div>
-      </section>
+          <div className="trip-comparison-table" role="table" aria-label="Trip comparison">
+            <div className="comparison-row comparison-header" role="row"><span role="columnheader">METRIC</span><span role="columnheader">TODAY</span><span role="columnheader">YESTERDAY</span></div>
+            <div className="comparison-row" role="row"><span role="cell">Trips</span><span role="cell">{todayStats.count}</span><span role="cell">{yesterdayStats.count}</span></div>
+            <div className="comparison-row" role="row"><span role="cell">Distance</span><span role="cell">{todayStats.distance !== null ? `${todayStats.distance.toFixed(1)} km` : '—'}</span><span role="cell">{yesterdayStats.distance !== null ? `${yesterdayStats.distance.toFixed(1)} km` : '—'}</span></div>
+            <div className="comparison-row" role="row"><span role="cell">Duration</span><span role="cell">{formatDuration(todayStats.duration)}</span><span role="cell">{formatDuration(yesterdayStats.duration)}</span></div>
+            <div className="comparison-row" role="row"><span role="cell">Fuel</span><span role="cell">{todayStats.fuel !== null ? `${todayStats.fuel.toFixed(1)} L` : '—'}</span><span role="cell">{yesterdayStats.fuel !== null ? `${yesterdayStats.fuel.toFixed(1)} L` : '—'}</span></div>
+            <div className="comparison-row" role="row"><span role="cell">Consumption</span><span role="cell">{todayStats.consumption !== null ? `${todayStats.consumption.toFixed(1)} L/100 km` : '—'}</span><span role="cell">{yesterdayStats.consumption !== null ? `${yesterdayStats.consumption.toFixed(1)} L/100 km` : '—'}</span></div>
+          </div>
+          {efficiencyGain !== null && (
+            <p className="comparison-insight">
+              Today {efficiencyGain >= 0
+                ? <>was <strong>{efficiencyGain}% more fuel efficient</strong> than yesterday.</>
+                : <>is <strong>{Math.abs(efficiencyGain)}% less fuel efficient</strong> than yesterday.</>}
+            </p>
+          )}
+        </section>
+      )}
 
       <section className="trips-panel" aria-labelledby="trip-history-title">
         <div className="trips-section-heading">
@@ -229,59 +601,49 @@ export default function Trips({ onBack, vehicle }) {
             <p className="trips-eyebrow">JOURNEY LOG</p>
             <h3 id="trip-history-title">Recent trips</h3>
           </div>
-          <span className="trip-history-count">{trips.length} TRIPS</span>
+          <span className="trip-history-count">{orderedTrips.length} TRIP{orderedTrips.length === 1 ? '' : 'S'}</span>
         </div>
-        <div className="trip-history-list">
-          {trips.map((trip) => {
-            const expanded = expandedTrip === trip.id
-            const consumption = trip.fuel / trip.distance * 100
-            return (
-              <article className={`trip-history-item ${expanded ? 'expanded' : ''}`} key={trip.id}>
-                <button className="trip-history-row" type="button" aria-expanded={expanded} onClick={() => setExpandedTrip(expanded ? null : trip.id)}>
-                  <span className="trip-history-date">{trip.date}</span>
-                  <span className="trip-history-route"><strong>{trip.start} → {trip.destination}</strong><small>{trip.distance.toFixed(1)} km · {trip.duration} · {trip.fuel.toFixed(1)} L</small></span>
-                  <span className="trip-history-arrow" aria-hidden="true">{expanded ? '−' : '+'}</span>
-                </button>
-                {expanded && (
-                  <div className="trip-expanded-details">
-                    <span>AVG SPEED <b>{trip.avgSpeed} km/h</b></span>
-                    <span>MAX SPEED <b>{trip.maxSpeed} km/h</b></span>
-                    <span>CONSUMPTION <b>{consumption.toFixed(1)} L/100 km</b></span>
-                    <span>FUEL COST <b>{formatUgx(trip.fuel * fuelPrice)}</b></span>
-                    <span>AVG RPM <b>{trip.rpm.toLocaleString('en-UG')}</b></span>
-                    <span>ENGINE LOAD <b>{trip.engineLoad}%</b></span>
-                  </div>
-                )}
-              </article>
-            )
-          })}
-        </div>
-      </section>
-
-      <section className="trips-panel" aria-labelledby="trip-comparison-title">
-        <div className="trips-section-heading">
-          <div>
-            <p className="trips-eyebrow">COMPARE JOURNEYS</p>
-            <h3 id="trip-comparison-title">Today vs yesterday</h3>
+        {loading ? (
+          <p className="trips-empty">Loading trips…</p>
+        ) : orderedTrips.length ? (
+          <div className="trip-history-list">
+            {orderedTrips.slice(0, 12).map((trip) => {
+              const expanded = expandedTrip === trip.id
+              const consumption = tripConsumption(trip)
+              const distance = Number(trip.distance_km)
+              const liters = Number(trip.fuel_consumed_liters)
+              return (
+                <article className={`trip-history-item ${expanded ? 'expanded' : ''}`} key={trip.id}>
+                  <button className="trip-history-row" type="button" aria-expanded={expanded} onClick={() => setExpandedTrip(expanded ? null : trip.id)}>
+                    <span className="trip-history-date">{formatDateTime(trip.started_at)}</span>
+                    <span className="trip-history-route">
+                      <strong>{trip.start_location} → {trip.destination}</strong>
+                      <small>{[
+                        Number.isFinite(distance) ? `${distance.toFixed(1)} km` : null,
+                        formatDuration(trip.duration_seconds),
+                        Number.isFinite(liters) ? `${liters.toFixed(1)} L` : null,
+                      ].filter(Boolean).join(' · ')}</small>
+                    </span>
+                    <span className="trip-history-arrow" aria-hidden="true">{expanded ? '−' : '+'}</span>
+                  </button>
+                  {expanded && (
+                    <div className="trip-expanded-details">
+                      <span>AVG SPEED <b>{trip.average_speed_kmh !== null && trip.average_speed_kmh !== undefined ? `${Number(trip.average_speed_kmh).toFixed(0)} km/h` : '—'}</b></span>
+                      <span>CONSUMPTION <b>{consumption !== null ? `${consumption.toFixed(1)} L/100 km` : '—'}</b></span>
+                      <span>FUEL COST <b>{trip.fuel_cost !== null && trip.fuel_cost !== undefined ? formatUgx(trip.fuel_cost) : '—'}</b></span>
+                      <span>START ODO <b>{trip.start_odometer_km !== null && trip.start_odometer_km !== undefined ? `${Number(trip.start_odometer_km).toLocaleString('en-UG')} km` : '—'}</b></span>
+                      <span>END ODO <b>{trip.end_odometer_km !== null && trip.end_odometer_km !== undefined ? `${Number(trip.end_odometer_km).toLocaleString('en-UG')} km` : '—'}</b></span>
+                      {trip.notes && <span>NOTES <b>{trip.notes}</b></span>}
+                    </div>
+                  )}
+                </article>
+              )
+            })}
           </div>
-          <span className="comparison-tag">−{efficiencyGain}% FUEL</span>
-        </div>
-        <div className="trip-comparison-table" role="table" aria-label="Trip comparison">
-          <div className="comparison-row comparison-header" role="row"><span role="columnheader">METRIC</span><span role="columnheader">TODAY</span><span role="columnheader">YESTERDAY</span></div>
-          <div className="comparison-row" role="row"><span role="cell">Distance</span><span role="cell">32.4 km</span><span role="cell">34.1 km</span></div>
-          <div className="comparison-row" role="row"><span role="cell">Duration</span><span role="cell">48 min</span><span role="cell">52 min</span></div>
-          <div className="comparison-row" role="row"><span role="cell">Fuel</span><span role="cell">2.7 L</span><span role="cell">3.1 L</span></div>
-          <div className="comparison-row" role="row"><span role="cell">Consumption</span><span role="cell">{todayEfficiency.toFixed(1)} L/100 km</span><span role="cell">{yesterdayEfficiency.toFixed(1)} L/100 km</span></div>
-          <div className="comparison-row" role="row"><span role="cell">Avg speed</span><span role="cell">52 km/h</span><span role="cell">48 km/h</span></div>
-        </div>
-        <p className="comparison-insight">Today's trip was <strong>{efficiencyGain}% more fuel efficient</strong> than yesterday.</p>
+        ) : (
+          <p className="trips-empty">No trips recorded yet. Use “Log trip” to add your first journey.</p>
+        )}
       </section>
-
-      <section className="trip-statistics" aria-label="Trip statistics">
-        <div><p className="trips-eyebrow">TODAY</p><strong>3</strong><span>trips · 86 km · 2h 14m</span><small>7.2 L fuel</small></div>
-        <div><p className="trips-eyebrow">THIS MONTH</p><strong>48</strong><span>trips · 1,240 km · 31h</span><small>96 L fuel</small></div>
-      </section>
-      <p className="trips-demo-note">Trip routes, driving events and vehicle performance are simulated sample data.</p>
     </section>
   )
 }

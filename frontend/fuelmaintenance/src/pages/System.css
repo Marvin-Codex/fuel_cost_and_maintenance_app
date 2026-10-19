@@ -83,6 +83,8 @@
 .about-document { margin-top: 10px; padding: 10px; border-radius: 5px; color: #c4cede; background: #101a2d; font-size: 8px; line-height: 1.6; }
 .system-demo-note { margin-top: 12px; padding-top: 10px; border-top: 1px solid #27344d; color: #8391aa; font-size: 8px; line-height: 1.5; }
 .system-notice { padding: 10px 12px; border: 1px solid #2d624e; border-radius: 6px; color: #71e5ad; background: #142820; font-size: 9px; line-height: 1.5; }
+.system-notice.error { border-color: #725530; color: #f4d9ac; background: #2a241d; }
+.system-empty { margin: 8px 0; color: #9aa8c5; font-size: 9px; line-height: 1.5; }
 
 @media (max-width: 400px) {
   .system-panel { padding: 12px; }

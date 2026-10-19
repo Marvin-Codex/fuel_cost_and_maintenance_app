@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from vehicles.models import Vehicle
 from vehicles.resource_api import VehicleScopedSerializerMixin
+from vehicles.scoping import vehicles_for
 
 from .models import FuelRecord
 
