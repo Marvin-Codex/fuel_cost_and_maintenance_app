@@ -5,6 +5,7 @@ import './index.css'
 import './styles/fonts.css'
 import './styles/tokens.css'
 import './styles/ui.css'
+import 'leaflet/dist/leaflet.css'
 import App from './App.jsx'
 import { ThemeProvider } from './styles/ThemeContext'
 

@@ -1,0 +1,74 @@
+/* Custom map markers for MapView — pure CSS DivIcons so they never
+ * depend on Leaflet's PNG assets (which break under bundlers). */
+
+/* ── Current-location pointer: white-ringed blue dot with pulse ── */
+.fm-map-me {
+  background: none;
+  border: none;
+  display: grid;
+  place-items: center;
+}
+.fm-map-me-dot {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #3b82f6;
+  border: 3px solid #ffffff;
+  box-shadow:
+    0 0 0 4px rgba(59, 130, 246, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.5);
+  animation: fm-map-pulse 2s ease-out infinite;
+}
+@keyframes fm-map-pulse {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(59, 130, 246, 0.55),
+      0 2px 8px rgba(0, 0, 0, 0.5);
+  }
+  70% {
+    box-shadow:
+      0 0 0 18px rgba(59, 130, 246, 0),
+      0 2px 8px rgba(0, 0, 0, 0.5);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(59, 130, 246, 0),
+      0 2px 8px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ── Labelled pins: START / END / selection ───────────────────── */
+.fm-map-pin {
+  background: none;
+  border: none;
+}
+.fm-map-pin-dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  transform: translate(-50%, -50%);
+}
+.fm-map-pin-dot--start { background: #22c55e; }
+.fm-map-pin-dot--end { background: #ef4444; }
+.fm-map-pin-dot--sel { background: #22d3ee; }
+.fm-map-pin-label {
+  position: absolute;
+  left: 10px;
+  top: 0;
+  transform: translateY(-50%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font: 700 9px/1.6 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.fm-map-pin-label--start { background: #14532d; color: #dcfce7; }
+.fm-map-pin-label--end { background: #7f1d1d; color: #fecaca; }
+.fm-map-pin-label--sel { background: #164e63; color: #a5f3fc; }

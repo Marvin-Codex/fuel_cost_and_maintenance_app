@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createTrip, fetchTripSummary, listTrips } from '../api/resources'
+import { MapView } from '../components/ui/MapView'
 import './Trips.css'
 
 function formatUgx(value) {
@@ -82,6 +83,20 @@ export default function Trips({ onBack, vehicle, access }) {
       notes: '',
     }
   })
+
+  /* ── Map-based location picking ── */
+  const [startMapCoords, setStartMapCoords] = useState(null)
+  const [destMapCoords, setDestMapCoords] = useState(null)
+
+  function handleStartMapSelect(lat, lng) {
+    setStartMapCoords({ lat, lng })
+    setForm((current) => ({ ...current, start_location: `Lat ${lat.toFixed(4)}, Lng ${lng.toFixed(4)}` }))
+  }
+
+  function handleDestMapSelect(lat, lng) {
+    setDestMapCoords({ lat, lng })
+    setForm((current) => ({ ...current, destination: `Lat ${lat.toFixed(4)}, Lng ${lng.toFixed(4)}` }))
+  }
 
   const canAddTrips = Boolean(access?.can('trips.add'))
 
@@ -334,6 +349,7 @@ export default function Trips({ onBack, vehicle, access }) {
       setTrips(rows)
       setSummary(tripSummary)
       setSavedMessage(`${payload.start_location} → ${payload.destination} recorded.`)
+      setStartMapCoords(null); setDestMapCoords(null)
       setForm((current) => ({ ...current, distance_km: '', fuel_consumed_liters: '', notes: '' }))
       setIsFormOpen(false)
     } catch (err) {
@@ -357,7 +373,7 @@ export default function Trips({ onBack, vehicle, access }) {
           <p className="trips-vehicle">{vehicle ? `${vehicle.make} ${vehicle.model} · ${vehicle.registration}` : 'Select a vehicle to see trips'}</p>
         </div>
         {canAddTrips && (
-          <button className="trips-add-toggle" type="button" onClick={() => { setIsFormOpen((open) => !open); setSavedMessage(''); setFormError(null) }}>
+          <button className="trips-add-toggle" type="button" onClick={() => { setIsFormOpen((open) => !open); setSavedMessage(''); setFormError(null); setStartMapCoords(null); setDestMapCoords(null) }}>
             {isFormOpen ? '− CANCEL' : '+ LOG TRIP'}
           </button>
         )}
@@ -379,35 +395,34 @@ export default function Trips({ onBack, vehicle, access }) {
             <p className="trip-notice" role="alert">{tripRecordingError}</p>
           )}
 
-          <div className="route-map">
-            <svg viewBox="0 0 100 100" className="route-svg" aria-hidden="true">
-              {tripPoints.length > 0 && (
-                <polyline
-                  points={tripPoints
-                    .map((p) => `${p.latitude % 1000},${p.longitude % 1000}`)
-                    .join(' ')}
-                  fill="none"
-                  stroke="var(--cyan)"
-                  strokeWidth="2"
-                />
-              )}
-              {tripPoints.length > 0 && (
-                <circle
-                  cx={tripPoints[0].latitude % 1000}
-                  cy={tripPoints[0].longitude % 1000}
-                  r="3"
-                  fill="#4fe1a5"
-                />
-              )}
-              {tripPoints.length > 0 && (
-                <circle
-                  cx={tripPoints[tripPoints.length - 1].latitude % 1000}
-                  cy={tripPoints[tripPoints.length - 1].longitude % 1000}
-                  r="3"
-                  fill="#ff4d4f"
-                />
-              )}
-            </svg>
+          <div className="route-map-live">
+            <MapView
+              center={tripPoints.length > 0 ? [tripPoints[tripPoints.length - 1].latitude, tripPoints[tripPoints.length - 1].longitude] : [0, 0]}
+              points={tripPoints.map((p, i) => ({ lat: p.latitude, lng: p.longitude, label: `Point ${i + 1}` }))}
+              markers={[
+                ...(tripPoints.length > 0
+                  ? [
+                      {
+                        lat: tripPoints[0].latitude,
+                        lng: tripPoints[0].longitude,
+                        type: 'start',
+                        popup: 'Trip start',
+                      },
+                    ]
+                  : []),
+                ...(tripPoints.length > 0
+                  ? [
+                      {
+                        lat: tripPoints[tripPoints.length - 1].latitude,
+                        lng: tripPoints[tripPoints.length - 1].longitude,
+                        type: 'current',
+                        popup: 'Current position',
+                      },
+                    ]
+                  : []),
+              ]}
+              height="160px"
+            />
             <p className="route-map-hint">
               {tripPoints.length} GPS point{tripPoints.length === 1 ? '' : 's'} captured
             </p>
@@ -544,6 +559,46 @@ export default function Trips({ onBack, vehicle, access }) {
             <label className="trip-form-wide">Notes
               <textarea name="notes" rows="2" placeholder="Optional notes" value={form.notes} onChange={updateForm} />
             </label>
+
+            {/* Map pickers for start / destination */}
+            <div className="trip-form-wide trip-map-picker-section">
+              <h4 className="trip-map-picker-title">Pick locations on map</h4>
+              <div className="trip-map-picker-grid">
+                <div className="trip-map-picker-panel">
+                  <span className="trip-map-picker-label">Start</span>
+                  <MapView
+                    center={startMapCoords ? [startMapCoords.lat, startMapCoords.lng] : [0, 0]}
+                    zoom={startMapCoords ? 16 : 2}
+                    markers={startMapCoords ? [{ lat: startMapCoords.lat, lng: startMapCoords.lng, type: 'start', popup: 'Start point' }] : []}
+                    height="120px"
+                    onMapClick={handleStartMapSelect}
+                    showMarker={false}
+                  />
+                  {startMapCoords && (
+                    <span className="trip-map-coords">
+                      {startMapCoords.lat.toFixed(4)}, {startMapCoords.lng.toFixed(4)}
+                    </span>
+                  )}
+                </div>
+                <div className="trip-map-picker-panel">
+                  <span className="trip-map-picker-label">Destination</span>
+                  <MapView
+                    center={destMapCoords ? [destMapCoords.lat, destMapCoords.lng] : [0, 0]}
+                    zoom={destMapCoords ? 16 : 2}
+                    markers={destMapCoords ? [{ lat: destMapCoords.lat, lng: destMapCoords.lng, type: 'end', popup: 'Destination' }] : []}
+                    height="120px"
+                    onMapClick={handleDestMapSelect}
+                    showMarker={false}
+                  />
+                  {destMapCoords && (
+                    <span className="trip-map-coords">
+                      {destMapCoords.lat.toFixed(4)}, {destMapCoords.lng.toFixed(4)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <button className="trip-save-button" type="submit" disabled={saving}>{saving ? 'SAVING…' : 'SAVE TRIP'}</button>
           </form>
         </section>
