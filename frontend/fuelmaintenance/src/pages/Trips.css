@@ -135,12 +135,20 @@
 /* Map styles for trip recording and logging */
 .route-map-live {
   margin-top: 12px;
-  height: 200px;
+  height: auto;
   border: 1px solid #2a3955;
   border-radius: 7px;
   background: #0f172a;
   overflow: hidden;
   position: relative;
+}
+/* Responsive live-map height (overrides MapView's inline height). */
+.route-map-live > div:first-child { height: 300px !important; }
+@media (min-width: 700px) {
+  .route-map-live > div:first-child { height: 380px !important; }
+}
+@media (min-width: 1100px) {
+  .route-map-live > div:first-child { height: 420px !important; }
 }
 
 .route-map-empty {

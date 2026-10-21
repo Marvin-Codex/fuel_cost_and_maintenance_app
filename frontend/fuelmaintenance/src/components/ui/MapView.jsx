@@ -111,7 +111,7 @@ export function MapView({
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="/osm-tiles/{z}/{x}/{y}.png"
         />
         <MapClickHandler onMapClick={onMapClick} />
         {markers.map((marker, i) => (
@@ -155,7 +155,7 @@ export function MapPicker({ onSelect, initialCenter = [0, 0], zoom = 13, width =
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="/osm-tiles/{z}/{x}/{y}.png"
         />
         <MapClickHandler onMapClick={onSelect} />
         <Marker position={initialCenter} icon={makeSelectionPin(label)} />

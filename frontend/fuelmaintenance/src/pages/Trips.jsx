@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createTrip, fetchTripSummary, listTrips } from '../api/resources'
 import { MapView } from '../components/ui/MapView'
+import LocationSearchInput from '../components/ui/LocationSearchInput'
 import './Trips.css'
 
 function formatUgx(value) {
@@ -98,6 +99,15 @@ export default function Trips({ onBack, vehicle, access }) {
     setForm((current) => ({ ...current, destination: `Lat ${lat.toFixed(4)}, Lng ${lng.toFixed(4)}` }))
   }
 
+  /* Place-search picks (from the dropdown) also drop a pin on the form maps. */
+  function handleStartSearchSelect(place) {
+    setStartMapCoords({ lat: place.lat, lng: place.lng })
+  }
+
+  function handleDestSearchSelect(place) {
+    setDestMapCoords({ lat: place.lat, lng: place.lng })
+  }
+
   const canAddTrips = Boolean(access?.can('trips.add'))
 
   /* ── Real-time GPS trip recording ── */
@@ -108,6 +118,7 @@ export default function Trips({ onBack, vehicle, access }) {
   const [tripDestination, setTripDestination] = useState('')
   const [tripStartLocation, setTripStartLocation] = useState('')
   const [tripRecordingError, setTripRecordingError] = useState(null)
+  const startPlaceResolvedRef = useRef(false)
 
   const EARTH_RADIUS_KM = 6371
 
@@ -141,6 +152,32 @@ export default function Trips({ onBack, vehicle, access }) {
     return n.toFixed(2)
   }
 
+  /** "0.34760, 32.58250" — precise coordinate label used as fallback / suffix. */
+  function formatCoords(lat, lng) {
+    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+  }
+
+  /** Resolve a short place name for a coordinate via OSM Nominatim
+   *  (free, no API key — same data source as the map tiles). */
+  async function reverseGeocode(lat, lng) {
+    try {
+      const res = await fetch(
+        `/osm-geocode/reverse?format=jsonv2&zoom=16&lat=${lat}&lon=${lng}`,
+        { headers: { Accept: 'application/json' } },
+      )
+      if (!res.ok) return null
+      const data = await res.json()
+      const a = data.address || {}
+      const label = [a.road, a.suburb || a.village || a.town || a.city || a.county]
+        .filter(Boolean)
+        .slice(0, 2)
+        .join(', ')
+      return label || (data.display_name ? data.display_name.split(',').slice(0, 2).join(',').trim() : null)
+    } catch {
+      return null
+    }
+  }
+
   function formatSpeed(kmh) {
     const n = Number(kmh)
     if (!Number.isFinite(n)) return '—'
@@ -155,12 +192,23 @@ export default function Trips({ onBack, vehicle, access }) {
     setTripRecordingError(null)
     setTripPoints([])
     setTripStartTime(Date.now())
+    startPlaceResolvedRef.current = false
     setIsRecording(true)
 
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords
         setTripPoints((prev) => [...prev, { latitude, longitude, timestamp: pos.timestamp }])
+        // Resolve the real start place from the first GPS fix (keep user-typed text).
+        if (!startPlaceResolvedRef.current) {
+          startPlaceResolvedRef.current = true
+          reverseGeocode(latitude, longitude).then((place) => {
+            const label = place
+              ? `${place} (${formatCoords(latitude, longitude)})`
+              : formatCoords(latitude, longitude)
+            setTripStartLocation((current) => current || label)
+          })
+        }
       },
       (err) => {
         setTripRecordingError(err.message || 'Unable to access GPS.')
@@ -204,15 +252,25 @@ export default function Trips({ onBack, vehicle, access }) {
       endedAt = new Date(toTripISOTime(start.timestamp).getTime() + 1000).toISOString()
     }
 
+    // Resolve real place names + coordinates from the map (keep user-typed text).
+    const [startPlace, endPlace] = await Promise.all([
+      tripStartLocation.trim() ? null : reverseGeocode(start.latitude, start.longitude),
+      tripDestination.trim() ? null : reverseGeocode(end.latitude, end.longitude),
+    ])
+    const startLabel = tripStartLocation.trim()
+      || (startPlace ? `${startPlace} (${formatCoords(start.latitude, start.longitude)})` : formatCoords(start.latitude, start.longitude))
+    const destLabel = tripDestination.trim()
+      || (endPlace ? `${endPlace} (${formatCoords(end.latitude, end.longitude)})` : formatCoords(end.latitude, end.longitude))
+
     setSaving(true)
     try {
       const gpsSummary = tripPoints.length
-        ? `${tripPoints.length} GPS points tracked this session.`
+        ? `${tripPoints.length} GPS points. Start ${formatCoords(start.latitude, start.longitude)} → End ${formatCoords(end.latitude, end.longitude)}.`
         : ''
       const payload = {
         vehicle: vehicleId,
-        start_location: tripStartLocation.trim() || 'GPS start',
-        destination: tripDestination.trim() || 'Free destination',
+        start_location: startLabel,
+        destination: destLabel,
         started_at: startedAt,
         ended_at: endedAt,
         distance_km: Math.round(totalDistance * 100) / 100,
@@ -226,7 +284,7 @@ export default function Trips({ onBack, vehicle, access }) {
       setTrips(rows)
       setSummary(tripSummary)
       setSavedMessage(
-        `${tripStartLocation || 'GPS start'} → ${tripDestination || 'Free destination'} recorded (${formatDistance(totalDistance)} km).`,
+        `${startLabel} → ${destLabel} recorded (${formatDistance(totalDistance)} km).`,
       )
     } catch (err) {
       setTripRecordingError(err.message || 'Failed to save GPS trip.')
@@ -238,6 +296,7 @@ export default function Trips({ onBack, vehicle, access }) {
       setTripDestination('')
       setTripStartLocation('')
       setTripWatchId(null)
+      startPlaceResolvedRef.current = false
     }
   }
 
@@ -421,7 +480,7 @@ export default function Trips({ onBack, vehicle, access }) {
                     ]
                   : []),
               ]}
-              height="160px"
+              height="300px"
             />
             <p className="route-map-hint">
               {tripPoints.length} GPS point{tripPoints.length === 1 ? '' : 's'} captured
@@ -449,31 +508,31 @@ export default function Trips({ onBack, vehicle, access }) {
           <div className="trip-current-details">
             <div>
               <span>FROM</span>
-              <b>{tripStartLocation || 'GPS start'}</b>
+              <b>{tripStartLocation || (tripPoints.length > 0 ? formatCoords(tripPoints[0].latitude, tripPoints[0].longitude) : 'Locating…')}</b>
             </div>
             <div>
               <span>TO</span>
-              <b>{tripDestination || 'Free destination'}</b>
+              <b>{tripDestination || (tripPoints.length > 0 ? `Free destination (${formatCoords(tripPoints[tripPoints.length - 1].latitude, tripPoints[tripPoints.length - 1].longitude)})` : 'Free destination')}</b>
             </div>
           </div>
 
           <div className="trip-current-inputs">
             <label>
               Start location
-              <input
-                type="text"
-                placeholder="Optional"
+              <LocationSearchInput
+                name="trip_start_location"
                 value={tripStartLocation}
                 onChange={(e) => setTripStartLocation(e.target.value)}
+                placeholder="Auto-filled from GPS — type to search instead"
               />
             </label>
             <label>
               Destination (set or free)
-              <input
-                type="text"
-                placeholder="Optional — leave blank for free destination"
+              <LocationSearchInput
+                name="trip_destination"
                 value={tripDestination}
                 onChange={(e) => setTripDestination(e.target.value)}
+                placeholder="Type to search — or leave blank for free"
               />
             </label>
           </div>
@@ -536,10 +595,24 @@ export default function Trips({ onBack, vehicle, access }) {
           </div>
           <form className="trip-add-form" onSubmit={saveTrip}>
             <label>From
-              <input name="start_location" type="text" placeholder="e.g. Kampala" value={form.start_location} onChange={updateForm} required />
+              <LocationSearchInput
+                name="start_location"
+                value={form.start_location}
+                onChange={updateForm}
+                onSelect={handleStartSearchSelect}
+                placeholder="e.g. Kampala — type to search"
+                required
+              />
             </label>
             <label>To
-              <input name="destination" type="text" placeholder="e.g. Entebbe" value={form.destination} onChange={updateForm} required />
+              <LocationSearchInput
+                name="destination"
+                value={form.destination}
+                onChange={updateForm}
+                onSelect={handleDestSearchSelect}
+                placeholder="e.g. Entebbe — type to search"
+                required
+              />
             </label>
             <label>Start
               <input name="started_at" type="datetime-local" value={form.started_at} onChange={updateForm} required />

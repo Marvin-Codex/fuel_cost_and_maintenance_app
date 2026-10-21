@@ -50,6 +50,23 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      // Same-origin OpenStreetMap tiles — avoids Firefox Opaque Response
+      // Blocking on cross-origin tile images.
+      '/osm-tiles': {
+        target: 'https://tile.openstreetmap.org',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/osm-tiles/, ''),
+        headers: { Referer: 'http://localhost:5173/' },
+      },
+      // Same-origin Nominatim geocoding (place search + reverse lookup).
+      '/osm-geocode': {
+        target: 'https://nominatim.openstreetmap.org',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/osm-geocode/, ''),
+        headers: { Referer: 'http://localhost:5173/' },
+      },
     },
   },
 })
