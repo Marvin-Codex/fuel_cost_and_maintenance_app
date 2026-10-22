@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createTrip, fetchTripSummary, listTrips } from '../api/resources'
 import { MapView } from '../components/ui/MapView'
+import TripPlanner from '../components/ui/TripPlanner'
 import LocationSearchInput from '../components/ui/LocationSearchInput'
 import './Trips.css'
 
@@ -67,6 +68,7 @@ export default function Trips({ onBack, vehicle, access }) {
   const [reloadKey, setReloadKey] = useState(0)
   const [expandedTrip, setExpandedTrip] = useState(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [isPlannerOpen, setIsPlannerOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState(null)
   const [savedMessage, setSavedMessage] = useState('')
@@ -119,6 +121,54 @@ export default function Trips({ onBack, vehicle, access }) {
   const [tripStartLocation, setTripStartLocation] = useState('')
   const [tripRecordingError, setTripRecordingError] = useState(null)
   const startPlaceResolvedRef = useRef(false)
+  const restoredForMountRef = useRef(false)
+
+  const TRIP_STORAGE_KEY = 'fuelmaintenance.inProgressTrip'
+
+  // Persist the in-progress trip so a reload doesn't lose recorded points.
+  useEffect(() => {
+    if (!isRecording) return
+    try {
+      localStorage.setItem(TRIP_STORAGE_KEY, JSON.stringify({
+        vehicleId,
+        tripPoints,
+        tripStartTime,
+        tripDestination,
+        tripStartLocation,
+        isRecording: true,
+      }))
+    } catch {
+      /* storage unavailable — ignore */
+    }
+  }, [isRecording, tripPoints, tripStartTime, tripDestination, tripStartLocation, vehicleId])
+
+  // Restore an in-progress trip after a reload so the live journey isn't lost.
+  useEffect(() => {
+    if (restoredForMountRef.current) return
+    if (!vehicleId) return
+    restoredForMountRef.current = true
+    let saved = null
+    try {
+      const raw = localStorage.getItem(TRIP_STORAGE_KEY)
+      if (raw) saved = JSON.parse(raw)
+    } catch {
+      saved = null
+    }
+    if (!saved || saved.vehicleId !== vehicleId || !saved.isRecording) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (Array.isArray(saved.tripPoints)) setTripPoints(saved.tripPoints)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTripStartTime(saved.tripStartTime ?? null)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTripDestination(saved.tripDestination ?? '')
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTripStartLocation(saved.tripStartLocation ?? '')
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsRecording(true)
+    setTripRecordingError(null)
+    startPlaceResolvedRef.current = Boolean(saved.tripStartLocation)
+    beginWatching()
+  }, [vehicleId])
 
   const EARTH_RADIUS_KM = 6371
 
@@ -184,17 +234,8 @@ export default function Trips({ onBack, vehicle, access }) {
     return n.toFixed(0)
   }
 
-  function startTrip() {
-    if (!navigator.geolocation) {
-      setTripRecordingError('Geolocation is not available in this browser.')
-      return
-    }
-    setTripRecordingError(null)
-    setTripPoints([])
-    setTripStartTime(Date.now())
-    startPlaceResolvedRef.current = false
-    setIsRecording(true)
-
+  function beginWatching() {
+    if (!navigator.geolocation) return
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords
@@ -217,6 +258,19 @@ export default function Trips({ onBack, vehicle, access }) {
       { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
     )
     setTripWatchId(watchId)
+  }
+
+  function startTrip() {
+    if (!navigator.geolocation) {
+      setTripRecordingError('Geolocation is not available in this browser.')
+      return
+    }
+    setTripRecordingError(null)
+    setTripPoints([])
+    setTripStartTime(Date.now())
+    startPlaceResolvedRef.current = false
+    setIsRecording(true)
+    beginWatching()
   }
 
   async function stopTrip() {
@@ -297,6 +351,7 @@ export default function Trips({ onBack, vehicle, access }) {
       setTripStartLocation('')
       setTripWatchId(null)
       startPlaceResolvedRef.current = false
+      try { localStorage.removeItem(TRIP_STORAGE_KEY) } catch { /* ignore */ }
     }
   }
 
@@ -431,11 +486,16 @@ export default function Trips({ onBack, vehicle, access }) {
           <h2 id="trips-title">Trips</h2>
           <p className="trips-vehicle">{vehicle ? `${vehicle.make} ${vehicle.model} · ${vehicle.registration}` : 'Select a vehicle to see trips'}</p>
         </div>
-        {canAddTrips && (
-          <button className="trips-add-toggle" type="button" onClick={() => { setIsFormOpen((open) => !open); setSavedMessage(''); setFormError(null); setStartMapCoords(null); setDestMapCoords(null) }}>
-            {isFormOpen ? '− CANCEL' : '+ LOG TRIP'}
+        <div className="trips-header-actions">
+          <button className="trips-add-toggle" type="button" onClick={() => { setIsPlannerOpen((open) => !open); setSavedMessage('') }}>
+            {isPlannerOpen ? '− CLOSE PLANNER' : '🗺 PLAN TRIP'}
           </button>
-        )}
+          {canAddTrips && (
+            <button className="trips-add-toggle" type="button" onClick={() => { setIsFormOpen((open) => !open); setSavedMessage(''); setFormError(null); setStartMapCoords(null); setDestMapCoords(null) }}>
+              {isFormOpen ? '− CANCEL' : '+ LOG TRIP'}
+            </button>
+          )}
+        </div>
       </header>
 
       {isRecording && (
@@ -584,6 +644,8 @@ export default function Trips({ onBack, vehicle, access }) {
       )}
       {savedMessage && <p className="trip-notice success" role="status">{savedMessage}</p>}
       {formError && <p className="trip-notice" role="alert">{formError}</p>}
+
+      {isPlannerOpen && <TripPlanner vehicle={vehicle} />}
 
       {isFormOpen && (
         <section className="trips-panel trip-add-panel" aria-labelledby="trip-add-title">

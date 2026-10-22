@@ -6,22 +6,12 @@
 // The server is the verdict: 403 means "not allowed", 400 carries validation.
 
 import { getActiveWorkspaceId } from './access'
+import * as auth from './auth'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? '' : 'http://localhost:8000')
 
-function accessToken() {
-  try {
-    return (
-      localStorage.getItem('fuelmaintenance.accessToken') ??
-      sessionStorage.getItem('fuelmaintenance.accessToken')
-    )
-  } catch {
-    return null
-  }
-}
-
 function headers(workspaceId, json = false) {
-  const token = accessToken()
+  const token = auth.readToken()
   const out = {}
   if (token) out.Authorization = `Bearer ${token}`
   const workspace = workspaceId ?? getActiveWorkspaceId()
@@ -40,17 +30,33 @@ function firstErrorMessage(data, fallback) {
 }
 
 async function request(path, { method = 'GET', body, workspaceId, errorMessage } = {}) {
-  let response
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      method,
-      headers: headers(workspaceId, body !== undefined),
-      body: body === undefined ? undefined : JSON.stringify(body),
-    })
-  } catch {
-    throw new Error('Cannot reach the server. Check your connection and try again.')
+  async function doFetch() {
+    try {
+      return await fetch(`${API_BASE_URL}${path}`, {
+        method,
+        headers: headers(workspaceId, body !== undefined),
+        body: body === undefined ? undefined : JSON.stringify(body),
+      })
+    } catch {
+      throw new Error('Cannot reach the server. Check your connection and try again.')
+    }
   }
-  if (response.status === 401) throw new Error('Your session expired. Please sign in again.')
+  let response = await doFetch()
+  if (response.status === 401) {
+    const refreshed = await auth.refresh()
+    if (refreshed) {
+      response = await doFetch()
+    } else {
+      auth.logout()
+      if (typeof window !== 'undefined') window.location.assign('/login')
+      throw new Error('Your session expired. Please sign in again.')
+    }
+  }
+  if (response.status === 401) {
+    auth.logout()
+    if (typeof window !== 'undefined') window.location.assign('/login')
+    throw new Error('Your session expired. Please sign in again.')
+  }
   if (response.status === 403) {
     const data = await response.json().catch(() => ({}))
     throw new Error(firstErrorMessage(data, 'You do not have permission for this action.'))
@@ -185,18 +191,33 @@ export function updatePreferences(payload, options = {}) {
 
 /** Download the workspace data export as a CSV file (needs `analytics.export`). */
 export async function downloadDataExport() {
-  const token = accessToken()
-  const headers = {}
-  if (token) headers.Authorization = `Bearer ${token}`
-  const workspace = getActiveWorkspaceId()
-  if (workspace) headers['X-Workspace'] = String(workspace)
-  let response
-  try {
-    response = await fetch(`${API_BASE_URL}/api/v1/system/export/`, { headers })
-  } catch {
-    throw new Error('Cannot reach the server. Export is unavailable right now.')
+  async function doFetch() {
+    const accessToken = auth.readToken()
+    const headers = {}
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`
+    const workspace = getActiveWorkspaceId()
+    if (workspace) headers['X-Workspace'] = String(workspace)
+    try {
+      return await fetch(`${API_BASE_URL}/api/v1/system/export/`, { headers })
+    } catch {
+      throw new Error('Cannot reach the server. Export is unavailable right now.')
+    }
   }
-  if (response.status === 401) throw new Error('Your session expired. Please sign in again.')
+  let response = await doFetch()
+  if (response.status === 401) {
+    const refreshed = await auth.refresh()
+    if (refreshed) response = await doFetch()
+    else {
+      auth.logout()
+      if (typeof window !== 'undefined') window.location.assign('/login')
+      throw new Error('Your session expired. Please sign in again.')
+    }
+  }
+  if (response.status === 401) {
+    auth.logout()
+    if (typeof window !== 'undefined') window.location.assign('/login')
+    throw new Error('Your session expired. Please sign in again.')
+  }
   if (response.status === 403) throw new Error('You do not have permission to export workspace data.')
   if (!response.ok) throw new Error('The export failed. Please try again.')
   const blob = await response.blob()

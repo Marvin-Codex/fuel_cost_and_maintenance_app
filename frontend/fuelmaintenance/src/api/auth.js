@@ -26,8 +26,17 @@ function storage(remember) {
   }
 }
 
-function readToken() {
+export function readToken() {
   try {
+    // Prefer the storage that actually holds the refresh token for this
+    // session, so a stale token in the other storage cannot shadow the
+    // active one (e.g. after signing in without "remember me").
+    if (sessionStorage.getItem(REFRESH_TOKEN_KEY) && sessionStorage.getItem(ACCESS_TOKEN_KEY)) {
+      return sessionStorage.getItem(ACCESS_TOKEN_KEY)
+    }
+    if (localStorage.getItem(REFRESH_TOKEN_KEY) && localStorage.getItem(ACCESS_TOKEN_KEY)) {
+      return localStorage.getItem(ACCESS_TOKEN_KEY)
+    }
     return localStorage.getItem(ACCESS_TOKEN_KEY) ?? sessionStorage.getItem(ACCESS_TOKEN_KEY)
   } catch {
     return null
@@ -35,12 +44,27 @@ function readToken() {
 }
 
 async function authenticatedGet(path, workspaceId = null) {
-  const token = readToken()
-  const headers = {}
-  if (token) headers.Authorization = `Bearer ${token}`
-  // Scopes the request to one workspace; omitting it means "personal".
-  if (workspaceId) headers['X-Workspace'] = String(workspaceId)
-  const response = await fetch(`${API_BASE_URL}${path}`, { headers })
+  async function doFetch() {
+    const token = readToken()
+    const headers = {}
+    if (token) headers.Authorization = `Bearer ${token}`
+    if (workspaceId) headers['X-Workspace'] = String(workspaceId)
+    try {
+      return await fetch(`${API_BASE_URL}${path}`, { headers })
+    } catch {
+      throw new Error('Cannot reach the server. Check your connection and try again.')
+    }
+  }
+  let response = await doFetch()
+  if (response.status === 401) {
+    const refreshed = await refresh()
+    if (refreshed) response = await doFetch()
+    else {
+      logout()
+      if (typeof window !== 'undefined') window.location.assign('/login')
+      throw new Error('Your session expired. Please sign in again.')
+    }
+  }
   if (!response.ok) throw new Error('Unable to load account information.')
   return response.json()
 }
@@ -158,37 +182,60 @@ export async function login(username, password, { remember = true } = {}) {
   return data
 }
 
+let refreshPromise = null
+
 /** Exchange the stored refresh token for a new access token. Returns the new access token or null on failure. */
-export async function refresh() {
-  const stored = readToken()
-  let refreshToken = null
-  try {
-    refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY) ?? sessionStorage.getItem(REFRESH_TOKEN_KEY)
-  } catch {
-    /* storage unavailable — nothing to read */
-  }
-  if (!stored || !refreshToken) return null
-  let response
-  try {
-    response = await fetch(`${API_BASE_URL}${REFRESH_PATH}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh: refreshToken }),
-    })
-  } catch {
-    return null
-  }
-  if (!response.ok) return null
-  const data = await response.json().catch(() => ({}))
-  if (data.access) {
+export function refresh() {
+  if (refreshPromise) return refreshPromise
+  const promise = (async () => {
+    let refreshToken = null
+    let storageTarget = null
     try {
-      localStorage.setItem(ACCESS_TOKEN_KEY, data.access)
-      sessionStorage.setItem(ACCESS_TOKEN_KEY, data.access)
+      if (localStorage.getItem(REFRESH_TOKEN_KEY)) {
+        refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
+        storageTarget = localStorage
+      } else if (sessionStorage.getItem(REFRESH_TOKEN_KEY)) {
+        refreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY)
+        storageTarget = sessionStorage
+      }
     } catch {
-      /* storage unavailable — token not persisted */
+      /* storage unavailable — nothing to read */
     }
-  }
-  return data.access ?? null
+    if (!refreshToken) return null
+    let response
+    try {
+      response = await fetch(`${API_BASE_URL}${REFRESH_PATH}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh: refreshToken }),
+      })
+    } catch {
+      return null
+    }
+    if (!response.ok) return null
+    const data = await response.json().catch(() => ({}))
+    if (data.access) {
+      try {
+        const target = storageTarget ?? localStorage
+        target.setItem(ACCESS_TOKEN_KEY, data.access)
+      } catch {
+        /* storage unavailable — token not persisted */
+      }
+    }
+    if (data.refresh) {
+      try {
+        const target = storageTarget ?? localStorage
+        target.setItem(REFRESH_TOKEN_KEY, data.refresh)
+      } catch {
+        /* storage unavailable — token not persisted */
+      }
+    }
+    return data.access ?? null
+  })()
+  refreshPromise = promise.finally(() => {
+    refreshPromise = null
+  })
+  return refreshPromise
 }
 
 export function getStoredUser() {

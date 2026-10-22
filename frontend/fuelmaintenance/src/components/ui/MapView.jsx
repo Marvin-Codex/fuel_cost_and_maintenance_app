@@ -16,11 +16,12 @@
  * bundler, and a two-pass polyline (dark casing + bright route) so the
  * travel route is clearly visible against any map tiles.
  */
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './MapView.css'
+import * as auth from '../../api/auth'
 
 // Helper component that attaches click events to the map instance.
 function MapClickHandler({ onMapClick }) {
@@ -91,12 +92,61 @@ export function MapView({
 
   const routePath = useMemo(() => points.map((p) => [p.lat, p.lng]), [points])
 
+  // Road-following route (snaps the straight-line polyline to actual roads via OSRM).
+  const [roadPath, setRoadPath] = useState([])
+  useEffect(() => {
+    if (!points || points.length < 2) { setRoadPath([]); return }
+    const controller = new AbortController()
+    const timer = setTimeout(async () => {
+      try {
+        const maxWp = 25
+        let idx = points.map((_, i) => i)
+        if (points.length > maxWp) {
+          const step = (points.length - 1) / (maxWp - 1)
+          idx = Array.from({ length: maxWp }, (_, k) => Math.round(k * step))
+          idx = [...new Set(idx)]
+        }
+        const wps = idx.map((i) => `${points[i].lng},${points[i].lat}`).join(';')
+        const apiBase = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? '' : 'http://localhost:8000')
+        async function doFetch() {
+          const token = auth.readToken()
+          const headers = token ? { Authorization: `Bearer ${token}` } : {}
+          return fetch(
+            `${apiBase}/api/v1/route/?coordinates=${encodeURIComponent(wps)}`,
+            { signal: controller.signal, headers },
+          )
+        }
+        let res = await doFetch()
+        if (res.status === 401) {
+          const refreshed = await auth.refresh()
+          if (refreshed) res = await doFetch()
+        }
+        if (!res.ok) throw new Error('route request failed')
+        const data = await res.json()
+        const coords = data?.routes?.[0]?.geometry?.coordinates
+        if (Array.isArray(coords) && coords.length > 1) {
+          setRoadPath(coords.map(([lng, lat]) => [lat, lng]))
+        } else {
+          setRoadPath([])
+        }
+      } catch (e) {
+        if (e && e.name !== 'AbortError') setRoadPath([])
+      }
+    }, 1200)
+    return () => { clearTimeout(timer); controller.abort() }
+  }, [points])
+
+  const displayPath = roadPath.length > 1 ? roadPath : routePath
+
   // Fit bounds to points when they change
   useEffect(() => {
-    if (mapRef.current && points.length > 0) {
-      const bounds = points.map((p) => [p.lat, p.lng])
-      mapRef.current.flyToBounds(bounds, { padding: [40, 40], maxZoom: 16 })
+    if (!mapRef.current || !points || points.length === 0) return
+    if (points.length === 1) {
+      mapRef.current.setView([points[0].lat, points[0].lng], 16)
+      return
     }
+    const bounds = points.map((p) => [p.lat, p.lng])
+    mapRef.current.flyToBounds(bounds, { padding: [40, 40], maxZoom: 16 })
   }, [points])
 
   return (
@@ -126,14 +176,14 @@ export function MapView({
           </Marker>
         )}
         {/* Route: dark casing underneath + bright line on top for contrast */}
-        {routePath.length > 1 && (
+        {displayPath.length > 1 && (
           <>
             <Polyline
-              positions={routePath}
+              positions={displayPath}
               pathOptions={{ color: '#061019', weight: 10, opacity: 0.7, lineCap: 'round', lineJoin: 'round' }}
             />
             <Polyline
-              positions={routePath}
+              positions={displayPath}
               pathOptions={{ color: '#22d3ee', weight: 5, opacity: 1, lineCap: 'round', lineJoin: 'round' }}
             />
           </>

@@ -93,6 +93,21 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const { state: accessState, error: accessError, refresh, workspaces: workspaceOptions, active, access, switchWorkspace, roleLabel } = useAccess()
 
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      return localStorage.getItem('fuelmaintenance.activeTab') || 'overview'
+    } catch {
+      return 'overview'
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('fuelmaintenance.activeTab', activeTab)
+    } catch {
+      /* storage unavailable — ignore */
+    }
+  }, [activeTab])
+
   // Require sign-in before rendering the dashboard or calling any API.
   if (!auth.hasSession()) {
     navigate('/login', { replace: true })
@@ -100,11 +115,12 @@ export default function Dashboard() {
   }
 
   const organization = active ? { name: active.workspace?.name, role: active.role?.key } : null
-  const [activeTab, setActiveTab] = useState('overview')
   const [vehicles, setVehicles] = useState([])
   const [vehiclesLoading, setVehiclesLoading] = useState(true)
   const [vehiclesError, setVehiclesError] = useState(null)
-  const [selectedVehicleId, setSelectedVehicleId] = useState(null)
+  const [selectedVehicleId, setSelectedVehicleId] = useState(() => {
+    try { return localStorage.getItem('fuelmaintenance.selectedVehicleId') } catch { return null }
+  })
   const [isVehiclePickerOpen, setIsVehiclePickerOpen] = useState(false)
   const [presetVehicles, setPresetVehicles] = useState([])
   const [summary, setSummary] = useState(null)
@@ -124,6 +140,13 @@ export default function Dashboard() {
     }
   })
   const [superAdminSection, setSuperAdminSection] = useState('sa-overview')
+
+  useEffect(() => {
+    try {
+      if (selectedVehicleId === null) localStorage.removeItem('fuelmaintenance.selectedVehicleId')
+      else localStorage.setItem('fuelmaintenance.selectedVehicleId', String(selectedVehicleId))
+    } catch { /* ignore */ }
+  }, [selectedVehicleId])
 
   useEffect(() => {
     try {
@@ -639,13 +662,13 @@ export default function Dashboard() {
 
         {visibleTab === 'telemetry' ? (
           <Telemetry onBack={() => setActiveTab('overview')} />
-        ) : activeTab === 'fuel' ? (
+        ) : visibleTab === 'fuel' ? (
           <Fuel onBack={() => setActiveTab('overview')} vehicle={selectedVehicle} access={access} />
-        ) : activeTab === 'services' ? (
+        ) : visibleTab === 'services' ? (
           <Services onBack={() => setActiveTab('overview')} vehicle={selectedVehicle} access={access} />
-        ) : activeTab === 'trips' ? (
+        ) : visibleTab === 'trips' ? (
           <Trips onBack={() => setActiveTab('overview')} vehicle={selectedVehicle} access={access} />
-        ) : activeTab === 'system' ? (
+        ) : visibleTab === 'system' ? (
           <System key={selectedVehicle ? String(selectedVehicle.id) : 'system'} onBack={() => setActiveTab('overview')} vehicle={selectedVehicle} access={access} onVehiclesChanged={loadVehicles} />
         ) : (
           <div className="masonry">
@@ -740,7 +763,7 @@ export default function Dashboard() {
 
       <Sidebar
         items={dashboardNavItems}
-        activeTab={activeTab}
+        activeTab={visibleTab}
         onTabChange={setActiveTab}
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}

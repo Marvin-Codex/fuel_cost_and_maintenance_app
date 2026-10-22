@@ -67,6 +67,13 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/osm-geocode/, ''),
         headers: { Referer: 'http://localhost:5173/' },
       },
+      // Same-origin OSRM routing (road-following geometries for the trip map).
+      '/osm-route': {
+        target: 'https://router.project-osrm.org',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/osm-route/, ''),
+      },
     },
   },
 })

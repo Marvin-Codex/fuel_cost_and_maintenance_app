@@ -62,8 +62,8 @@ class AuthAPITests(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
         res = self.client.get('/api/v1/auth/me/access/')
         self.assertEqual(res.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(res.data), 1)
-        self.assertIn('vehicles.add', res.data[0]['permissions'])
+        self.assertEqual(len(res.data['workspaces']), 1)
+        self.assertIn('vehicles.add', res.data['workspaces'][0]['permissions'])
 
 
 class RegistrationFlowTests(APITestCase):
@@ -127,11 +127,16 @@ class WorkspaceAPITests(APITestCase):
         self.assertEqual(res.data[0]['role'], 'owner')
 
     def test_add_member_flow(self):
-        ws = Workspace.objects.get(kind='personal', memberships__user=self.user)
+        from access.models import Role as WsRole
+        plan = WsPlan.objects.get(key='group')
+        owner_role = WsRole.objects.get(workspace=None, key='owner')
+        ws = Workspace.objects.create(name='Group', kind='group', plan=plan)
+        WsMembership.objects.create(user=self.user, workspace=ws, role=owner_role)
         User.objects.create_user(username='ws-friend', password='pw-123456')
         res = self.client.post(
             '/api/v1/access/workspaces/%s/add_member/' % ws.pk,
             {'username': 'ws-friend', 'role': 'viewer'},
             format='json',
+            HTTP_X_WORKSPACE=str(ws.pk),
         )
         self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)

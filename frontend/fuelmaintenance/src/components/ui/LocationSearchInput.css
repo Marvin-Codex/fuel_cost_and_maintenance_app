@@ -1,69 +1,108 @@
-/* Location search input with Nominatim suggestions */
+/* Location search input with Nominatim suggestions.
+   The suggestion panel is portalled to <body> and positioned with `fixed`,
+   so it is never clipped by an ancestor's `overflow: hidden`. */
 .loc-search {
   position: relative;
   width: 100%;
 }
-.loc-search-input {
+/* Two classes so this beats the page-level `input` rules in Trips.css
+   (e.g. `.trip-add-form input`), which otherwise pin the field to 9px. */
+.loc-search .loc-search-input {
   width: 100%;
-  padding: 7px 9px;
-  border: 1px solid #2c3b57;
+  padding: 9px 11px;
+  border: 1px solid var(--fm-line-strong, #2c3b57);
   border-radius: 5px;
-  background: #0f172a;
-  color: #f0f4ff;
-  font-size: 9px;
+  background: var(--fm-surface-2, #0f172a);
+  color: var(--fm-ink, #f0f4ff);
+  font-size: 12px;
   font-family: inherit;
 }
-.loc-search-input:focus {
+.loc-search .loc-search-input:focus {
   outline: none;
-  border-color: var(--cyan, #22d3ee);
+  border-color: var(--fm-accent, #22d3ee);
 }
-.loc-search-busy {
+.loc-search .loc-search-busy {
   position: absolute;
-  right: 8px;
+  right: 10px;
   top: 50%;
   transform: translateY(-50%);
-  color: #9aa8c5;
-  font-size: 8px;
+  color: var(--fm-muted, #9aa8c5);
+  font-size: 10px;
   pointer-events: none;
 }
 .loc-search-list {
-  position: absolute;
+  position: fixed;
   z-index: 1200;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
+  box-sizing: border-box;
   margin: 0;
-  padding: 4px;
+  padding: 5px;
   list-style: none;
-  border: 1px solid #2c3b57;
-  border-radius: 6px;
-  background: #0d1526;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
-  max-height: 220px;
+  border: 1px solid var(--fm-line-strong, #2c3b57);
+  border-radius: 8px;
+  background: var(--fm-surface, #0d1526);
+  box-shadow: var(--fm-shadow, 0 12px 30px rgba(0, 0, 0, 0.55));
+  /* Five results fit without scrolling; cap so a long list never runs off
+     the viewport, and let the list scroll only past that point. */
+  max-height: min(320px, 45vh);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
+/* Rows are a click target first — generous padding, legible type. */
 .loc-search-list li {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 7px 8px;
-  border-radius: 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 8px;
+  row-gap: 3px;
+  padding: 9px 10px;
+  border-radius: 5px;
   cursor: pointer;
 }
 .loc-search-list li:hover,
-.loc-search-list li:focus {
-  background: #17233c;
+.loc-search-list li:focus,
+.loc-search-list li.active {
+  background: var(--fm-accent-soft, #17233c);
   outline: none;
 }
-.loc-search-list b {
-  color: #f0f4ff;
-  font-size: 9px;
-  font-weight: 600;
-}
-.loc-search-list span {
-  color: #9aa8c5;
-  font-size: 8px;
+/* Primary place name. */
+.loc-search-name {
+  grid-column: 1;
+  color: var(--fm-ink, #f0f4ff);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.loc-search-name mark {
+  color: var(--fm-accent, #22d3ee);
+  background: transparent;
+}
+/* Place-type badge, right-aligned on the name row. */
+.loc-search-kind {
+  grid-column: 2;
+  grid-row: 1;
+  padding: 2px 6px;
+  border: 1px solid var(--fm-line-strong, #2c3b57);
+  border-radius: 4px;
+  color: var(--fm-accent, #22d3ee);
+  background: var(--fm-accent-soft, #17233c);
+  font-size: 9px;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+/* Surrounding area, on its own row so it never squeezes the name. */
+.loc-search-context {
+  grid-column: 1 / -1;
+  color: var(--fm-muted, #9aa8c5);
+  font-size: 10px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.loc-search-context mark {
+  color: var(--fm-ink-soft, #c4cede);
+  background: transparent;
 }
