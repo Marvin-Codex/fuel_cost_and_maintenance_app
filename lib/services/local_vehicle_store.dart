@@ -122,6 +122,15 @@ class LocalVehicleStore {
 
   List<Vehicle> get vehicles => List.unmodifiable(_vehicles);
 
+  void upsertVehicle(Vehicle vehicle) {
+    final index = _vehicles.indexWhere((v) => v.id == vehicle.id);
+    if (index >= 0) {
+      _vehicles[index] = vehicle;
+    } else {
+      _vehicles.add(vehicle);
+    }
+  }
+
   void addVehicle(String name, {VehiclePreset? preset}) {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) return;

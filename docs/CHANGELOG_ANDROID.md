@@ -29,6 +29,10 @@ Maintainer: (update with assignee)
 
 2026-09-29 [IN-PROGRESS] Replaced the stale Flutter counter test with dashboard and add-vehicle coverage as the first Android app development slice.
 
+2026-10-22 [DONE] Added ApiService, SyncService, and PlanTripPage to Flutter app; wired sync on startup and manual sync button; added Plan trip tab with OSRM alternatives. Updated local stores with upsert helpers.
+2026-10-22 [DONE] Implemented GPS trip capture/upload screen, maintenance logging screen, and workspace switcher; extended sync to trips/maintenance and active workspace header.
+
+
 2026-09-29 [BLOCKED] Focused `flutter test test/widget_test.dart` could not run because `flutter` is unavailable on the current PowerShell `PATH`; static diagnostics report no errors in `lib/main.dart` or `test/widget_test.dart`.
 
 2026-09-29 [BLOCKED] Gradle wrapper generation could not run because the wrapper scripts/JAR are absent and no system `gradle` executable is installed; `gradle-wrapper.properties` is present and targets Gradle 7.6.3.

@@ -5,6 +5,15 @@ class LocalFuelStore {
 
   List<FuelRecord> get records => List.unmodifiable(_records);
 
+  void upsertRecord(FuelRecord record) {
+    final index = _records.indexWhere((r) => r.id == record.id);
+    if (index >= 0) {
+      _records[index] = record;
+    } else {
+      _records.add(record);
+    }
+  }
+
   void addRecord({
     required String vehicleId,
     required double litres,

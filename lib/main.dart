@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
 
 import 'models/fuel_record.dart';
+import 'models/maintenance_record.dart';
+import 'models/trip.dart';
 import 'models/vehicle.dart';
+import 'screens/maintenance_page.dart';
+import 'screens/plan_trip_page.dart';
+import 'screens/trips_page.dart';
 import 'services/access.dart';
+import 'services/api_service.dart';
 import 'services/local_fuel_store.dart';
+import 'services/local_maintenance_store.dart';
+import 'services/local_trip_store.dart';
 import 'services/local_vehicle_store.dart';
+import 'services/sync_service.dart';
 
 const supportedCurrencies = ['UGX', 'USD', 'EUR', 'GBP', 'KES', 'TZS'];
 
@@ -39,6 +48,10 @@ class _DashboardPageState extends State<DashboardPage> {
   String _currency = 'UGX';
   final LocalVehicleStore _vehicleStore = LocalVehicleStore();
   final LocalFuelStore _fuelStore = LocalFuelStore();
+  final LocalTripStore _tripStore = LocalTripStore();
+  final LocalMaintenanceStore _maintenanceStore = LocalMaintenanceStore();
+  List<Map<String, dynamic>> _workspaces = const [];
+  String? _activeWorkspaceId;
 
   /// Rights for the workspace currently in use, from the server snapshot.
   ///
@@ -46,10 +59,58 @@ class _DashboardPageState extends State<DashboardPage> {
   /// everything — we never assume a user may do something and take it back.
   Access _access = const Access.unknown();
 
-  /// Applied when the snapshot loads; `null` means the fetch failed and we keep
+  final ApiService _api = ApiService();
+  late final SyncService _sync = SyncService(_api);
+  bool _syncing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncNow());
+  }
+
+  Future<void> _syncNow() async {
+    if (_syncing) return;
+    setState(() => _syncing = true);
+    try {
+      await _sync.sync(
+        onAccess: applyAccessSnapshot,
+        vehicleStore: _vehicleStore,
+        fuelStore: _fuelStore,
+        tripStore: _tripStore,
+        maintenanceStore: _maintenanceStore,
+      );
+    } catch (_) {
+      // Offline or auth missing: keep local data.
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
+  Future<void> _switchWorkspace(String id) async {
+    if (id == _activeWorkspaceId) return;
+    _api.setActiveWorkspace(id);
+    _activeWorkspaceId = id;
+    await _syncNow();
+  }
   /// the last known rights.
-  void applyAccessSnapshot(Map<String, dynamic> entry) {
-    setState(() => _access = Access.fromSnapshot(entry));
+  void applyAccessSnapshot(Map<String, dynamic> snapshot) {
+    final workspaces = (snapshot['workspaces'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .toList() ??
+        const [];
+    _workspaces = workspaces;
+    _activeWorkspaceId = snapshot['active_workspace']?.toString();
+    _api.setActiveWorkspace(_activeWorkspaceId);
+    final activeEntry = workspaces.firstWhere(
+      (w) => w['workspace'] is Map && (w['workspace'] as Map)['id']?.toString() == _activeWorkspaceId,
+      orElse: () => workspaces.isNotEmpty ? workspaces.first : <String, dynamic>{},
+    );
+    if (activeEntry.isNotEmpty) {
+      final entry = Map<String, dynamic>.from(activeEntry);
+      entry['is_superuser'] = snapshot['is_superuser'] == true;
+      setState(() => _access = Access.fromSnapshot(entry));
+    }
   }
 
   void _showFuelPriceDialog() {
@@ -257,17 +318,49 @@ class _DashboardPageState extends State<DashboardPage> {
         access: _access,
         onAdd: _access.canLogFuel ? _showAddFuelDialog : null,
       ),
-      const _SimpleSection(
-          icon: Icons.build_outlined,
-          title: 'Maintenance',
-          description:
-              'Track service history and upcoming maintenance reminders.'),
+      PlanTripPage(api: _api),
+      TripsPage(
+        store: _tripStore,
+        vehicles: _vehicleStore.vehicles,
+        access: _access,
+        onChanged: () => setState(() {}),
+      ),
+      MaintenancePage(
+        store: _maintenanceStore,
+        vehicles: _vehicleStore.vehicles,
+        access: _access,
+        onChanged: () => setState(() {}),
+      ),
     ];
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Fuel and Maintenance'),
         actions: [
+          if (_workspaces.length > 1)
+            PopupMenuButton<String>(
+              tooltip: 'Workspace',
+              icon: const Icon(Icons.workspaces_outlined),
+              onSelected: _switchWorkspace,
+              itemBuilder: (context) => _workspaces.map((w) {
+                final ws = (w['workspace'] as Map?) ?? {};
+                final id = ws['id']?.toString() ?? '';
+                final name = ws['name']?.toString() ?? 'Workspace';
+                return PopupMenuItem<String>(
+                  value: id,
+                  child: Text(name),
+                );
+              }).toList(),
+            ),
+          IconButton(
+              tooltip: 'Sync',
+              onPressed: _syncing ? null : _syncNow,
+              icon: _syncing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.sync_outlined)),
           IconButton(
               tooltip: 'Settings',
               onPressed: _showFuelPriceDialog,
@@ -293,9 +386,17 @@ class _DashboardPageState extends State<DashboardPage> {
               selectedIcon: Icon(Icons.local_gas_station),
               label: 'Fuel'),
           NavigationDestination(
+              icon: Icon(Icons.route_outlined),
+              selectedIcon: Icon(Icons.route),
+              label: 'Plan trip'),
+          NavigationDestination(
+              icon: Icon(Icons.alt_route_outlined),
+              selectedIcon: Icon(Icons.alt_route),
+              label: 'Trips'),
+          NavigationDestination(
               icon: Icon(Icons.build_outlined),
               selectedIcon: Icon(Icons.build),
-              label: 'Service'),
+              label: 'Maintenance'),
         ],
       ),
       floatingActionButton: _selectedIndex == 1
