@@ -14,6 +14,8 @@ class PlanTripPage extends StatefulWidget {
 class _PlanTripPageState extends State<PlanTripPage> {
   final TextEditingController _originController = TextEditingController(text: '-1.2921, 36.8219');
   final TextEditingController _destinationController = TextEditingController(text: '-1.2864, 36.8172');
+  final TextEditingController _consumptionController = TextEditingController(text: '6.7');
+  final TextEditingController _priceController = TextEditingController(text: '1.50');
   bool _loading = false;
   String? _error;
   List<_RouteOption> _routes = const [];
@@ -23,6 +25,8 @@ class _PlanTripPageState extends State<PlanTripPage> {
   void dispose() {
     _originController.dispose();
     _destinationController.dispose();
+    _consumptionController.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
@@ -44,7 +48,14 @@ class _PlanTripPageState extends State<PlanTripPage> {
         final geometry = route['geometry'] as Map<String, dynamic>?;
         final coords = (geometry?['coordinates'] as List?) ?? const [];
         final points = coords.map((c) { final pair = c as List; return LatLng((pair[1] as num).toDouble(), (pair[0] as num).toDouble()); }).toList();
-        return _RouteOption(points: points, distanceKm: ((route['distance'] as num?)?.toDouble() ?? 0) / 1000, durationMin: ((route['duration'] as num?)?.toDouble() ?? 0) / 60);
+        final distanceKm = ((route['distance'] as num?)?.toDouble() ?? 0) / 1000;
+        final durationMin = ((route['duration'] as num?)?.toDouble() ?? 0) / 60;
+        final consumption = double.tryParse(_consumptionController.text.trim()) ?? 0;
+        final price = double.tryParse(_priceController.text.trim()) ?? 0;
+        final fuelCost = consumption > 0 && price > 0
+            ? distanceKm * (consumption / 100.0) * price
+            : null;
+        return _RouteOption(points: points, distanceKm: distanceKm, durationMin: durationMin, fuelCost: fuelCost);
       }).toList();
       setState(() { _loading = false; _routes = parsed; _selectedIndex = 0; });
       if (parsed.isNotEmpty && parsed.first.points.isNotEmpty) {
@@ -77,6 +88,26 @@ class _PlanTripPageState extends State<PlanTripPage> {
         TextField(controller: _originController, decoration: const InputDecoration(labelText: 'Origin (lat, lon)')),
         const SizedBox(height: 8),
         TextField(controller: _destinationController, decoration: const InputDecoration(labelText: 'Destination (lat, lon)')),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _consumptionController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Consumption (L/100 km)'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _priceController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Fuel price (/L)'),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 12),
         FilledButton.icon(onPressed: _loading ? null : _plan, icon: const Icon(Icons.route_outlined), label: Text(_loading ? 'Planning…' : 'Plan route')),
         if (_error != null) ...[const SizedBox(height: 8), Text(_error!, style: const TextStyle(color: Colors.red))],
@@ -111,7 +142,9 @@ class _PlanTripPageState extends State<PlanTripPage> {
                 onTap: () => setState(() => _selectedIndex = i),
                 leading: CircleAvatar(child: Text('${i + 1}')),
                 title: Text('Route ${i + 1}'),
-                subtitle: Text('${_routes[i].distanceKm.toStringAsFixed(1)} km • ${_routes[i].durationMin.toStringAsFixed(0)} min'),
+                subtitle: Text(
+                  '${_routes[i].distanceKm.toStringAsFixed(1)} km • ${_routes[i].durationMin.toStringAsFixed(0)} min${_routes[i].fuelCost != null ? ' • ${_routes[i].fuelCost!.toStringAsFixed(2)} est. cost' : ''}',
+                ),
                 trailing: i == _selectedIndex ? const Icon(Icons.check_circle, color: Color(0xFF0C5B55)) : null,
               ),
             ),
@@ -122,9 +155,10 @@ class _PlanTripPageState extends State<PlanTripPage> {
 }
 
 class _RouteOption {
-  const _RouteOption({required this.points, required this.distanceKm, required this.durationMin});
+  const _RouteOption({required this.points, required this.distanceKm, required this.durationMin, this.fuelCost});
   final List<LatLng> points;
   final double distanceKm;
   final double durationMin;
+  final double? fuelCost;
 }
 

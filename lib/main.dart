@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'database/app_database.dart' show AppDatabase;
 import 'models/fuel_record.dart';
-import 'models/maintenance_record.dart';
-import 'models/trip.dart';
 import 'models/vehicle.dart';
 import 'screens/maintenance_page.dart';
 import 'screens/plan_trip_page.dart';
@@ -46,10 +45,15 @@ class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
   double _fuelPricePerLitre = 1.50;
   String _currency = 'UGX';
-  final LocalVehicleStore _vehicleStore = LocalVehicleStore();
-  final LocalFuelStore _fuelStore = LocalFuelStore();
-  final LocalTripStore _tripStore = LocalTripStore();
-  final LocalMaintenanceStore _maintenanceStore = LocalMaintenanceStore();
+
+  final AppDatabase _appDatabase = AppDatabase();
+  late final LocalVehicleStore _vehicleStore =
+      LocalVehicleStore(_appDatabase);
+  late final LocalFuelStore _fuelStore = LocalFuelStore(_appDatabase);
+  late final LocalTripStore _tripStore = LocalTripStore(_appDatabase);
+  late final LocalMaintenanceStore _maintenanceStore =
+      LocalMaintenanceStore(_appDatabase);
+
   List<Map<String, dynamic>> _workspaces = const [];
   String? _activeWorkspaceId;
 
@@ -66,7 +70,22 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
+    _loadStores();
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncNow());
+  }
+
+  @override
+  void dispose() {
+    _appDatabase.close();
+    super.dispose();
+  }
+
+  Future<void> _loadStores() async {
+    await _vehicleStore.load();
+    await _fuelStore.load();
+    await _tripStore.load();
+    await _maintenanceStore.load();
+    if (mounted) setState(() {});
   }
 
   Future<void> _syncNow() async {
@@ -93,18 +112,23 @@ class _DashboardPageState extends State<DashboardPage> {
     _activeWorkspaceId = id;
     await _syncNow();
   }
-  /// the last known rights.
+
+  /// Applies the server's access snapshot. If it contains no workspaces,
+  /// the last known rights are kept.
   void applyAccessSnapshot(Map<String, dynamic> snapshot) {
     final workspaces = (snapshot['workspaces'] as List?)
             ?.whereType<Map<String, dynamic>>()
             .toList() ??
-        const [];
+        const <Map<String, dynamic>>[];
     _workspaces = workspaces;
     _activeWorkspaceId = snapshot['active_workspace']?.toString();
     _api.setActiveWorkspace(_activeWorkspaceId);
     final activeEntry = workspaces.firstWhere(
-      (w) => w['workspace'] is Map && (w['workspace'] as Map)['id']?.toString() == _activeWorkspaceId,
-      orElse: () => workspaces.isNotEmpty ? workspaces.first : <String, dynamic>{},
+      (w) =>
+          w['workspace'] is Map &&
+          (w['workspace'] as Map)['id']?.toString() == _activeWorkspaceId,
+      orElse: () =>
+          workspaces.isNotEmpty ? workspaces.first : <String, dynamic>{},
     );
     if (activeEntry.isNotEmpty) {
       final entry = Map<String, dynamic>.from(activeEntry);
@@ -243,6 +267,12 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   void _showAddFuelDialog() {
+    if (_vehicleStore.vehicles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add a vehicle first.')),
+      );
+      return;
+    }
     final litres = TextEditingController();
     final cost = TextEditingController();
     final odometer = TextEditingController();
@@ -689,29 +719,3 @@ IconData _vehicleIcon(VehicleType type) => switch (type) {
       VehicleType.van => Icons.airport_shuttle_outlined,
       _ => Icons.directions_car_outlined,
     };
-
-class _SimpleSection extends StatelessWidget {
-  const _SimpleSection(
-      {required this.icon, required this.title, required this.description});
-  final IconData icon;
-  final String title;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, size: 56, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 16),
-            Text(title,
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(description, textAlign: TextAlign.center),
-          ]),
-        ),
-      );
-}

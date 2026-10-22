@@ -42,11 +42,11 @@ class SyncService {
     // Pull vehicles.
     try {
       final rows = await api.listVehicles();
+      final existingVehicles = vehicleStore.vehicles;
+      final existingIds = existingVehicles.map((v) => v.id).toSet();
       for (final row in rows) {
         final id = row['id']?.toString();
-        if (id == null) continue;
-        final already = vehicleStore.vehicles.any((v) => v.id == id);
-        if (already) continue;
+        if (id == null || existingIds.contains(id)) continue;
         final v = Vehicle(
           id: id,
           name: (row['name'] ?? '').toString(),
@@ -61,7 +61,8 @@ class SyncService {
           tankCapacityLitres: 50,
           referenceConsumption: 6.7,
         );
-        vehicleStore.upsertVehicle(v);
+        await vehicleStore.upsertVehicle(v);
+        existingIds.add(id);
       }
     } catch (_) {
       // Offline: keep local data.
@@ -70,11 +71,11 @@ class SyncService {
     // Pull fuel records.
     try {
       final rows = await api.listFuel();
+      final existingFuel = fuelStore.records;
+      final existingFuelIds = existingFuel.map((r) => r.id).toSet();
       for (final row in rows) {
         final id = row['id']?.toString();
-        if (id == null) continue;
-        final already = fuelStore.records.any((r) => r.id == id);
-        if (already) continue;
+        if (id == null || existingFuelIds.contains(id)) continue;
         final r = FuelRecord(
           id: id,
           vehicleId: (row['vehicle'] ?? '').toString(),
@@ -82,7 +83,8 @@ class SyncService {
           cost: double.tryParse('${row['total_cost']}') ?? 0,
           odometer: double.tryParse('${row['odometer_km']}') ?? 0,
         );
-        fuelStore.upsertRecord(r);
+        await fuelStore.upsertRecord(r);
+        existingFuelIds.add(id);
       }
     } catch (_) {
       // Offline: keep local data.
@@ -90,7 +92,8 @@ class SyncService {
 
     // Push local fuel records not yet synced.
     try {
-      for (final record in fuelStore.records) {
+      final fuelRecords = fuelStore.records;
+      for (final record in fuelRecords) {
         if (_syncedFuelIds.contains(record.id)) continue;
         if (record.id.startsWith('fuel-')) {
           final created = await api.createFuel({
@@ -114,12 +117,13 @@ class SyncService {
     // Pull trips.
     try {
       final rows = await api.listTrips();
+      final existingTrips = tripStore.trips;
+      final existingTripIds = existingTrips.map((t) => t.id).toSet();
       for (final row in rows) {
         final id = row['id']?.toString();
-        if (id == null) continue;
-        final already = tripStore.trips.any((t) => t.id == id);
-        if (already) continue;
-        tripStore.upsertTrip(Trip.fromJson(id, row));
+        if (id == null || existingTripIds.contains(id)) continue;
+        await tripStore.upsertTrip(Trip.fromJson(id, row));
+        existingTripIds.add(id);
       }
     } catch (_) {
       // Offline: keep local data.
@@ -127,7 +131,8 @@ class SyncService {
 
     // Push local trips not yet synced.
     try {
-      for (final trip in tripStore.trips) {
+      final trips = tripStore.trips;
+      for (final trip in trips) {
         if (_syncedTripIds.contains(trip.id)) continue;
         if (trip.id.startsWith('trip-')) {
           final created = await api.createTrip(trip.toJson());
@@ -143,12 +148,14 @@ class SyncService {
     // Pull maintenance records.
     try {
       final rows = await api.listMaintenance();
+      final existingMaintenance = maintenanceStore.records;
+      final existingMaintenanceIds =
+          existingMaintenance.map((r) => r.id).toSet();
       for (final row in rows) {
         final id = row['id']?.toString();
-        if (id == null) continue;
-        final already = maintenanceStore.records.any((r) => r.id == id);
-        if (already) continue;
-        maintenanceStore.upsertRecord(MaintenanceRecord.fromJson(id, row));
+        if (id == null || existingMaintenanceIds.contains(id)) continue;
+        await maintenanceStore.upsertRecord(MaintenanceRecord.fromJson(id, row));
+        existingMaintenanceIds.add(id);
       }
     } catch (_) {
       // Offline: keep local data.
@@ -156,7 +163,8 @@ class SyncService {
 
     // Push local maintenance records not yet synced.
     try {
-      for (final record in maintenanceStore.records) {
+      final maintenanceRecords = maintenanceStore.records;
+      for (final record in maintenanceRecords) {
         if (_syncedMaintenanceIds.contains(record.id)) continue;
         if (record.id.startsWith('maintenance-')) {
           final created = await api.createMaintenance(record.toJson());

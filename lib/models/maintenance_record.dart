@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 class MaintenanceRecord {
   const MaintenanceRecord({
     required this.id,
