@@ -4,6 +4,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils import timezone
 
 from accounts.models import Organization
 from vehicles.models import Vehicle
@@ -22,6 +23,7 @@ class FuelRecord(models.Model):
         Vehicle, on_delete=models.PROTECT, related_name='fuel_records'
     )
     date = models.DateField()
+    purchased_at = models.DateTimeField(null=True, blank=True)
     odometer_km = models.PositiveIntegerField()
     quantity_liters = models.DecimalField(
         max_digits=10, decimal_places=3,
@@ -34,6 +36,7 @@ class FuelRecord(models.Model):
     total_cost = models.DecimalField(max_digits=14, decimal_places=2, editable=False)
     fuel_type = models.CharField(max_length=10, choices=Vehicle.FUEL_TYPES, default='petrol')
     station = models.CharField(max_length=150, blank=True)
+    receipt_reference = models.CharField(max_length=120, blank=True)
     notes = models.TextField(blank=True)
     is_full_tank = models.BooleanField(default=False)
     client_id = models.UUIDField(null=True, blank=True)
@@ -56,6 +59,13 @@ class FuelRecord(models.Model):
         ]
 
     def save(self, *args, **kwargs):
+        if self.purchased_at is not None:
+            if timezone.is_naive(self.purchased_at):
+                self.purchased_at = timezone.make_aware(
+                    self.purchased_at,
+                    timezone.get_current_timezone(),
+                )
+            self.date = timezone.localtime(self.purchased_at).date()
         amount = Decimal(str(self.quantity_liters)) * Decimal(str(self.unit_price))
         self.total_cost = amount.quantize(
             Decimal('0.01'), rounding=ROUND_HALF_UP

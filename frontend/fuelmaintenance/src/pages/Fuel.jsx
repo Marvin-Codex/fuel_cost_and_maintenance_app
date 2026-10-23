@@ -36,6 +36,11 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function localDateTimeValue(date) {
+  const localTime = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return localTime.toISOString().slice(0, 16)
+}
+
 function tripConsumption(trip) {
   const liters = Number(trip.fuel_consumed_liters)
   const km = Number(trip.distance_km)
@@ -58,9 +63,9 @@ function consumptionPoints(trips, days) {
 
 /** Build an SVG path plus point coordinates from consumption values. */
 function makeChartPath(values) {
+  if (!values.length) return null
   const width = 600
   const height = 180
-  if (!values.length) return null
   const min = Math.min(...values)
   const max = Math.max(...values)
   const span = max - min || 1
@@ -87,11 +92,14 @@ export default function Fuel({ onBack, vehicle, access }) {
   const [formError, setFormError] = useState(null)
   const [savedMessage, setSavedMessage] = useState('')
   const [form, setForm] = useState({
-    date: todayIso(),
+    purchased_at: localDateTimeValue(new Date()),
     odometer_km: '',
     quantity_liters: '',
     unit_price: '',
+    fuel_type: vehicle?.fuel_type ?? 'petrol',
     station: '',
+    receipt_reference: '',
+    is_full_tank: false,
     notes: '',
   })
 
@@ -192,12 +200,15 @@ export default function Fuel({ onBack, vehicle, access }) {
     }
     const payload = {
       vehicle: vehicleId,
-      date: form.date,
+      purchased_at: new Date(form.purchased_at).toISOString(),
       odometer_km: Number(form.odometer_km),
       quantity_liters: Number(form.quantity_liters),
+      fuel_type: form.fuel_type,
+      is_full_tank: form.is_full_tank,
     }
     if (Number(form.unit_price) > 0) payload.unit_price = Number(form.unit_price)
     if (form.station.trim()) payload.station = form.station.trim()
+    if (form.receipt_reference.trim()) payload.receipt_reference = form.receipt_reference.trim()
     if (form.notes.trim()) payload.notes = form.notes.trim()
     setSaving(true)
     try {
@@ -208,8 +219,15 @@ export default function Fuel({ onBack, vehicle, access }) {
       ])
       setRecords([...fuelRows].sort((a, b) => String(b.date).localeCompare(String(a.date))))
       setSummary(fuelSummary)
-      setSavedMessage(`Fill-up on ${formatDate(form.date)} recorded.`)
-      setForm((current) => ({ ...current, quantity_liters: '', station: '', notes: '' }))
+      setSavedMessage(`Fill-up on ${formatDate(form.purchased_at)} recorded.`)
+      setForm((current) => ({
+        ...current,
+        quantity_liters: '',
+        station: '',
+        receipt_reference: '',
+        is_full_tank: false,
+        notes: '',
+      }))
       setIsFormOpen(false)
     } catch (err) {
       setFormError(err.message)
@@ -250,8 +268,8 @@ export default function Fuel({ onBack, vehicle, access }) {
             </div>
           </div>
           <form className="fuel-add-form" onSubmit={saveFillUp}>
-            <label>Date
-              <input name="date" type="date" max={todayIso()} value={form.date} onChange={updateForm} required />
+            <label>Purchase date and time
+              <input name="purchased_at" type="datetime-local" max={localDateTimeValue(new Date())} value={form.purchased_at} onChange={updateForm} required />
             </label>
             <label>Odometer (km)
               <input name="odometer_km" type="number" min="0" step="1" inputMode="numeric" value={form.odometer_km} onChange={updateForm} required />
@@ -262,8 +280,22 @@ export default function Fuel({ onBack, vehicle, access }) {
             <label>Unit price (UGX / L)
               <input name="unit_price" type="number" min="0" step="1" inputMode="numeric" value={form.unit_price} onChange={updateForm} />
             </label>
+            <label>Fuel type
+              <select name="fuel_type" value={form.fuel_type} onChange={updateForm}>
+                {['petrol', 'diesel', 'electric', 'hybrid', 'lpg'].map((type) => (
+                  <option key={type} value={type}>{type.toUpperCase()}</option>
+                ))}
+              </select>
+            </label>
             <label>Station
               <input name="station" type="text" placeholder="e.g. Shell Najjanankumbi" value={form.station} onChange={updateForm} />
+            </label>
+            <label>Receipt reference
+              <input name="receipt_reference" type="text" maxLength="120" value={form.receipt_reference} onChange={updateForm} />
+            </label>
+            <label className="fuel-form-wide">
+              <input name="is_full_tank" type="checkbox" checked={form.is_full_tank} onChange={(event) => setForm((current) => ({ ...current, is_full_tank: event.target.checked }))} />
+              Filled tank to full
             </label>
             <label className="fuel-form-wide">Notes
               <textarea name="notes" rows="2" placeholder="Optional notes" value={form.notes} onChange={updateForm} />
@@ -303,7 +335,7 @@ export default function Fuel({ onBack, vehicle, access }) {
         )}
       </section>
 
-      <section className="fuel-metric-grid" aria-label="Fuel metrics">
+      <section className="fuel-metric-grid" aria-label="Fuel statistics">
         <article className="fuel-panel fuel-metric">
           <p className="fuel-eyebrow">CONSUMPTION · {PERIODS[period].label.toUpperCase()}</p>
           <strong className="fuel-metric-value">{consumptionAvg !== null ? consumptionAvg.toFixed(1) : '—'}<small> L/100 km</small></strong>
@@ -356,7 +388,7 @@ export default function Fuel({ onBack, vehicle, access }) {
         </article>
       </section>
 
-      <section className="fuel-panel fuel-efficiency-panel" aria-labelledby="fuel-efficiency-title">
+      <section className="fuel-panel fuel-purchase-panel" aria-labelledby="fuel-purchase-title">
         <div className="fuel-section-heading">
           <div>
             <p className="fuel-eyebrow">FUEL EFFICIENCY</p>
@@ -415,7 +447,7 @@ export default function Fuel({ onBack, vehicle, access }) {
         <div className="fuel-section-heading">
           <div>
             <p className="fuel-eyebrow">RECENT FUEL ACTIVITY</p>
-            <h3 id="fuel-history-title">Fuel history</h3>
+            <h3 id="fuel-history-title">Fuel purchase history</h3>
           </div>
           <span className="fuel-history-caption">{records.length} fill-up{records.length === 1 ? '' : 's'} on record</span>
         </div>
@@ -463,4 +495,3 @@ export default function Fuel({ onBack, vehicle, access }) {
     </section>
   )
 }
-

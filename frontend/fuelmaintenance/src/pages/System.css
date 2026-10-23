@@ -16,6 +16,8 @@
 .system-section-heading h3 { margin-top: 3px; font: 600 21px/1.1 'Barlow Condensed', sans-serif; }
 .system-text-button { padding: 7px 9px; border: 1px solid #35425b; border-radius: 4px; color: var(--cyan); background: #101a2d; font: 8px 'Space Mono', monospace; cursor: pointer; }
 .system-text-button:hover, .system-secondary-button:hover { border-color: var(--cyan); background: #1b2b41; }
+.vehicle-management-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: 5px; }
+.danger-button { color: #ff9d9d; border-color: #75434a; }
 .vehicle-info-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 15px; }
 .vehicle-info-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; padding: 10px 0; border-bottom: 1px solid #27344d; }
 .vehicle-info-item:nth-last-child(-n+2) { border-bottom: 0; }
@@ -24,8 +26,8 @@
 .vehicle-info-item > strong { overflow: hidden; color: #e5f3ff; font-weight: 400; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
 .vehicle-edit-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px 10px; }
 .vehicle-edit-form label { display: grid; gap: 6px; color: #c4cede; font-size: 8px; }
-.vehicle-edit-form input, .threshold-grid input, .app-setting-row select { min-width: 0; padding: 8px; border: 1px solid #35425b; border-radius: 4px; outline: none; color: #f0f4ff; background: #101a2d; font: 9px 'Space Mono', monospace; }
-.vehicle-edit-form input:focus-visible, .threshold-grid input:focus-visible, .app-setting-row select:focus-visible { border-color: var(--cyan); outline: 2px solid var(--cyan); outline-offset: 2px; }
+.vehicle-edit-form input, .vehicle-edit-form select, .threshold-grid input, .app-setting-row select { min-width: 0; padding: 8px; border: 1px solid #35425b; border-radius: 4px; outline: none; color: #f0f4ff; background: #101a2d; font: 9px 'Space Mono', monospace; }
+.vehicle-edit-form input:focus-visible, .vehicle-edit-form select:focus-visible, .threshold-grid input:focus-visible, .app-setting-row select:focus-visible { border-color: var(--cyan); outline: 2px solid var(--cyan); outline-offset: 2px; }
 .connection-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 14px; }
 .connection-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; padding: 11px 0; border-bottom: 1px solid #27344d; color: #dce5f5; font-size: 8px; }
 .connection-row:nth-last-child(-n+2) { border-bottom: 0; }

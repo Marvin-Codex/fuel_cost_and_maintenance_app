@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
+  createVehicle,
+  deleteVehicle,
   downloadDataExport,
   fetchPreferences,
   updatePreferences,
@@ -18,6 +20,23 @@ const ALERT_FIELDS = [
 ]
 
 const DEFAULT_THRESHOLDS = { low_fuel_percent: 20, engine_temperature_c: 105, overspeed_kmh: 100 }
+
+function vehicleDraftFrom(vehicle = null) {
+  return {
+    name: vehicle?.name ?? '',
+    make: vehicle?.make ?? '',
+    model: vehicle?.model ?? '',
+    year: vehicle?.year ?? '',
+    license_plate: vehicle?.registration ?? vehicle?.license_plate ?? '',
+    vin: vehicle?.vin ?? '',
+    engine_capacity_cc: vehicle?.engine_capacity_cc ?? '',
+    fuel_type: vehicle?.fuel_type ?? 'petrol',
+    transmission: vehicle?.transmission ?? 'automatic',
+    tank_capacity_liters: vehicle?.tank_capacity_liters ?? '',
+    odometer_km: vehicle?.odometer ?? vehicle?.odometer_km ?? 0,
+    status: vehicle?.status ?? 'simulation',
+  }
+}
 
 function StatusDot({ tone = 'good' }) {
   return <i className={`system-status-dot ${tone}`} aria-hidden="true" />
@@ -39,31 +58,22 @@ export default function System({ onBack, vehicle, access, onVehiclesChanged }) {
   const [preferences, setPreferences] = useState(null)
   const [prefsLoading, setPrefsLoading] = useState(true)
   const [prefsError, setPrefsError] = useState(null)
-  const [vehicleDraft, setVehicleDraft] = useState(() => ({
-    name: vehicle?.name ?? '',
-    make: vehicle?.make ?? '',
-    model: vehicle?.model ?? '',
-    year: vehicle?.year ?? '',
-    license_plate: vehicle?.registration ?? '',
-    odometer_km: vehicle?.odometer ?? '',
-  }))
+  const [vehicleDraft, setVehicleDraft] = useState(() => vehicleDraftFrom(vehicle))
   const [editingVehicle, setEditingVehicle] = useState(false)
+  const [creatingVehicle, setCreatingVehicle] = useState(false)
   const [vehicleSaving, setVehicleSaving] = useState(false)
   const [notice, setNotice] = useState('')
   const [aboutDocument, setAboutDocument] = useState('')
 
   const canEditVehicle = Boolean(access?.can('vehicles.edit'))
+  const canAddVehicle = Boolean(access?.can('vehicles.add'))
+  const canDeleteVehicle = Boolean(access?.can('vehicles.delete'))
   const canExport = Boolean(access?.can('analytics.export'))
 
   useEffect(() => {
-    setVehicleDraft({
-      name: vehicle?.name ?? '',
-      make: vehicle?.make ?? '',
-      model: vehicle?.model ?? '',
-      year: vehicle?.year ?? '',
-      license_plate: vehicle?.registration ?? '',
-      odometer_km: vehicle?.odometer ?? '',
-    })
+    setVehicleDraft(vehicleDraftFrom(vehicle))
+    setCreatingVehicle(false)
+    setEditingVehicle(false)
   }, [vehicle])
 
   useEffect(() => {
@@ -91,26 +101,49 @@ export default function System({ onBack, vehicle, access, onVehiclesChanged }) {
 
   async function saveVehicle(event) {
     event.preventDefault()
-    if (!vehicle?.rawId) return
     setVehicleSaving(true)
     setNotice('')
     try {
       const payload = {
+        name: vehicleDraft.name.trim(),
         make: vehicleDraft.make.trim(),
         model: vehicleDraft.model.trim(),
         license_plate: vehicleDraft.license_plate.trim(),
         odometer_km: Number(vehicleDraft.odometer_km),
+        vin: vehicleDraft.vin.trim(),
+        engine_capacity_cc: vehicleDraft.engine_capacity_cc ? Number(vehicleDraft.engine_capacity_cc) : null,
+        fuel_type: vehicleDraft.fuel_type,
+        transmission: vehicleDraft.transmission,
+        tank_capacity_liters: vehicleDraft.tank_capacity_liters ? Number(vehicleDraft.tank_capacity_liters) : null,
+        status: vehicleDraft.status,
       }
-      if (vehicleDraft.name.trim()) payload.name = vehicleDraft.name.trim()
       if (String(vehicleDraft.year).trim()) payload.year = Number(vehicleDraft.year)
-      await updateVehicle(vehicle.rawId, payload)
+      if (vehicle?.rawId) {
+        await updateVehicle(vehicle.rawId, payload)
+      } else {
+        await createVehicle(payload)
+      }
       setEditingVehicle(false)
-      setNotice('Vehicle details saved to your workspace.')
+      setCreatingVehicle(false)
+      setNotice(vehicle?.rawId ? 'Vehicle details saved to your workspace.' : 'Vehicle added to your workspace.')
       if (onVehiclesChanged) await onVehiclesChanged()
     } catch (err) {
       setNotice(err.message)
     } finally {
       setVehicleSaving(false)
+    }
+  }
+
+  async function removeVehicle() {
+    if (!vehicle?.rawId || !canDeleteVehicle) return
+    if (!window.confirm('Delete this vehicle? Vehicles with saved records cannot be deleted.')) return
+    setNotice('')
+    try {
+      await deleteVehicle(vehicle.rawId)
+      setNotice('Vehicle deleted from your workspace.')
+      if (onVehiclesChanged) await onVehiclesChanged()
+    } catch (err) {
+      setNotice(err.message)
     }
   }
 
@@ -196,27 +229,38 @@ export default function System({ onBack, vehicle, access, onVehiclesChanged }) {
           eyebrow="YOUR VEHICLE"
           title="Vehicle information"
           action={
-            canEditVehicle ? (
-              <button
-                className="system-text-button"
-                type="button"
-                onClick={() => {
-                  if (editingVehicle) {
-                    setVehicleDraft({
-                      name: vehicle?.name ?? '',
-                      make: vehicle?.make ?? '',
-                      model: vehicle?.model ?? '',
-                      year: vehicle?.year ?? '',
-                      license_plate: vehicle?.registration ?? '',
-                      odometer_km: vehicle?.odometer ?? '',
-                    })
-                  }
-                  setEditingVehicle((current) => !current)
-                }}
-              >
-                {editingVehicle ? 'CANCEL' : 'EDIT VEHICLE'}
-              </button>
-            ) : null
+            <div className="vehicle-management-actions">
+              {canEditVehicle && vehicle && !creatingVehicle && (
+                <button
+                  className="system-text-button"
+                  type="button"
+                  onClick={() => {
+                    if (editingVehicle) setVehicleDraft(vehicleDraftFrom(vehicle))
+                    setEditingVehicle((current) => !current)
+                  }}
+                >
+                  {editingVehicle ? 'CANCEL' : 'EDIT VEHICLE'}
+                </button>
+              )}
+              {canDeleteVehicle && vehicle && !editingVehicle && (
+                <button className="system-text-button danger-button" type="button" onClick={removeVehicle}>
+                  DELETE
+                </button>
+              )}
+              {canAddVehicle && !editingVehicle && (
+                <button
+                  className="system-text-button"
+                  type="button"
+                  onClick={() => {
+                    setVehicleDraft(vehicleDraftFrom())
+                    setCreatingVehicle(true)
+                    setEditingVehicle(true)
+                  }}
+                >
+                  ADD VEHICLE
+                </button>
+              )}
+            </div>
           }
         />
         {editingVehicle ? (
@@ -227,15 +271,49 @@ export default function System({ onBack, vehicle, access, onVehiclesChanged }) {
               ['model', 'Model'],
               ['year', 'Year'],
               ['license_plate', 'License plate'],
+              ['vin', 'VIN'],
+              ['engine_capacity_cc', 'Engine capacity (cc)'],
+              ['tank_capacity_liters', 'Tank capacity (litres)'],
               ['odometer_km', 'Odometer (km)'],
             ].map(([name, label]) => (
               <label key={name}>
                 {label}
-                <input name={name} value={vehicleDraft[name]} onChange={updateDraft} required={name !== 'name'} />
+                <input
+                  name={name}
+                  type={['year', 'engine_capacity_cc', 'tank_capacity_liters', 'odometer_km'].includes(name) ? 'number' : 'text'}
+                  min={name === 'year' ? '1900' : name === 'tank_capacity_liters' ? '0.01' : name === 'engine_capacity_cc' ? '1' : '0'}
+                  max={name === 'year' ? '2100' : undefined}
+                  step={name === 'tank_capacity_liters' ? '0.01' : '1'}
+                  value={vehicleDraft[name]}
+                  onChange={updateDraft}
+                  required={['make', 'model', 'year', 'license_plate', 'engine_capacity_cc', 'tank_capacity_liters'].includes(name)}
+                />
               </label>
             ))}
+            <label>Fuel type
+              <select name="fuel_type" value={vehicleDraft.fuel_type} onChange={updateDraft}>
+                {['petrol', 'diesel', 'electric', 'hybrid', 'lpg'].map((value) => (
+                  <option key={value} value={value}>{value.toUpperCase()}</option>
+                ))}
+              </select>
+            </label>
+            <label>Transmission
+              <select name="transmission" value={vehicleDraft.transmission} onChange={updateDraft}>
+                {['manual', 'automatic', 'cvt', 'other'].map((value) => (
+                  <option key={value} value={value}>{value.toUpperCase()}</option>
+                ))}
+              </select>
+            </label>
+            <label>Vehicle status
+              <select name="status" value={vehicleDraft.status} onChange={updateDraft}>
+                <option value="simulation">Simulation</option>
+                <option value="active">Active</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
             <button className="system-primary-button form-full" type="submit" disabled={vehicleSaving}>
-              {vehicleSaving ? 'SAVING…' : 'SAVE VEHICLE'}
+              {vehicleSaving ? 'SAVING…' : creatingVehicle ? 'ADD VEHICLE' : 'SAVE VEHICLE'}
             </button>
           </form>
         ) : (
@@ -246,7 +324,11 @@ export default function System({ onBack, vehicle, access, onVehiclesChanged }) {
               ['Model', vehicle?.model ?? '—'],
               ['Year', vehicle?.year ?? '—'],
               ['Registration', vehicle?.registration ?? '—'],
-              ['Fuel type', vehicle?.engine ?? '—'],
+              ['VIN', vehicle?.vin ?? '—'],
+              ['Engine capacity', vehicle?.engine_capacity_cc ? `${vehicle.engine_capacity_cc} cc` : '—'],
+              ['Fuel type', vehicle?.fuel_type ?? vehicle?.engine ?? '—'],
+              ['Transmission', vehicle?.transmission ?? '—'],
+              ['Tank capacity', vehicle?.tank_capacity_liters ? `${vehicle.tank_capacity_liters} L` : '—'],
               ['Odometer', vehicle?.odometer !== undefined && vehicle?.odometer !== null ? `${Number(vehicle.odometer).toLocaleString('en-UG')} km` : '—'],
             ].map(([label, value]) => (
               <div className="vehicle-info-item" key={label}><span>{label}</span><strong>{value}</strong></div>

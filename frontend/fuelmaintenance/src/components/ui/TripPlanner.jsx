@@ -119,7 +119,7 @@ export default function TripPlanner({ vehicle }) {
     }
   }
 
-  function useCurrentLocation(which) {
+  function locateCurrentPosition(which) {
     if (!navigator.geolocation) {
       setError('Geolocation is not available in this browser.')
       return
@@ -240,7 +240,7 @@ export default function TripPlanner({ vehicle }) {
               }}
               placeholder="Type start location…"
             />
-            <button type="button" className="trip-planner-locate" onClick={() => useCurrentLocation('start')} disabled={locating === 'start'} title="Use current location">
+            <button type="button" className="trip-planner-locate" onClick={() => locateCurrentPosition('start')} disabled={locating === 'start'} title="Use current location">
               {locating === 'start' ? '…' : '📍'}
             </button>
           </div>
@@ -258,7 +258,7 @@ export default function TripPlanner({ vehicle }) {
               }}
               placeholder="Type destination…"
             />
-            <button type="button" className="trip-planner-locate" onClick={() => useCurrentLocation('dest')} disabled={locating === 'dest'} title="Use current location">
+            <button type="button" className="trip-planner-locate" onClick={() => locateCurrentPosition('dest')} disabled={locating === 'dest'} title="Use current location">
               {locating === 'dest' ? '…' : '📍'}
             </button>
           </div>
@@ -327,4 +327,3 @@ export default function TripPlanner({ vehicle }) {
     </section>
   )
 }
-
