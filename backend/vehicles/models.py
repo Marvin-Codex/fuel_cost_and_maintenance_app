@@ -1,6 +1,8 @@
 import uuid
+from decimal import Decimal
 
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 
 from accounts.models import Organization
@@ -15,6 +17,18 @@ class Vehicle(models.Model):
         ('electric', 'Electric'),
         ('hybrid', 'Hybrid'),
         ('lpg', 'LPG'),
+    ]
+    TRANSMISSION_TYPES = [
+        ('manual', 'Manual'),
+        ('automatic', 'Automatic'),
+        ('cvt', 'CVT'),
+        ('other', 'Other'),
+    ]
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('in_service', 'In service'),
+        ('simulation', 'Simulation'),
     ]
 
     owner = models.ForeignKey(
@@ -35,14 +49,26 @@ class Vehicle(models.Model):
         blank=True,
         related_name='assigned_vehicles',
     )
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, blank=True, default='')
     make = models.CharField(max_length=50, blank=True)
     model = models.CharField(max_length=50, blank=True)
     year = models.PositiveSmallIntegerField(null=True, blank=True)
     license_plate = models.CharField(max_length=20)
     vin = models.CharField(max_length=50, blank=True)
     fuel_type = models.CharField(max_length=10, choices=FUEL_TYPES, default='petrol')
+    engine_capacity_cc = models.PositiveIntegerField(null=True, blank=True)
+    transmission = models.CharField(
+        max_length=20, choices=TRANSMISSION_TYPES, default='other'
+    )
+    tank_capacity_liters = models.DecimalField(
+        max_digits=7, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
     odometer_km = models.PositiveIntegerField(default=0)
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='simulation'
+    )
+    # Kept for compatibility with clients that used the original API field.
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -7,6 +7,118 @@ the date, the component touched, the files involved, and how it was verified.
 
 ## [Unreleased]
 
+### Added — Persisted fuel management (2026-10-11)
+
+- **Backend purchase records** — `backend/fuel/models.py`,
+  `serializers.py`, and `migrations/0002_fuelrecord_purchased_at_fuelrecord_receipt_reference.py`:
+  added optional purchase timestamp and receipt reference, kept the existing
+  date field and older records compatible, derive the purchase date from a
+  supplied timestamp, and reject a conflicting date/timestamp. Server-
+  calculated total cost, fuel type, station, full-tank marker, and odometer
+  checks remain in place.
+- **API routes** — `backend/fuel/urls.py` and `views.py`: retained
+  `/api/v1/fuel-records/` and its existing summary route; added equivalent
+  `/api/v1/fuel/`, `/api/v1/fuel/summary/`, and
+  `/api/v1/fuel/efficiency/` endpoints. List and reports support vehicle,
+  date-range, and fuel-type filters with invalid dates and reversed ranges
+  rejected.
+- **Purchase and consumption reporting** — summary reports distinguish fuel
+  purchased and purchase spending from fuel consumed on trips. They include
+  daily, weekly, monthly, year-to-date, and filtered purchase totals. The
+  efficiency endpoint returns measured trip consumption and full-tank-to-full-
+  tank refill efficiency, plus trip cost and best/average/worst measurements
+  where available.
+- **Estimates and alerts** — estimated remaining fuel starts from tank
+  capacity at the latest full-tank purchase, adds later logged purchases, and
+  subtracts recorded trip consumption. Estimated range uses measured trip
+  economy. Both are unavailable with an explanatory reason when the necessary
+  capacity, full-tank baseline, accessible trip records, or consistent
+  consumption data is missing. Reports can flag low estimated fuel, a recent
+  high-consumption trip, an unexpected efficiency drop, and inconsistent
+  refueling/odometer data; no sensor readings are fabricated.
+- **React Fuel screen** — `frontend/fuelmaintenance/src/api/fuel.js`,
+  `src/pages/Fuel.jsx`, and `src/pages/Fuel.css`: replaced the sample level,
+  purchase history, costs, consumption, alerts, and efficiency chart with
+  authenticated purchase entry and saved history; server totals; daily/weekly/
+  monthly expenditure; recorded trip fuel use and costs; measured trip
+  efficiency trends; and API data-quality alerts. The purchase form captures
+  date/time, odometer, litres, unit price, fuel type, station, receipt
+  reference, and whether the tank was filled. Fuel purchases and trip fuel
+  consumption are labeled separately.
+- **Coverage and project notes** — `backend/fuel/tests.py` covers timestamped
+  purchase creation, receipt references, timestamp/date consistency,
+  expenditure periods, trip/refill efficiency, range estimation, and low-fuel
+  and unusual-consumption alerts. `WEB_TODO.md` records the completed work and
+  remaining Fuel UI items.
+- **Verification** — all 13 focused fuel API tests passed, Django migration
+  drift check reported no changes, focused frontend lint passed, and the React
+  production build succeeded. The generated migration still needs to be
+  applied to the deployment database.
+
+### Added — Persisted trip management (2026-10-11)
+
+- **Backend** — `backend/trips/models.py`, `serializers.py`, `views.py`,
+  `migrations/0002_remove_trip_trip_end_after_start_and_more.py`, and
+  `tests.py`: added open-trip creation that captures the selected vehicle's current
+  odometer, and trip completion that derives distance from the ending and
+  starting odometer readings. Completing a trip advances the vehicle to that
+  same ending reading; manually entered distances without ending readings do
+  not independently change the vehicle odometer.
+- Added optional max-speed and driving-event fields, computed duration,
+  average speed, fuel economy and server-calculated fuel cost, plus
+  completed-trip summaries for today, this week, this month and all-time
+  distance/count/average, including the trip with the most recorded fuel use.
+- **API and React Trips screen** — added authenticated list, start, completion,
+  date/vehicle filtering, and summary requests in
+  `frontend/fuelmaintenance/src/api/trips.js` and wired them into
+  `src/pages/Trips.jsx` and `src/pages/Trips.css`. Removed simulated route,
+  telemetry, driving-event, and trip-history values from this screen.
+- Added trip migration and API coverage for start/complete, derived distance,
+  conflicting readings, odometer regression, filtering scopes and summaries.
+- Verification: all 11 focused trip API tests passed; migration drift check
+  reported no changes; React production build passed.
+
+### Fixed — Fuel screen tank capacity (2026-10-11)
+
+- Replaced the Fuel screen's hard-coded 60 L tank and 40 L fill calculation
+  with the selected vehicle's saved tank capacity. Estimated litres remaining,
+  range, and full-tank cost now derive from that value; if capacity is missing,
+  dependent estimates are shown as unavailable rather than using a mismatched
+  sample size.
+- Kept the fuel percentage and consumption explicitly labeled as illustrative
+  sample data.
+
+### Fixed — Expired and mock web authentication (2026-10-11)
+
+- Routed organization and vehicle API calls through one authenticated fetch
+  helper, refreshes expired access tokens once using the stored refresh token,
+  and redirects to sign-in when the refresh token is no longer valid.
+- Vehicle saves now surface API and authentication failures and prevent
+  duplicate submissions while a save is in progress.
+- Mock-auth mode now reports that persistent vehicle operations require a
+  backend sign-in instead of sending the mock token to Django.
+
+### Added — Persistent vehicle management (2026-10-11)
+
+- Expanded the vehicle API with engine capacity, transmission, tank capacity,
+  operational status, case-insensitive registration validation, and monotonic
+  odometer updates while retaining the existing `/api/v1/vehicles/` routes.
+- Added `POST /api/v1/vehicles/{id}/activate/` and per-user persistent vehicle
+  selection; dashboard summary requests now default to that selection and
+  accept an explicit `vehicle` filter.
+- Trip completion and fuel/maintenance odometer entries advance the vehicle's
+  current reading. Vehicle deletion returns HTTP 409 when trip, fuel, or
+  maintenance history is retained.
+- Connected the React dashboard vehicle switcher, overview summary metrics,
+  and System vehicle create/edit/delete form to the authenticated backend.
+  Sensor readings and remaining detail panels remain marked as illustrative.
+- Added backend coverage for complete vehicle specifications, duplicate
+  registration, odometer progression, selection persistence, retained-history
+  deletion, trip odometer updates, and selected-vehicle dashboard summaries.
+- Verification: all 37 focused vehicle, trip, fuel, maintenance, and dashboard
+  tests passed; `makemigrations --check --dry-run` reported no model drift.
+  Editor diagnostics found no errors in the changed React files.
+
 ### Added — Vehicle-aware dashboard and tabs (React web)
 
 - **Vehicle switcher** — `frontend/fuelmaintenance/src/pages/Dashboard.jsx`

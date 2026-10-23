@@ -19,7 +19,7 @@ function EmptyState({ children }) {
   return <p className="telemetry-empty">{children}</p>
 }
 
-export default function Telemetry({ onBack }) {
+export default function Telemetry({ onBack, vehicle }) {
   return (
     <section className="telemetry-view" aria-labelledby="telemetry-title">
       <div className="telemetry-view-heading">
@@ -31,6 +31,7 @@ export default function Telemetry({ onBack }) {
         <div>
           <p className="telemetry-eyebrow">VEHICLE MONITORING</p>
           <h2 id="telemetry-title">Live telemetry</h2>
+          <p className="telemetry-vehicle">{vehicle?.make} {vehicle?.model} · {vehicle?.registration}</p>
         </div>
       </div>
 

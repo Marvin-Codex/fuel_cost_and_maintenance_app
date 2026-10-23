@@ -41,6 +41,8 @@ class MaintenanceAPITests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
         self.assertEqual(response.data['parts_replaced'], ['Oil filter', '5W-30 oil'])
         self.assertEqual(MaintenanceRecord.objects.get().owner, self.owner)
+        self.vehicle.refresh_from_db()
+        self.assertEqual(self.vehicle.odometer_km, 42100)
 
     def test_create_reminder_returns_computed_due_status(self):
         response = self.client.post(

@@ -1,28 +1,38 @@
 import { useState } from 'react'
+import { createVehicle, deleteVehicle, updateVehicle } from '../api/vehicles'
 import './System.css'
 
-const initialVehicle = {
-  make: 'Toyota',
-  model: 'Premio',
-  year: '2018',
-  registration: 'UBA 123A',
-  vin: '************4821',
-  engine: '1.8L Petrol',
-  transmission: 'Automatic',
-  odometer: '42,580',
-}
-
 function vehicleDetails(vehicle) {
-  if (!vehicle) return initialVehicle
+  if (!vehicle) {
+    return {
+      name: '',
+      make: '',
+      model: '',
+      year: '',
+      registration: '',
+      vin: '',
+      engine_capacity_cc: '',
+      fuel_type: 'petrol',
+      transmission: 'automatic',
+      tank_capacity_liters: '',
+      odometer_km: '0',
+      status: 'simulation',
+    }
+  }
   return {
+    id: vehicle.id,
+    name: vehicle.name ?? '',
     make: vehicle.make,
     model: vehicle.model,
-    year: String(vehicle.year),
-    registration: vehicle.registration,
-    vin: `************${vehicle.vinSuffix}`,
-    engine: vehicle.engine,
+    year: vehicle.year == null ? '' : String(vehicle.year),
+    registration: vehicle.license_plate,
+    vin: vehicle.vin ?? '',
+    engine_capacity_cc: vehicle.engine_capacity_cc == null ? '' : String(vehicle.engine_capacity_cc),
+    fuel_type: vehicle.fuel_type ?? 'petrol',
     transmission: vehicle.transmission,
-    odometer: vehicle.odometer,
+    tank_capacity_liters: vehicle.tank_capacity_liters == null ? '' : String(vehicle.tank_capacity_liters),
+    odometer_km: String(vehicle.odometer_km ?? 0),
+    status: vehicle.status ?? 'simulation',
   }
 }
 
@@ -60,11 +70,17 @@ function SystemSectionHeading({ eyebrow, title, action, id }) {
   )
 }
 
-export default function System({ onBack, vehicle: selectedVehicle }) {
+export default function System({
+  onBack,
+  vehicle: selectedVehicle,
+  onVehicleSaved,
+  onVehicleDeleted,
+}) {
   const selectedVehicleDetails = vehicleDetails(selectedVehicle)
   const [vehicle, setVehicle] = useState(selectedVehicleDetails)
   const [vehicleDraft, setVehicleDraft] = useState(selectedVehicleDetails)
-  const [editingVehicle, setEditingVehicle] = useState(false)
+  const [editingVehicle, setEditingVehicle] = useState(!selectedVehicle)
+  const [savingVehicle, setSavingVehicle] = useState(false)
   const [alerts, setAlerts] = useState(() => Object.fromEntries(initialAlerts.map(({ id }) => [id, true])))
   const [thresholds, setThresholds] = useState({ lowFuel: '20', temperature: '105', overspeed: '100' })
   const [diagnostics, setDiagnostics] = useState(initialDiagnostics)
@@ -81,11 +97,57 @@ export default function System({ onBack, vehicle: selectedVehicle }) {
     setVehicleDraft((current) => ({ ...current, [event.target.name]: event.target.value }))
   }
 
-  function saveVehicle(event) {
+  async function saveVehicle(event) {
     event.preventDefault()
-    setVehicle(vehicleDraft)
-    setEditingVehicle(false)
-    setNotice('Vehicle information updated for this session.')
+    if (savingVehicle) return
+    const payload = {
+      name: vehicleDraft.name.trim(),
+      make: vehicleDraft.make.trim(),
+      model: vehicleDraft.model.trim(),
+      year: vehicleDraft.year ? Number(vehicleDraft.year) : null,
+      license_plate: vehicleDraft.registration.trim().toUpperCase(),
+      vin: vehicleDraft.vin.trim(),
+      engine_capacity_cc: vehicleDraft.engine_capacity_cc
+        ? Number(vehicleDraft.engine_capacity_cc)
+        : null,
+      fuel_type: vehicleDraft.fuel_type,
+      transmission: vehicleDraft.transmission,
+      tank_capacity_liters: vehicleDraft.tank_capacity_liters
+        ? Number(vehicleDraft.tank_capacity_liters)
+        : null,
+      odometer_km: Number(vehicleDraft.odometer_km),
+      status: vehicleDraft.status,
+    }
+    setSavingVehicle(true)
+    setNotice('')
+    try {
+      const saved = vehicleDraft.id
+        ? await updateVehicle(vehicleDraft.id, payload)
+        : await createVehicle(payload)
+      const details = vehicleDetails(saved)
+      setVehicle(details)
+      setVehicleDraft(details)
+      setEditingVehicle(false)
+      onVehicleSaved?.(saved)
+      setNotice('Vehicle information saved.')
+    } catch (error) {
+      setNotice(error.message)
+    } finally {
+      setSavingVehicle(false)
+    }
+  }
+
+  async function removeVehicle() {
+    if (!vehicle.id || !window.confirm('Delete this vehicle? Vehicles with saved records cannot be deleted.')) {
+      return
+    }
+    try {
+      await deleteVehicle(vehicle.id)
+      onVehicleDeleted?.(vehicle.id)
+      setNotice('Vehicle deleted.')
+    } catch (error) {
+      setNotice(error.message)
+    }
   }
 
   function updateThreshold(event) {
@@ -170,10 +232,10 @@ export default function System({ onBack, vehicle: selectedVehicle }) {
           <h2 id="system-title">System</h2>
           <p className="system-vehicle">{vehicle.make} {vehicle.model} · {vehicle.registration}</p>
         </div>
-        <span className="system-live-badge"><StatusDot /> SIMULATED</span>
+        <span className="system-live-badge"><StatusDot /> {vehicle.status.replace('_', ' ').toUpperCase()}</span>
       </header>
 
-      {notice && <p className="system-notice" role="status">{notice}</p>}
+      {notice && <p className="system-notice" role={notice.includes('saved') ? 'status' : 'alert'}>{notice}</p>}
 
       <section className="system-panel" aria-labelledby="vehicle-info-title">
         <SystemSectionHeading
@@ -181,36 +243,98 @@ export default function System({ onBack, vehicle: selectedVehicle }) {
           eyebrow="YOUR VEHICLE"
           title="Vehicle information"
           action={
-            <button
-              className="system-text-button"
-              type="button"
-              onClick={() => {
-                setVehicleDraft(vehicle)
-                setEditingVehicle((current) => !current)
-              }}
-            >
-              {editingVehicle ? 'CANCEL' : 'EDIT VEHICLE'}
-            </button>
+            <div className="vehicle-management-actions">
+              <button
+                className="system-text-button"
+                type="button"
+                onClick={() => {
+                  setVehicleDraft(vehicleDetails(selectedVehicle))
+                  setEditingVehicle((current) => !current)
+                }}
+              >
+                {editingVehicle ? 'CANCEL' : 'EDIT VEHICLE'}
+              </button>
+              {vehicle.id && !editingVehicle && (
+                <button className="system-text-button danger-button" type="button" onClick={removeVehicle}>
+                  DELETE
+                </button>
+              )}
+              {!editingVehicle && (
+                <button
+                  className="system-text-button"
+                  type="button"
+                  onClick={() => {
+                    const blankVehicle = vehicleDetails(null)
+                    setVehicleDraft(blankVehicle)
+                    setEditingVehicle(true)
+                  }}
+                >
+                  ADD VEHICLE
+                </button>
+              )}
+            </div>
           }
         />
         {editingVehicle ? (
           <form className="vehicle-edit-form" onSubmit={saveVehicle}>
+            <label>
+              Name
+              <input name="name" value={vehicleDraft.name ?? ''} onChange={updateVehicle} placeholder="Optional vehicle label" />
+            </label>
             {[
               ['make', 'Make'],
               ['model', 'Model'],
               ['year', 'Year'],
               ['registration', 'Registration'],
               ['vin', 'VIN'],
-              ['engine', 'Engine'],
-              ['transmission', 'Transmission'],
-              ['odometer', 'Odometer (km)'],
+              ['engine_capacity_cc', 'Engine capacity (cc)'],
+              ['tank_capacity_liters', 'Tank capacity (litres)'],
+              ['odometer_km', 'Odometer (km)'],
             ].map(([name, label]) => (
               <label key={name}>
                 {label}
-                <input name={name} value={vehicleDraft[name]} onChange={updateVehicle} required />
+                <input
+                  name={name}
+                  type={['year', 'engine_capacity_cc', 'tank_capacity_liters', 'odometer_km'].includes(name) ? 'number' : 'text'}
+                  min={name === 'year' ? '1900' : name === 'tank_capacity_liters' ? '0.01' : name === 'engine_capacity_cc' ? '1' : '0'}
+                  max={name === 'year' ? '2100' : undefined}
+                  step={name === 'tank_capacity_liters' ? '0.01' : '1'}
+                  value={vehicleDraft[name]}
+                  onChange={updateVehicle}
+                  required={['make', 'model', 'year', 'registration', 'engine_capacity_cc', 'tank_capacity_liters'].includes(name)}
+                />
               </label>
             ))}
-            <button className="system-primary-button form-full" type="submit">SAVE VEHICLE</button>
+            <label>
+              Fuel type
+              <select name="fuel_type" value={vehicleDraft.fuel_type} onChange={updateVehicle}>
+                {['petrol', 'diesel', 'electric', 'hybrid', 'lpg'].map((value) => (
+                  <option key={value} value={value}>{value.toUpperCase()}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Transmission
+              <select name="transmission" value={vehicleDraft.transmission} onChange={updateVehicle}>
+                {['manual', 'automatic', 'cvt', 'other'].map((value) => (
+                  <option key={value} value={value}>{value.replace('_', ' ').toUpperCase()}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Vehicle status
+              <select name="status" value={vehicleDraft.status} onChange={updateVehicle}>
+                {[
+                  ['active', 'Active'],
+                  ['inactive', 'Inactive'],
+                  ['in_service', 'In service'],
+                  ['simulation', 'Simulation mode'],
+                ].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </label>
+            <button className="system-primary-button form-full" type="submit" disabled={savingVehicle}>
+              {savingVehicle ? 'SAVING VEHICLE…' : 'SAVE VEHICLE'}
+            </button>
           </form>
         ) : (
           <div className="vehicle-info-grid">
@@ -219,10 +343,16 @@ export default function System({ onBack, vehicle: selectedVehicle }) {
               ['Model', vehicle.model],
               ['Year', vehicle.year],
               ['Registration', vehicle.registration],
-              ['VIN', vehicle.vin],
-              ['Engine', vehicle.engine],
+              ['VIN', vehicle.vin ? `••••${vehicle.vin.slice(-4)}` : 'Not provided'],
+              ['Engine', vehicle.engine_capacity_cc
+                ? `${(Number(vehicle.engine_capacity_cc) / 1000).toFixed(1)}L ${vehicle.fuel_type}`
+                : vehicle.fuel_type],
               ['Transmission', vehicle.transmission],
-              ['Odometer', `${vehicle.odometer} km`],
+              ['Tank capacity', vehicle.tank_capacity_liters
+                ? `${vehicle.tank_capacity_liters} L`
+                : 'Not provided'],
+              ['Odometer', `${Number(vehicle.odometer_km).toLocaleString()} km`],
+              ['Status', vehicle.status.replace('_', ' ')],
             ].map(([label, value]) => (
               <div className="vehicle-info-item" key={label}><span>{label}</span><strong>{value}</strong></div>
             ))}

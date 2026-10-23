@@ -1,8 +1,11 @@
-from rest_framework import viewsets
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
 
 from accounts.models import Membership
 from accounts.permissions import has_permission, tenant_membership
+from preferences.models import UserPreference
 
 from .models import Vehicle
 from .serializers import VehicleSerializer
@@ -61,4 +64,30 @@ class VehicleViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         self._require_permission('vehicle.delete')
-        return super().destroy(request, *args, **kwargs)
+        vehicle = self.get_object()
+        has_history = any((
+            vehicle.fuel_records.exists(),
+            vehicle.trips.exists(),
+            vehicle.maintenance_records.exists(),
+        ))
+        if has_history:
+            return Response(
+                {
+                    'detail': (
+                        'This vehicle has fuel, trip, or maintenance history and '
+                        'cannot be deleted. Mark it inactive instead.'
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        self.perform_destroy(vehicle)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'])
+    def activate(self, request, pk=None):
+        vehicle = self.get_object()
+        UserPreference.objects.update_or_create(
+            user=request.user,
+            defaults={'active_vehicle': vehicle},
+        )
+        return Response(self.get_serializer(vehicle).data)

@@ -4,6 +4,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.conf import settings
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.utils import timezone
 
 from accounts.models import Organization
 from vehicles.models import Vehicle
@@ -20,11 +21,11 @@ class Trip(models.Model):
     )
     vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name='trips')
     start_location = models.CharField(max_length=200)
-    destination = models.CharField(max_length=200)
-    started_at = models.DateTimeField()
-    ended_at = models.DateTimeField()
+    destination = models.CharField(max_length=200, blank=True)
+    started_at = models.DateTimeField(default=timezone.now)
+    ended_at = models.DateTimeField(null=True, blank=True)
     distance_km = models.DecimalField(
-        max_digits=10, decimal_places=2,
+        max_digits=10, decimal_places=2, null=True, blank=True,
         validators=[MinValueValidator(Decimal('0.01'))],
     )
     start_odometer_km = models.PositiveIntegerField(null=True, blank=True)
@@ -37,6 +38,16 @@ class Trip(models.Model):
         max_digits=12, decimal_places=2, null=True, blank=True,
         validators=[MinValueValidator(Decimal('0.00'))],
     )
+    max_speed_kmh = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
+    overspeed_events = models.PositiveIntegerField(null=True, blank=True)
+    hard_braking_events = models.PositiveIntegerField(null=True, blank=True)
+    excessive_idling_seconds = models.PositiveIntegerField(null=True, blank=True)
     fuel_cost = models.DecimalField(max_digits=14, decimal_places=2, editable=False)
     notes = models.TextField(blank=True)
     client_id = models.UUIDField(null=True, blank=True)
@@ -52,8 +63,18 @@ class Trip(models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                condition=models.Q(ended_at__gt=models.F('started_at')),
+                condition=(
+                    models.Q(ended_at__isnull=True)
+                    | models.Q(ended_at__gt=models.F('started_at'))
+                ),
                 name='trip_end_after_start',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(ended_at__isnull=True, distance_km__isnull=True)
+                    | models.Q(ended_at__isnull=False, distance_km__gt=0)
+                ),
+                name='trip_distance_matches_completion_state',
             ),
             models.CheckConstraint(
                 condition=(
@@ -72,12 +93,22 @@ class Trip(models.Model):
 
     @property
     def duration_seconds(self):
+        if self.ended_at is None:
+            return None
         return int((self.ended_at - self.started_at).total_seconds())
 
     @property
     def average_speed_kmh(self):
-        duration_hours = self.duration_seconds / 3600
-        return round(float(self.distance_km) / duration_hours, 1) if duration_hours else None
+        duration_seconds = self.duration_seconds
+        if not self.distance_km or not duration_seconds:
+            return None
+        return round(float(self.distance_km) * 3600 / duration_seconds, 1)
+
+    @property
+    def fuel_economy_l_per_100km(self):
+        if not self.distance_km or self.fuel_consumed_liters is None:
+            return None
+        return round(float(self.fuel_consumed_liters) / float(self.distance_km) * 100, 2)
 
     def save(self, *args, **kwargs):
         if self.fuel_consumed_liters is not None and self.fuel_price_per_liter is not None:

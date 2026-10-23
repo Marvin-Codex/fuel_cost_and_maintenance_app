@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as auth from '../api/auth'
+import {
+  activateVehicle,
+  getDashboardSummary,
+  listVehicles,
+} from '../api/vehicles'
 import { SyncIndicator } from '../components/animations'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import { APP_NAME } from '../config/brand'
@@ -30,66 +35,84 @@ function Metric({ icon, label, value, detail, accent = '' }) {
   )
 }
 
-const demoVehicles = [
-  {
-    id: 'premio',
-    make: 'Toyota',
-    model: 'Premio',
-    year: 2018,
-    registration: 'UBA 123A',
-    vinSuffix: '8492',
-    engine: '1.8L Valvematic Petrol',
-    transmission: 'Automatic',
-    odometer: '42,580',
-    tankReserve: 68,
-    obdHealth: 92,
-    efficiency: '7.8',
-    fuelCost: '320K',
-    distance: '1,240',
-  },
-  {
-    id: 'hilux',
-    make: 'Toyota',
-    model: 'Hilux',
-    year: 2021,
-    registration: 'UBD 456B',
-    vinSuffix: '3176',
-    engine: '2.4L Turbo Diesel',
-    transmission: 'Automatic',
-    odometer: '28,340',
-    tankReserve: 54,
-    obdHealth: 96,
-    efficiency: '9.1',
-    fuelCost: '485K',
-    distance: '1,680',
-  },
-  {
-    id: 'fit',
-    make: 'Honda',
-    model: 'Fit',
-    year: 2016,
-    registration: 'UBE 789C',
-    vinSuffix: '6205',
-    engine: '1.5L Petrol',
-    transmission: 'CVT',
-    odometer: '81,290',
-    tankReserve: 34,
-    obdHealth: 84,
-    efficiency: '6.9',
-    fuelCost: '210K',
-    distance: '960',
-  },
-]
-
 export default function Dashboard() {
   const navigate = useNavigate()
   const [subscription, setSubscription] = useState(null)
   const [packageState, setPackageState] = useState('loading')
   const [activeTab, setActiveTab] = useState('overview')
-  const [selectedVehicleId, setSelectedVehicleId] = useState(demoVehicles[0].id)
+  const [vehicles, setVehicles] = useState([])
+  const [vehiclesState, setVehiclesState] = useState('loading')
+  const [vehicleError, setVehicleError] = useState('')
+  const [summary, setSummary] = useState(null)
+  const [summaryState, setSummaryState] = useState('idle')
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null)
   const [isVehiclePickerOpen, setIsVehiclePickerOpen] = useState(false)
-  const selectedVehicle = demoVehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? demoVehicles[0]
+  const selectedVehicle = vehicles.find((vehicle) => vehicle.id === selectedVehicleId) ?? null
   const { pending, state: syncState } = useSyncStatus()
+
+  useEffect(() => {
+    const handleExpiredSession = () => navigate('/login', { replace: true })
+    window.addEventListener('fuelmaintenance:auth-expired', handleExpiredSession)
+    return () => window.removeEventListener('fuelmaintenance:auth-expired', handleExpiredSession)
+  }, [navigate])
+
+  useEffect(() => {
+    let mounted = true
+    async function loadVehicles() {
+      try {
+        const results = (await listVehicles()).map((vehicle) => ({
+          ...vehicle,
+          registration: vehicle.license_plate,
+        }))
+        if (!mounted) return
+        const initialSelection = results.find((vehicle) => vehicle.is_selected) ?? results[0] ?? null
+        let updatedResults = results
+        if (initialSelection && !initialSelection.is_selected) {
+          await activateVehicle(initialSelection.id)
+          if (!mounted) return
+          updatedResults = results.map((vehicle) => ({
+            ...vehicle,
+            is_selected: vehicle.id === initialSelection.id,
+          }))
+        }
+        setVehicles(updatedResults)
+        setSelectedVehicleId(initialSelection?.id ?? null)
+        setVehiclesState('ready')
+      } catch (error) {
+        if (mounted) {
+          setVehicleError(error.message)
+          setVehiclesState('error')
+        }
+      }
+    }
+    loadVehicles()
+    return () => { mounted = false }
+  }, [])
+
+  useEffect(() => {
+    if (!selectedVehicleId) {
+      setSummary(null)
+      setSummaryState('idle')
+      return undefined
+    }
+    let mounted = true
+    setSummaryState('loading')
+    getDashboardSummary(selectedVehicleId)
+      .then((data) => {
+        if (mounted) {
+          setSummary(data)
+          setSummaryState('ready')
+        }
+      })
+      .catch((error) => {
+        if (mounted) {
+          setSummary(null)
+          setSummaryState('error')
+          setVehicleError(error.message)
+        }
+      })
+    return () => { mounted = false }
+  }, [selectedVehicleId])
 
   useEffect(() => {
     let mounted = true
@@ -120,45 +143,141 @@ export default function Dashboard() {
     navigate('/login')
   }
 
+  async function selectVehicle(vehicle) {
+    setVehicleError('')
+    try {
+      await activateVehicle(vehicle.id)
+      setSelectedVehicleId(vehicle.id)
+      setIsVehiclePickerOpen(false)
+      setVehicles((current) => current.map((item) => ({
+        ...item,
+        is_selected: item.id === vehicle.id,
+      })))
+    } catch (error) {
+      setVehicleError(error.message)
+    }
+  }
+
+  async function handleVehicleSaved(savedVehicle) {
+    let activationError = ''
+    try {
+      await activateVehicle(savedVehicle.id)
+    } catch (error) {
+      activationError = error.message
+    }
+    setVehicles((current) => {
+      const exists = current.some((vehicle) => vehicle.id === savedVehicle.id)
+      const profile = { ...savedVehicle, registration: savedVehicle.license_plate }
+      const updated = exists
+        ? current.map((vehicle) => vehicle.id === savedVehicle.id ? profile : vehicle)
+        : [...current, profile]
+      return updated.map((vehicle) => ({
+        ...vehicle,
+        is_selected: vehicle.id === savedVehicle.id,
+      }))
+    })
+    setSelectedVehicleId(savedVehicle.id)
+    setVehicleError(activationError)
+    setActiveTab('overview')
+  }
+
+  async function handleVehicleDeleted(vehicleId) {
+    const remaining = vehicles.filter((vehicle) => vehicle.id !== vehicleId)
+    setVehicles(remaining)
+    if (remaining[0]) {
+      await selectVehicle(remaining[0])
+    } else {
+      setSelectedVehicleId(null)
+    }
+    setActiveTab('overview')
+  }
+
+  const monthlyDistance = Number(summary?.trips?.month_distance_km ?? 0)
+  const monthlyFuel = Number(summary?.trips?.month_fuel_liters ?? 0)
+  const efficiency = monthlyDistance > 0 && monthlyFuel > 0
+    ? (monthlyFuel / monthlyDistance * 100).toFixed(1)
+    : '—'
+
   return (
     <main className="dashboard-shell">
       <header className="dashboard-topbar">
         <div className="wordmark"><span className="wordmark-mark"><Icon size={22}><path d="M4 15h16M6 15l1-5h10l1 5M8 10l1-3h6l1 3M7 18h.01M17 18h.01" /><circle cx="7" cy="17" r="1.5" /><circle cx="17" cy="17" r="1.5" /></Icon></span><span>{APP_NAME}<small>DASHBOARD</small></span></div>
-        <div className="topbar-actions"><SyncIndicator state={syncState} pending={pending} /><ThemeToggle /><span className="vin"><Icon size={16}><path d="M4 17h16M5 17l1-6h12l1 6M8 11l1-3h6l1 3" /><circle cx="7" cy="18" r="1" /><circle cx="17" cy="18" r="1" /></Icon> VIN: {selectedVehicle.vinSuffix} <span>⌄</span></span><button className="profile-button" aria-label="Sign out" onClick={signOut}><Icon size={19}><circle cx="12" cy="8" r="3" /><path d="M5 20c.6-3.2 2.8-5 7-5s6.4 1.8 7 5" /></Icon></button></div>
+        <div className="topbar-actions"><SyncIndicator state={syncState} pending={pending} /><ThemeToggle /><span className="vin"><Icon size={16}><path d="M4 17h16M5 17l1-6h12l1 6M8 11l1-3h6l1 3" /><circle cx="7" cy="18" r="1" /><circle cx="17" cy="18" r="1" /></Icon> VIN: {selectedVehicle?.vin ? selectedVehicle.vin.slice(-4) : '—'}</span><button className="profile-button" aria-label="Sign out" onClick={signOut}><Icon size={19}><circle cx="12" cy="8" r="3" /><path d="M5 20c.6-3.2 2.8-5 7-5s6.4 1.8 7 5" /></Icon></button></div>
       </header>
 
       <section className="dashboard-content">
         <div className="eyebrow">DIAGNOSTICS PANEL</div>
-        <div className="dashboard-heading"><h1>VEHICLE SMART<br />PERFORMANCE</h1><span className="live-pill"><i /> ECU<br />LIVE</span></div>
+        <div className="dashboard-heading"><h1>VEHICLE SMART<br />PERFORMANCE</h1><span className="live-pill"><i /> VEHICLE<br />{selectedVehicle ? selectedVehicle.status.replace('_', ' ').toUpperCase() : 'UNREGISTERED'}</span></div>
 
         <section className="package-status" aria-live="polite">
           <div><small>ORGANIZATION PACKAGE</small><strong>{packageState === 'active' ? subscription.plan.name : packageState === 'loading' ? 'CHECKING ACCESS…' : 'NO ACTIVE PACKAGE'}</strong></div>
           <span>{packageState === 'active' ? `Valid until ${new Date(subscription.ends_at).toLocaleDateString()}` : packageState === 'error' ? 'Access status unavailable' : packageState === 'empty' ? 'Contact your administrator' : 'Loading subscription'}</span>
         </section>
 
-        <section className="vehicle-card">
-          <div className="vehicle-summary"><span className="car-badge"><Icon size={27}><path d="M3 16v-3l2-5h14l2 5v3M5 16v2M19 16v2M6 13h12" /><circle cx="6" cy="16" r="1.5" /><circle cx="18" cy="16" r="1.5" /></Icon></span><div className="vehicle-card-copy"><h2>{selectedVehicle.make} {selectedVehicle.model} <em>{selectedVehicle.registration}</em></h2><p>{selectedVehicle.engine} • {selectedVehicle.transmission}</p></div><div className="vehicle-switcher"><button className="switch-label" type="button" aria-expanded={isVehiclePickerOpen} aria-haspopup="listbox" onClick={() => setIsVehiclePickerOpen((open) => !open)}>⇄ SWITCH</button>{isVehiclePickerOpen && <div className="vehicle-picker" role="listbox" aria-label="Select a vehicle">{demoVehicles.map((vehicle) => <button className={vehicle.id === selectedVehicle.id ? 'current' : ''} type="button" role="option" aria-selected={vehicle.id === selectedVehicle.id} key={vehicle.id} onClick={() => { setSelectedVehicleId(vehicle.id); setIsVehiclePickerOpen(false) }}><strong>{vehicle.make} {vehicle.model}</strong><span>{vehicle.registration} · {vehicle.year}</span></button>)}</div>}</div></div>
-          <div className="health-bars"><div><span>TANK RESERVE <b>{selectedVehicle.tankReserve}%</b></span><div className="bar"><i style={{ width: `${selectedVehicle.tankReserve}%` }} /></div><small>{(60 * selectedVehicle.tankReserve / 100).toFixed(1)} L / 60L</small></div><div><span>OBD HEALTH <b>OPTIMAL</b></span><div className="bar green"><i style={{ width: `${selectedVehicle.obdHealth}%` }} /></div><small>0 DTC Codes</small></div></div>
-        </section>
+        {selectedVehicle ? (
+          <section className="vehicle-card">
+            <div className="vehicle-summary">
+              <span className="car-badge"><Icon size={27}><path d="M3 16v-3l2-5h14l2 5v3M5 16v2M19 16v2M6 13h12" /><circle cx="6" cy="16" r="1.5" /><circle cx="18" cy="16" r="1.5" /></Icon></span>
+              <div className="vehicle-card-copy">
+                <h2>{selectedVehicle.make} {selectedVehicle.model} <em>{selectedVehicle.license_plate}</em></h2>
+                <p>{selectedVehicle.engine_capacity_cc ? `${(selectedVehicle.engine_capacity_cc / 1000).toFixed(1)}L ` : ''}{selectedVehicle.fuel_type} · {selectedVehicle.transmission}</p>
+              </div>
+              <div className="vehicle-switcher">
+                <button className="switch-label" type="button" aria-expanded={isVehiclePickerOpen} aria-haspopup="listbox" onClick={() => setIsVehiclePickerOpen((open) => !open)}>⇄ SWITCH</button>
+                {isVehiclePickerOpen && <div className="vehicle-picker" role="listbox" aria-label="Select a vehicle">{vehicles.map((vehicle) => <button className={vehicle.id === selectedVehicle.id ? 'current' : ''} type="button" role="option" aria-selected={vehicle.id === selectedVehicle.id} key={vehicle.id} onClick={() => selectVehicle(vehicle)}><strong>{vehicle.make} {vehicle.model}</strong><span>{vehicle.license_plate} · {vehicle.year ?? 'Year not set'}</span></button>)}</div>}
+                <button className="switch-label" type="button" onClick={() => setActiveTab('system')}>MANAGE</button>
+              </div>
+            </div>
+            <div className="health-bars vehicle-status-bars">
+              <div><span>ODOMETER <b>{Number(selectedVehicle.odometer_km).toLocaleString()} KM</b></span><small>Current recorded reading</small></div>
+              <div><span>VEHICLE STATUS <b>{selectedVehicle.status.replace('_', ' ').toUpperCase()}</b></span><small>{selectedVehicle.tank_capacity_liters ? `Tank capacity ${selectedVehicle.tank_capacity_liters} L` : 'Tank capacity not recorded'}</small></div>
+            </div>
+          </section>
+        ) : (
+          <section className="vehicle-card vehicle-empty" aria-live="polite">
+            <strong>{vehiclesState === 'loading' ? 'Loading vehicles…' : vehiclesState === 'error' ? 'Vehicles unavailable' : 'No vehicles registered'}</strong>
+            <p>{vehicleError || (vehiclesState === 'ready' ? 'Add a vehicle to begin tracking its profile and records.' : '')}</p>
+            {vehiclesState === 'ready' && <button className="switch-label" type="button" onClick={() => setActiveTab('system')}>REGISTER VEHICLE</button>}
+          </section>
+        )}
+        {vehicleError && selectedVehicle && <p className="vehicle-api-error" role="alert">{vehicleError}</p>}
+        {selectedVehicle && !['overview', 'system'].includes(activeTab) && (
+          <p className="sample-dashboard-note" role="note">
+            Vehicle profile and selection are stored. Detailed records on this tab remain illustrative until connected to the records API.
+          </p>
+        )}
 
-        {activeTab === 'telemetry' ? (
-          <Telemetry onBack={() => setActiveTab('overview')} />
+        {activeTab === 'system' ? (
+          <System
+            key={selectedVehicle?.id ?? 'new-vehicle'}
+            onBack={() => setActiveTab('overview')}
+            vehicle={selectedVehicle}
+            onVehicleSaved={handleVehicleSaved}
+            onVehicleDeleted={handleVehicleDeleted}
+          />
+        ) : !selectedVehicle ? (
+          <section className="vehicle-empty">
+            <h2>Register a vehicle to get started</h2>
+            <p>Vehicle profiles and records are stored in your account and scoped to the active workspace.</p>
+            <button className="switch-label" type="button" onClick={() => setActiveTab('system')}>REGISTER VEHICLE</button>
+          </section>
+        ) : activeTab === 'telemetry' ? (
+          <Telemetry onBack={() => setActiveTab('overview')} vehicle={selectedVehicle} />
         ) : activeTab === 'fuel' ? (
           <Fuel onBack={() => setActiveTab('overview')} vehicle={selectedVehicle} />
         ) : activeTab === 'services' ? (
           <Services onBack={() => setActiveTab('overview')} vehicle={selectedVehicle} />
         ) : activeTab === 'trips' ? (
           <Trips onBack={() => setActiveTab('overview')} vehicle={selectedVehicle} />
-        ) : activeTab === 'system' ? (
-          <System key={selectedVehicle.id} onBack={() => setActiveTab('overview')} vehicle={selectedVehicle} />
         ) : (
           <div className="overview-grid">
         <section className="metric-grid">
-          <Metric label="ODOMETER" value={selectedVehicle.odometer} detail="KM CURRENT  ↗ +180 km wk" accent="cyan" icon={<Icon><path d="M4 18a8 8 0 1 1 16 0" /><path d="m12 14 3-3M4 18h16" /></Icon>} />
-          <Metric label="EFFICIENCY" value={selectedVehicle.efficiency} detail="L/100KM   Target: 7.2" accent="amber" icon={<Icon><path d="M12 3a9 9 0 1 1-9 9" /><path d="M12 7v5l3 2" /></Icon>} />
-          <Metric label="FUEL COST" value={selectedVehicle.fuelCost} detail="UGX THIS MONTH" accent="white" icon={<Icon><rect x="3" y="6" width="17" height="12" rx="2" /><path d="M7 10h6v4H7zM20 9l2 2v5" /></Icon>} />
-          <Metric label="DISTANCE" value={selectedVehicle.distance} detail="KM LOGGED CYCLE  ◉ 26 Trips Logged" accent="white" icon={<Icon><path d="M6 4v16M18 4v16M6 7c5 0 7 3 12 3M6 17c5 0 7-3 12-3" /><circle cx="6" cy="4" r="2" /><circle cx="18" cy="4" r="2" /></Icon>} />
+          <Metric label="ODOMETER" value={Number(selectedVehicle.odometer_km).toLocaleString()} detail="CURRENT RECORDED KM" accent="cyan" icon={<Icon><path d="M4 18a8 8 0 1 1 16 0" /><path d="m12 14 3-3M4 18h16" /></Icon>} />
+          <Metric label="EFFICIENCY" value={efficiency} detail={summaryState === 'loading' ? 'LOADING TRIP DATA' : 'MONTHLY TRIP FUEL / DISTANCE · L/100KM'} accent="amber" icon={<Icon><path d="M12 3a9 9 0 1 1-9 9" /><path d="M12 7v5l3 2" /></Icon>} />
+          <Metric label="FUEL COST" value={summaryState === 'ready' ? Number(summary?.fuel?.this_month_cost ?? 0).toLocaleString() : '—'} detail="UGX RECORDED THIS MONTH" accent="white" icon={<Icon><rect x="3" y="6" width="17" height="12" rx="2" /><path d="M7 10h6v4H7zM20 9l2 2v5" /></Icon>} />
+          <Metric label="DISTANCE" value={summaryState === 'ready' ? monthlyDistance.toLocaleString() : '—'} detail={`${summary?.trips?.month_count ?? 0} TRIPS THIS MONTH · KM`} accent="white" icon={<Icon><path d="M6 4v16M18 4v16M6 7c5 0 7 3 12 3M6 17c5 0 7-3 12-3" /><circle cx="6" cy="4" r="2" /><circle cx="18" cy="4" r="2" /></Icon>} />
         </section>
+        <p className="sample-dashboard-note" role="note">Chart, alerts, and sensor-specific panels below are illustrative until records or live telemetry are connected.</p>
 
         <section className="panel telemetry-panel"><div className="panel-title"><h2><span className="trend-icon">⌁</span> TELEMETRY CURVES</h2><div className="segmented"><button className="active">FUEL</button><button>SPEND</button></div></div><div className="chart-meta"><span>TRIP CONSUMPTION VARIANCE</span><strong>Avg 7.8 L/100km</strong></div><div className="chart"><div className="chart-grid" /><svg viewBox="0 0 600 230" preserveAspectRatio="none" role="img" aria-label="Trip consumption curve"><defs><linearGradient id="area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#3bd4f2" stopOpacity=".34" /><stop offset="1" stopColor="#3bd4f2" stopOpacity="0" /></linearGradient></defs><path className="chart-area" d="M0 190 C70 70 120 120 210 165 S290 225 350 85 S450 25 500 78 S560 150 600 165 L600 230 L0 230Z" /><path className="chart-line" d="M0 190 C70 70 120 120 210 165 S290 225 350 85 S450 25 500 78 S560 150 600 165" /><circle className="point amber-point" cx="350" cy="85" r="6" /><circle className="point green-point" cx="210" cy="165" r="6" /><circle className="point end-point" cx="600" cy="165" r="5" /></svg><span className="chart-label peak">8.5L (Peak)</span><span className="chart-label low">7.1L (Min)</span><span className="chart-target">TARGET 7.2L</span></div><div className="trip-labels">Trip #19&nbsp;&nbsp; Trip #21&nbsp;&nbsp; Trip #23&nbsp;&nbsp; Trip #25 (Yesterday)&nbsp;&nbsp; Latest</div></section>
 

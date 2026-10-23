@@ -3,6 +3,7 @@
 .telemetry-view-heading { justify-content: flex-start; margin: 8px 0 2px; }
 .telemetry-eyebrow { color: var(--cyan); font-size: 10px; letter-spacing: 1px; }
 .telemetry-view-heading h2 { margin-top: 3px; font: 600 30px/1.1 'Barlow Condensed', sans-serif; }
+.telemetry-vehicle { margin-top: 5px; color: #c4cede; font-size: 10px; }
 .telemetry-section-heading h3 { margin-top: 3px; font: 600 22px/1.1 'Barlow Condensed', sans-serif; }
 .telemetry-back, .compare-button { padding: 9px 12px; border: 1px solid #2c3b57; border-radius: 5px; color: var(--cyan); background: #18253c; font: 10px 'Space Mono', monospace; cursor: pointer; }
 .telemetry-back { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; padding: 8px; }

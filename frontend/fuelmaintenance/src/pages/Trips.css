@@ -34,6 +34,18 @@
 .trip-toggle-button.start:hover { background: #7ae8fa; }
 .trip-idle-copy { margin-top: 14px; color: #aebbd0; font-size: 10px; line-height: 1.5; }
 .trip-notice { padding: 10px 12px; border: 1px solid #2d624e; border-radius: 6px; color: #71e5ad; background: #142820; font-size: 9px; }
+.trip-notice.trip-error { border-color: #763b40; color: #ffd0cc; background: #42252d; }
+.trip-action-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; gap: 10px; margin-top: 16px; }
+.trip-action-form label, .trip-date-filters label { display: grid; gap: 6px; color: #aebbd0; font-size: 9px; }
+.trip-action-form input, .trip-date-filters input { width: 100%; min-height: 38px; padding: 9px 10px; border: 1px solid #35425b; border-radius: 5px; outline: none; color: #f0f4ff; background: #101a2d; font: inherit; }
+.trip-action-form input:focus, .trip-date-filters input:focus { border-color: var(--cyan); }
+.trip-action-form .trip-toggle-button { margin-top: 0; }
+.trip-action-form .trip-idle-copy { grid-column: 1 / -1; margin-top: 0; }
+.trip-toggle-button:disabled { cursor: wait; opacity: .65; }
+.trip-date-filters { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0 3px; }
+.trip-date-filters label { min-width: 160px; }
+.trip-history-row { cursor: default; }
+.trip-history-item .trip-expanded-details { padding: 0 0 13px; }
 .route-distance { color: var(--cyan); font: 600 16px 'Barlow Condensed', sans-serif; }
 .route-map { position: relative; height: 176px; margin-top: 13px; overflow: hidden; border: 1px solid #293a53; border-radius: 6px; background: linear-gradient(140deg, #17283a, #172235 60%, #1a2b36); }
 .map-grid { position: absolute; inset: 0; opacity: .52; background-image: linear-gradient(24deg, transparent 47%, #34465a 48%, #34465a 49%, transparent 50%), linear-gradient(111deg, transparent 47%, #2a3c50 48%, #2a3c50 49%, transparent 50%), linear-gradient(75deg, transparent 47%, #26394c 48%, #26394c 49%, transparent 50%); background-size: 92px 68px, 118px 72px, 160px 90px; }
@@ -108,6 +120,7 @@
 @media (min-width: 700px) {
   .performance-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .route-map { height: 220px; }
+  .trip-statistics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (min-width: 1100px) {
   .trips-view { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }

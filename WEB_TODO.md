@@ -28,21 +28,25 @@ The React web client should remain offline-first: users must be able to view cac
 ### Vehicles
 
 - [x] Vehicle model and ownership-scoped CRUD API.
-- [ ] Add filtering, searching, sorting, and active/inactive vehicle support.
-- [ ] Validate odometer values, VIN, license plates, and duplicate records.
-- [ ] Complete CRUD, validation, and permission tests.
+- [x] Add vehicle specifications, operational status, and persistent active-vehicle selection.
+- [x] Validate odometer progression and registration-number uniqueness.
+- [x] Protect vehicles with stored records from deletion and add focused CRUD/permission tests.
+- [ ] Add vehicle search and sorting.
 
 ### Fuel records
 
 - [x] Create fuel-record model, migrations, serializer, viewset, and URLs.
-- [x] Support date, vehicle, odometer, quantity, unit price, total cost, fuel type, station, and notes.
+- [x] Support purchase date/time, vehicle, odometer, quantity, unit price, total cost, fuel type, station, receipt reference, and notes.
 - [x] Validate odometer progression and calculate fuel cost on the server.
-- [x] Add date-range and vehicle-filtered summaries for fuel cost and volume.
-- [ ] Add distance and consumption calculations to fuel summaries.
+- [x] Add date-range and vehicle-filtered summaries for daily, weekly, and monthly purchase costs and volume.
+- [x] Add trip and full-tank-refill fuel-efficiency history; estimate range only when recorded fuel data supports it.
+- [x] Add alerts for low estimated fuel, unusually high trip consumption, and inconsistent or insufficient refueling records.
 
 ### Trips
 
 - [x] Create manual/synced trip-summary model, migration, serializer, and CRUD endpoints.
+- [x] Start and complete trips using vehicle odometer readings; derive distance from the odometer difference and keep vehicle updates consistent.
+- [x] Connect the web Trips screen to persisted trip history, vehicle/date filters, and completed-trip summaries.
 - [ ] Add GPS-point storage and batch ingestion (GPS integration remains out of scope for now).
 - [x] Support synced trip history and trip statistics for the web app.
 - [x] Keep live GPS trip capture outside the web/backend summary API for now.
@@ -82,27 +86,31 @@ The React web client should remain offline-first: users must be able to view cac
 
 ### Dashboard
 
-- [ ] Replace static dashboard values with authenticated API data.
-- [ ] Add vehicle selection and load the selected vehicle’s metrics.
+- [x] Load the authenticated vehicle list and persist the selected dashboard vehicle.
+- [x] Load vehicle-scoped summary metrics for the selected vehicle.
+- [ ] Replace remaining illustrative charts, alerts, and telemetry with recorded/live API data.
 - [ ] Add loading, empty, offline, and API-error states.
 - [ ] Add responsive layouts for mobile, tablet, and desktop.
 - [ ] Connect telemetry, fuel, maintenance, trip, alert, and diagnostic actions to real features.
 
 ### Vehicle management
 
-- [ ] Add vehicle list, details, create, edit, and delete screens.
-- [ ] Add forms for all supported vehicle fields with client-side validation.
-- [ ] Show ownership, active status, odometer, fuel type, and recent activity.
+- [x] Add vehicle switching and profile fields plus create, edit, and delete controls.
+- [x] Add forms for supported specifications, odometer, and status fields.
+- [ ] Show ownership and recent activity in a dedicated vehicle list/detail view.
 
 ### Fuel management
 
-- [ ] Add fuel-record list, filters, details, create, edit, and delete flows.
-- [ ] Add fuel cost and consumption charts with selectable date ranges.
+- [x] Add authenticated fuel-purchase list and create flows to the Fuel screen.
+- [x] Show saved purchase costs, trip-consumption details, measured efficiency history, and fuel-data alerts.
+- [ ] Add fuel-record filters, details, edit, and delete flows.
+- [ ] Add consumption charts with selectable date ranges.
 - [ ] Support queued offline fuel records and visible sync status.
 
 ### Trips and maintenance
 
-- [ ] Add synced trip-history list and trip details/map display.
+- [x] Add a vehicle-scoped trip-history list with start/end odometer details.
+- [ ] Add trip map display when GPS data is available.
 - [ ] Add maintenance history, upcoming reminders, service details, and completion flows.
 - [ ] Add dashboard alerts for overdue and upcoming maintenance.
 
