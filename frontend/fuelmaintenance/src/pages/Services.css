@@ -19,7 +19,30 @@
 .health-score-caption > span:last-child { margin-left: auto; color: #aebbd0; font-size: 8px; }
 .service-health-meter { height: 6px; margin-top: 10px; overflow: hidden; border-radius: 6px; background: #27344d; }
 .service-health-meter > span { display: block; width: 87%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #37bfda, #51e6a7); }
-.service-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.masonry {
+  column-count: 2;
+  column-gap: 14px;
+}
+
+.masonry > * {
+  break-inside: avoid;
+}
+
+.service-summary-card > strong {
+  font-size: 26px;
+}
+
+.service-summary-card > p:not(.services-eyebrow) {
+  font-size: 9px;
+}
+
+/* Tablet / small laptop: two-column overview grid. */
+@media (min-width: 900px) {
+  .masonry {
+    column-count: 2;
+    column-gap: 14px;
+  }
+}
 .service-summary-card { padding: 13px; }
 .service-summary-card > strong { display: block; margin-top: 8px; color: #f0f4ff; font: 600 clamp(23px, 6vw, 32px)/1 'Barlow Condensed', sans-serif; white-space: nowrap; }
 .service-summary-card > strong small { color: #c4cede; font: 10px 'Space Mono', monospace; }
@@ -69,6 +92,14 @@
 .form-wide { grid-column: 1 / -1; }
 .save-service-button { margin-top: 14px; }
 .services-demo-note { padding: 0 3px; color: #8391aa; font-size: 8px; line-height: 1.5; }
+.services-empty { margin: 10px 0; color: #9aa8c5; font-size: 9px; line-height: 1.5; }
+.services-complete-button { flex: 0 0 auto; padding: 7px 10px; border: 1px solid #2d624e; border-radius: 4px; color: #72e7b0; background: #101a2d; font: 9px 'Space Mono', monospace; cursor: pointer; }
+.services-complete-button:hover { background: #142820; }
+.services-complete-button:disabled { opacity: .5; cursor: wait; }
+.upcoming-distance.overdue { color: var(--amber); }
+.health-indicator.watch, .services-system-status i.watch { background: var(--amber); }
+.health-indicator.attention, .services-system-status i.attention { background: #ff6b6b; }
+.health-indicator.good, .services-system-status i.good { background: #51e6a7; }
 
 @media (max-width: 400px) {
   .services-panel { padding: 12px; }

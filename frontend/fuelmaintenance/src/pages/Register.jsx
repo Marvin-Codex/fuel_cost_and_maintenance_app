@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import * as auth from '../api/auth'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import { Gauge, RouteAnimation } from '../components/animations'
@@ -9,7 +9,20 @@ import './Auth.css'
 /** Split-layout registration sharing the auth card styles. */
 export default function Register() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  // The landing page links here with ?account=personal|organization&plan=<id>.
+  const preselectedAccount = searchParams.get('account') === 'organization' ? 'organization' : 'personal'
+  const preselectedPlan = searchParams.get('plan') || ''
   const [form, setForm] = useState({ username: '', email: '', password: '', confirmPassword: '' })
+  const [accountType, setAccountType] = useState(preselectedAccount)
+  const [orgMode, setOrgMode] = useState(preselectedAccount === 'organization' ? 'create' : 'join')
+  const [organizations, setOrganizations] = useState([])
+  const [organizationId, setOrganizationId] = useState('')
+  const [organizationName, setOrganizationName] = useState('')
+  const [plans, setPlans] = useState([])
+  const [planId, setPlanId] = useState('')
+  const [expandedPlans, setExpandedPlans] = useState({})
+  const [listError, setListError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -20,6 +33,31 @@ export default function Register() {
     window.addEventListener('offline', on)
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', on) }
   }, [])
+  useEffect(() => {
+    let cancelled = false
+    const requests = [auth.getPublicPlans()]
+    if (accountType === 'organization') requests.push(auth.getPublicOrganizations())
+    Promise.all(requests)
+      .then(([planList, orgs]) => {
+        if (cancelled) return
+        // Django REST Framework paginates list endpoints as { results: [...] }.
+        const plansResult = Array.isArray(planList) ? planList : (planList?.results || [])
+        setPlans(plansResult)
+        // Preselect the package the visitor clicked on the landing page, when it exists.
+        // Keep the id's original type so the radio checked-state and submit match.
+        setPlanId((current) => {
+          if (current) return current
+          const match = plansResult.find((plan) => String(plan.id) === preselectedPlan)
+          return match ? match.id : current
+        })
+        if (accountType === 'organization') {
+          setOrganizations(Array.isArray(orgs) ? orgs : (orgs?.results || []))
+        }
+        setListError('')
+      })
+      .catch((err) => { if (!cancelled) setListError(err instanceof Error ? err.message : 'Unable to load packages.') })
+    return () => { cancelled = true }
+  }, [accountType, preselectedPlan])
   function update(e) { setForm({ ...form, [e.target.name]: e.target.value }) }
   async function submit(e) {
     e.preventDefault()
@@ -28,9 +66,27 @@ export default function Register() {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())) return setError('Enter a valid email address.')
     if (form.password.length < 8) return setError('Password must be at least 8 characters.')
     if (form.password !== form.confirmPassword) return setError('Passwords do not match.')
+
+    const options = { accountType }
+    if (accountType === 'personal') {
+      if (!planId) return setError('Choose a personal package.')
+      options.planId = planId
+    }
+    if (accountType === 'organization') {
+      if (orgMode === 'join') {
+        if (!organizationId) return setError('Select an organization to join.')
+        options.organizationId = organizationId
+      } else {
+        if (organizationName.trim().length < 2) return setError('Organization name must be at least 2 characters.')
+        if (!planId) return setError('Choose a package for your organization.')
+        options.organizationName = organizationName.trim()
+        options.planId = planId
+      }
+    }
+
     setSubmitting(true)
     try {
-      await auth.register(form.username.trim(), form.email.trim(), form.password)
+      await auth.register(form.username.trim(), form.email.trim(), form.password, options)
       navigate('/login', { replace: true, state: { registered: true } })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed. Please try again.')
@@ -38,6 +94,36 @@ export default function Register() {
       setSubmitting(false)
     }
   }
+  function renderPlanCard(plan) {
+    const expanded = Boolean(expandedPlans[plan.id])
+    return (
+      <label key={plan.id} className={`fm-plan-card${planId === plan.id ? ' fm-plan-card--selected' : ''}`}>
+        <input type="radio" name="planId" value={plan.id} checked={planId === plan.id} onChange={() => setPlanId(plan.id)} disabled={submitting} />
+        <strong>{plan.name}</strong>
+        {plan.kind === 'personal' && <span>Vehicles: {plan.limits?.vehicles ?? 'Unlimited'}</span>}
+        <button
+          type="button"
+          className="fm-plan-details-toggle"
+          aria-expanded={expanded}
+          onClick={(e) => {
+            e.preventDefault()
+            setExpandedPlans((current) => ({ ...current, [plan.id]: !expanded }))
+          }}
+        >
+          {expanded ? 'Hide details' : 'Show details'}
+        </button>
+        {expanded && (
+          <div className="fm-plan-details">
+            <span>{plan.description}</span>
+            {!!plan.features?.length && (
+              <ul>{plan.features.map((feature) => <li key={feature}>{feature}</li>)}</ul>
+            )}
+          </div>
+        )}
+      </label>
+    )
+  }
+
   return (
     <main className="fm-auth">
       <div className="fm-auth-form">
@@ -48,6 +134,67 @@ export default function Register() {
             <p>Start tracking your vehicle costs today.</p>
           </div>
           <form className="login-form" onSubmit={submit} noValidate>
+            <fieldset className="fm-fieldset">
+              <legend>Account type</legend>
+              <div className="fm-choice-grid">
+                <label className={`fm-choice-card${accountType === 'personal' ? ' fm-choice-card--selected' : ''}`}>
+                  <input type="radio" name="accountType" value="personal" checked={accountType === 'personal'} onChange={() => setAccountType('personal')} disabled={submitting} />
+                  <strong>Personal</strong>
+                  <span>Track your own vehicles.</span>
+                </label>
+                <label className={`fm-choice-card${accountType === 'organization' ? ' fm-choice-card--selected' : ''}`}>
+                  <input type="radio" name="accountType" value="organization" checked={accountType === 'organization'} onChange={() => setAccountType('organization')} disabled={submitting} />
+                  <strong>Organization</strong>
+                  <span>Join a fleet or set one up.</span>
+                </label>
+              </div>
+            </fieldset>
+
+            {accountType === 'personal' && (
+              <fieldset className="fm-fieldset">
+                <legend>Personal package</legend>
+                {listError && <p className="form-banner form-banner--error" role="alert">{listError}</p>}
+                {plans.length === 0 && !listError && <p className="fm-hint">Loading packages...</p>}
+                <div className="fm-plan-grid">
+                  {plans.filter((plan) => plan.kind === 'personal').map(renderPlanCard)}
+                </div>
+              </fieldset>
+            )}
+
+            {accountType === 'organization' && (
+              <fieldset className="fm-fieldset">
+                <legend>Organization</legend>
+                <div className="fm-segmented" role="group" aria-label="Organization setup">
+                  <button type="button" className={orgMode === 'join' ? 'selected' : ''} aria-pressed={orgMode === 'join'} onClick={() => setOrgMode('join')} disabled={submitting}>Join existing</button>
+                  <button type="button" className={orgMode === 'create' ? 'selected' : ''} aria-pressed={orgMode === 'create'} onClick={() => setOrgMode('create')} disabled={submitting}>Create new</button>
+                </div>
+                {listError && <p className="form-banner form-banner--error" role="alert">{listError}</p>}
+                {orgMode === 'join' ? (
+                  <div className="form-field">
+                    <label htmlFor="register-organization">Organization</label>
+                    <select id="register-organization" value={organizationId} onChange={(e) => setOrganizationId(e.target.value)} disabled={submitting}>
+                      <option value="">{organizations.length ? 'Select an organization' : 'Loading organizations...'}</option>
+                      {organizations.map((org) => <option key={org.id} value={org.id}>{org.name}</option>)}
+                    </select>
+                  </div>
+                ) : (
+                  <>
+                    <div className="form-field">
+                      <label htmlFor="register-org-name">Organization name</label>
+                      <input id="register-org-name" value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} placeholder="e.g. Kampala Fleet Services" disabled={submitting} />
+                    </div>
+                    <div className="fm-fieldset">
+                      <span className="fm-legend">Package</span>
+                      {plans.length === 0 && !listError && <p className="fm-hint">Loading packages...</p>}
+                      <div className="fm-plan-grid">
+                        {plans.filter((plan) => plan.kind !== 'personal').map(renderPlanCard)}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </fieldset>
+            )}
+
             <div className="form-field"><label htmlFor="register-username">Username</label><input id="register-username" name="username" value={form.username} onChange={update} required minLength={3} maxLength={150} placeholder="e.g. jane.doe" disabled={submitting} /></div>
             <div className="form-field"><label htmlFor="register-email">Email</label><input id="register-email" type="email" name="email" value={form.email} onChange={update} required placeholder="you@example.com" disabled={submitting} /></div>
             <div className="form-field"><label htmlFor="register-password">Password</label><div className="input-wrap"><input id="register-password" type={showPassword ? 'text' : 'password'} name="password" value={form.password} onChange={update} required placeholder="At least 8 characters" disabled={submitting} /><button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((v) => !v)}>{showPassword ? 'Hide' : 'Show'}</button></div></div>

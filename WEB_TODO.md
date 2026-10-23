@@ -6,14 +6,24 @@ The React web client should remain offline-first: users must be able to view cac
 
 ## 1. SaaS foundation and tenancy
 
-- [ ] Introduce `Organization`/`Tenant` and membership models with roles and permissions.
-- [ ] Scope every user, vehicle, fuel, trip, and maintenance query by tenant at the database/API layer.
-- [ ] Add tenant-aware object permissions, admin tooling, and automated cross-tenant isolation tests.
-- [ ] Support invitations, team membership, role changes, deactivation, and audit history.
-- [ ] Define subscription plans, feature entitlements, usage quotas, trials, upgrades, downgrades, and cancellation.
+- [x] Introduce workspace, membership, role, permission, and plan models. Workspaces cover personal, group, and organization accounts.
+- [x] Scope the migrated vehicle, fuel, trip, maintenance, dashboard, and preference APIs by active workspace and permissions.
+- [x] Add workspace-aware permission resolution, Django admin tooling, access snapshots, and cross-workspace ownership checks for the implemented APIs.
+- [ ] Support invitations, team membership management, role changes, deactivation, and audit history.
+- [x] Define seeded subscription plans, feature entitlements, usage limits, and workspace overrides.
 - [ ] Add billing-provider integration with webhook verification and subscription state reconciliation.
 - [ ] Add tenant settings for locale, currency, units, time zone, retention, and notification preferences.
 - [ ] Define data export, account deletion, retention, and tenant offboarding workflows.
+
+### Superadmin dashboard
+
+- [x] Add the `/super-admin` React route and platform-superuser-only dashboard branch.
+- [x] Add responsive superadmin navigation and light/dark/system theme support.
+- [x] Add frontend access snapshot caching and workspace context switching.
+- [ ] Replace sample superadmin metrics and controls with protected API-backed platform summaries.
+- [x] Build React management screens for plans (all fields), roles (read-only reference), workspaces (package + overrides), memberships (pickers), and vehicle presets (all fields); superadmin API endpoints `super-workspaces/`, `superadmin/permissions/`, `super-roles/`.
+- [ ] Build React management screens for audit history and support workspace access.
+- [ ] Add frontend tests for superadmin authorization, management workflows, and light-mode rendering.
 
 ## 2. Backend / Django API
 
@@ -79,19 +89,22 @@ The React web client should remain offline-first: users must be able to view cac
 ### Application shell and authentication
 
 - [x] Landing page, registration page, login page, and basic dashboard route.
+- [x] Landing `#packages` section renders the live public plans (grouped personal / team) with deep links into registration; static mirrors render when the API is unreachable.
 - [ ] Protect `/dashboard` and future private routes using the stored JWT.
 - [ ] Restore sessions on refresh and redirect unauthenticated users to `/login`.
 - [ ] Handle token expiry with refresh and logout on failed refresh.
-- [ ] Add profile menu, account settings, and accessible logout flow.
+- [x] Add profile menu, account switching, theme toggle, and logout controls; complete account settings remain TODO.
 
 ### Dashboard
 
 - [x] Load the authenticated vehicle list and persist the selected dashboard vehicle.
 - [x] Load vehicle-scoped summary metrics for the selected vehicle.
 - [ ] Replace remaining illustrative charts, alerts, and telemetry with recorded/live API data.
-- [ ] Add loading, empty, offline, and API-error states.
-- [ ] Add responsive layouts for mobile, tablet, and desktop.
-- [ ] Connect telemetry, fuel, maintenance, trip, alert, and diagnostic actions to real features.
+- [x] Replace static customer-facing dashboard values with authenticated API data. Fuel, Services, Trips, and System load records, summaries, and preferences; the superadmin console is partially API-backed.
+- [x] Add vehicle selection UI and pass the selected vehicle through dashboard tabs. Vehicle loading uses `/api/v1/vehicles/` and persists the selected vehicle.
+- [x] Add loading, empty, offline, and API-error states across dashboard data views, with retry controls and cached access snapshots where available.
+- [x] Add responsive layouts for mobile, tablet, and desktop.
+- [x] Connect fuel, maintenance, trip, and reminder actions to persisted API data. OBD-II telemetry and live diagnostics remain unavailable because no backend endpoints exist yet.
 
 ### Vehicle management
 

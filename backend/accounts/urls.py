@@ -3,9 +3,12 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (
     LoginView,
+    MeAccessView,
     MeView,
     OrganizationListCreateView,
     OrganizationMemberCreateView,
+    PublicOrganizationListView,
+    PublicPlanListView,
     RegisterView,
     OrganizationSubscriptionView,
     PlanListView,
@@ -18,7 +21,14 @@ urlpatterns = [
     path('login/', LoginView.as_view(), name='login'),
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('me/', MeView.as_view(), name='me'),
+    path('me/access/', MeAccessView.as_view(), name='me-access'),
     path('plans/', PlanListView.as_view(), name='plan-list'),
+    path('plans/public/', PublicPlanListView.as_view(), name='plan-list-public'),
+    path(
+        'organizations/public/',
+        PublicOrganizationListView.as_view(),
+        name='organization-list-public',
+    ),
     path(
         'organizations/<uuid:organization_id>/subscription/',
         OrganizationSubscriptionView.as_view(),

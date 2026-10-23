@@ -6,16 +6,25 @@ from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from access.drf import WorkspacePermission
 from fuel.models import FuelRecord
 from maintenance.models import MaintenanceRecord, MaintenanceReminder
 from preferences.models import UserPreference
 from trips.models import Trip
-from vehicles.resource_scoping import vehicles_visible_to_request
+from vehicles.resource_scoping import check_vehicle_permission, vehicles_visible_to_request
 
 
 class DashboardSummaryView(APIView):
+    permission_classes = [WorkspacePermission]
+    permission_map = {
+        'get': 'analytics.view',
+    }
+
+    def permission_for_action(self):
+        return 'analytics.view'
+
     def get(self, request):
-        _, vehicles = vehicles_visible_to_request(request, 'vehicle.view')
+        _, vehicles = vehicles_visible_to_request(request)
         vehicle_id = request.query_params.get('vehicle')
         if vehicle_id:
             vehicle_uuid = serializers.UUIDField().run_validation(vehicle_id)
@@ -39,20 +48,6 @@ class DashboardSummaryView(APIView):
         reminders = MaintenanceReminder.objects.filter(
             vehicle=vehicle, status=MaintenanceReminder.OPEN
         ).select_related('vehicle')
-
-        for permission in ('fuel.view', 'trip.view', 'maintenance.view'):
-            if request.headers.get('X-Organization-ID'):
-                from accounts.permissions import has_permission
-
-                membership, _ = vehicles_visible_to_request(request)
-                if membership and not has_permission(
-                    request.user, permission, membership.organization
-                ):
-                    from rest_framework.exceptions import PermissionDenied
-
-                    raise PermissionDenied(
-                        f'Your organization role or package cannot view {permission.split(".")[0]} data.'
-                    )
 
         latest_reminder = reminders.order_by('due_date', 'due_odometer_km').first()
         return Response({

@@ -7,7 +7,6 @@ from vehicles.resource_api import VehicleScopedSerializerMixin
 
 from .models import Trip
 
-
 class TripSerializer(VehicleScopedSerializerMixin, serializers.ModelSerializer):
     duration_seconds = serializers.IntegerField(read_only=True)
     average_speed_kmh = serializers.FloatField(read_only=True)

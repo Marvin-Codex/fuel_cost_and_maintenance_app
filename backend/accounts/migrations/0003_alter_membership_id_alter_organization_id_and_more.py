@@ -65,25 +65,35 @@ def _convert_to_uuid_sqlite(schema_editor):
 
     with connection.constraint_checks_disabled():
         with connection.cursor() as cursor:
-            for table in targets:
-                sql = create_sql[table]
-                if table in pk_tables:
-                    sql = sql.replace(
-                        '"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT',
-                        '"id" char(32) NOT NULL PRIMARY KEY',
+            # SQLite (3.25+) rewrites *other* tables' FOREIGN KEY clauses to
+            # follow a renamed table. That would leave every dependent table
+            # (access_membership, vehicles_vehicle, ...) pointing at the
+            # throw-away "<table>__old_uuid" name, so switch to the legacy
+            # rename behaviour: rename is a pure rename, references keep
+            # pointing at the (recreated) original name.
+            cursor.execute('PRAGMA legacy_alter_table = ON')
+            try:
+                for table in targets:
+                    sql = create_sql[table]
+                    if table in pk_tables:
+                        sql = sql.replace(
+                            '"id" integer NOT NULL PRIMARY KEY AUTOINCREMENT',
+                            '"id" char(32) NOT NULL PRIMARY KEY',
+                        )
+                    # Every BIGINT column in these tables references one of the
+                    # converted PKs (M2M ``group_id`` is integer, untouched).
+                    sql = sql.replace('bigint', 'char(32)')
+                    cursor.execute(
+                        'ALTER TABLE "{}" RENAME TO "{}__old_uuid"'.format(
+                            table, table
+                        )
                     )
-                # Every BIGINT column in these tables references one of the
-                # converted PKs (M2M ``group_id`` is integer, untouched).
-                sql = sql.replace('bigint', 'char(32)')
-                cursor.execute(
-                    'ALTER TABLE "{}" RENAME TO "{}__old_uuid"'.format(
-                        table, table
+                    cursor.execute(sql)
+                    cursor.execute(
+                        'DROP TABLE "{}__old_uuid"'.format(table)
                     )
-                )
-                cursor.execute(sql)
-                cursor.execute(
-                    'DROP TABLE "{}__old_uuid"'.format(table)
-                )
+            finally:
+                cursor.execute('PRAGMA legacy_alter_table = OFF')
             # Converted PKs no longer use AUTOINCREMENT sequences.
             cursor.execute(
                 'DELETE FROM sqlite_sequence WHERE name IN ({})'.format(

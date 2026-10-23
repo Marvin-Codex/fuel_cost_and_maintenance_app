@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
@@ -56,6 +57,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'drf_spectacular',
     # Local apps
+    'access',
     'accounts',
     'vehicles',
     'fuel',
@@ -63,6 +65,7 @@ INSTALLED_APPS = [
     'maintenance',
     'preferences',
     'dashboard',
+    'routing',
 ]
 
 MIDDLEWARE = [
@@ -130,10 +133,9 @@ else:
 AUTH_USER_MODEL = 'accounts.User'
 
 # CORS — allow the Vite dev server (and future web builds) to call this API
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-]
+# The Vite dev server proxies /api to this host, so the browser never crosses
+# origins. CORS_ALLOW_ALL_ORIGINS is a DEV safety net for remote hosts/tunnels.
+CORS_ALLOW_ALL_ORIGINS = DEBUG
 
 # Django REST Framework — every endpoint requires JWT auth by default
 REST_FRAMEWORK = {
@@ -146,6 +148,27 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'EXCEPTION_HANDLER': 'access.drf.access_exception_handler',
+    'DEFAULT_THROTTLE_RATES': {'routing': '60/minute'},
+}
+
+# JWT token lifetimes — defaults are deliberately short (5 min access / 1 day
+# refresh) in SimpleJWT, which made sessions feel like they expired instantly.
+# Give the access token a comfortable working window and a long-lived refresh
+# token so an active user is not interrupted; the frontend refreshes the access
+# token transparently when it does expire.
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(
+        minutes=int(os.environ.get('JWT_ACCESS_TOKEN_LIFETIME_MINUTES', '60'))
+    ),
+    'REFRESH_TOKEN_LIFETIME': timedelta(
+        days=int(os.environ.get('JWT_REFRESH_TOKEN_LIFETIME_DAYS', '30'))
+    ),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
+    'UPDATE_LAST_LOGIN': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
 }
 
 # OpenAPI schema (drf-spectacular)

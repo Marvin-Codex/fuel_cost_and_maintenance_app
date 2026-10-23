@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { APP_NAME, APP_DESCRIPTION } from '../config/brand'
+import { getPublicPlans } from '../api/auth'
 import ThemeToggle from '../components/ui/ThemeToggle'
 import { Counter, EngineLine, Gauge, Reveal, RouteAnimation, SyncIndicator } from '../components/animations'
 import './Landing.css'
@@ -31,9 +32,73 @@ function FeatureIcon({ path }) {
   )
 }
 
+/** Friendly labels for plan entitlement codes shown on the marketing cards. */
+const FEATURE_LABELS = {
+  'vehicles.view': 'Vehicle records',
+  'fuel.view': 'Fuel & trip tracking',
+  'fuel.add': 'Log fill-ups',
+  'trips.add': 'Trip logging',
+  'maintenance.view': 'Maintenance history',
+  'analytics.view': 'Analytics dashboard',
+  'analytics.export': 'Export reports',
+  'predictions.use': 'Cost prediction (ML)',
+  'servicecentres.view': 'Service-centre finder',
+  'members.view': 'Team visibility',
+  'members.invite': 'Invite members',
+  'members.manage': 'Manage roles',
+  'workspace.manage': 'Workspace settings',
+  'billing.manage': 'Billing & subscriptions',
+}
+
+/** Curated highlights per plan kind so the marketing cards stay readable. */
+function highlightFeatures(plan) {
+  const codes = Array.isArray(plan?.features) ? plan.features : []
+  const picks = (plan?.kind === 'personal'
+    ? ['vehicles.view', 'fuel.view', 'maintenance.view', 'analytics.view', 'predictions.use']
+    : ['vehicles.view', 'members.view', 'members.invite', 'members.manage', 'analytics.view', 'predictions.use']
+  )
+  const labels = picks.filter((code) => codes.includes(code)).map((code) => FEATURE_LABELS[code])
+  const extras = codes.filter((code) => !picks.includes(code)).map((code) => FEATURE_LABELS[code]).filter(Boolean)
+  const items = [...labels, ...extras].filter(Boolean)
+  const seen = new Set()
+  return items.filter((label) => (seen.has(label) ? false : (seen.add(label), true))).slice(0, 6)
+}
+
+function formatLimit(value) {
+  if (value === null || value === undefined) return 'Unlimited'
+  return String(value)
+}
+
+/** Static cards mirroring backend/access/defaults.py; shown if the API is unreachable. */
+const FALLBACK_PACKAGES = [
+  { key: 'personal-free', title: 'Personal', text: 'Free. One person, one vehicle.', items: ['1 vehicle', '1 member', 'Vehicle records', 'Fuel & trip tracking', 'Maintenance history'] },
+  { key: 'personal-pro', title: 'Personal Pro', text: 'One person, more vehicles. Price grows with vehicle count (billing later).', items: ['5 vehicles', '1 member', 'Cost prediction (ML)', 'Export reports'] },
+  { key: 'group', title: 'Group', text: 'A family or small group sharing the same vehicles and statistics.', items: ['5 vehicles', '3 members', 'Team visibility', 'Manage roles'] },
+  { key: 'enterprise', title: 'Enterprise', text: 'Registered organization with roles. Limits are set per customer.', items: ['Unlimited vehicles', 'Unlimited members', 'Everything included'] },
+]
+
 export default function Landing() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [vehicle, setVehicle] = useState('car')
+  const [plans, setPlans] = useState([])
+  const [plansLoading, setPlansLoading] = useState(true)
+  useEffect(() => {
+    let cancelled = false
+    // Same public endpoint + pagination shape the registration page uses.
+    getPublicPlans()
+      .then((list) => {
+        if (cancelled) return
+        const items = Array.isArray(list) ? list : (list?.results || [])
+        setPlans(items)
+        setPlansLoading(false)
+      })
+      .catch(() => { if (!cancelled) { setPlans([]); setPlansLoading(false) } })
+    return () => { cancelled = true }
+  }, [])
+  const liveGroups = [
+    { heading: 'For individuals', plans: plans.filter((plan) => plan.kind === 'personal') },
+    { heading: 'For teams & organizations', plans: plans.filter((plan) => plan.kind !== 'personal') },
+  ].filter((group) => group.plans.length > 0)
   return (
     <main className="fm-landing" id="top">
       <nav className="fm-nav" aria-label="Primary">
@@ -206,70 +271,164 @@ export default function Landing() {
           </div>
           <Reveal className="fm-card fm-vehicle-card" role="tabpanel">
             {vehicle === 'car' ? (
-              <svg key="car" className="fm-veh-art" viewBox="0 0 360 150" role="img" aria-label="Side-view illustration of a modern car with tinted windows, alloy wheels, headlight and taillight">
-                <g className="fm-veh-bob">
-                  <ellipse className="fm-veh-shadow" cx="184" cy="137" rx="152" ry="6" />
-                  <path className="fm-veh-body" d="M36 106 Q36 86 60 82 L96 58 Q102 54 110 54 L214 54 Q222 54 228 60 L258 82 L302 90 Q324 94 332 102 L334 106 Z" />
-                  <path className="fm-veh-glass" d="M116 60 L206 60 L216 82 L126 82 Z" />
-                  <path className="fm-veh-detail" d="M162 60 L168 82" />
-                  <path className="fm-veh-detail" d="M132 66 L152 78 M142 64 L162 76" />
-                  <path className="fm-veh-detail" d="M126 84 L120 106 M216 84 L216 106" />
-                  <path className="fm-veh-detail" d="M150 92 L164 92" />
-                  <path className="fm-veh-detail" d="M62 98 L300 96" />
-                  <path className="fm-veh-body" d="M214 68 L226 64 L226 73 Z" />
-                  <path className="fm-veh-light-front fm-veh-glow" d="M316 92 L332 96 L330 102 L314 98 Z" />
-                  <path className="fm-veh-light-rear" d="M38 88 L52 89 L51 96 L38 95 Z" />
-                  <g>
-                    <circle className="fm-veh-tire" cx="278" cy="108" r="26" />
-                    <circle className="fm-veh-disc" cx="278" cy="108" r="15" />
-                    <g className="fm-veh-spin"><path className="fm-veh-spokes" d="M278 96 L278 120 M266 108 L290 108 M270 100 L286 116 M286 100 L270 116" /></g>
-                    <circle className="fm-veh-rim" cx="278" cy="108" r="15" />
-                    <circle className="fm-veh-hub" cx="278" cy="108" r="3.6" />
+              <svg key="car" className="car" viewBox="0 0 460 170" role="img" aria-labelledby="car-title">
+                <title id="car-title">Animated car driving to the right</title>
+                <defs>
+                  <clipPath id="car-clip">
+                    <path d="M36 126V106Q36 96 48 94L120 88L152 60Q157 55 164 55H252Q261 55 267 61L296 88L362 96Q384 100 388 116V126Z" />
+                  </clipPath>
+                  <linearGradient id="car-beam" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0" className="s0" />
+                    <stop offset="1" className="s1" />
+                  </linearGradient>
+                </defs>
+
+                {/* Road */}
+                <line className="ground" x1="0" y1="148" x2="460" y2="148" />
+                <line className="dash" x1="-50" y1="160" x2="510" y2="160" />
+
+                {/* Headlight beam */}
+                <path className="beam" fill="url(#car-beam)" d="M388 108L456 88V130L388 114Z" />
+
+                {/* Speed streaks behind the car */}
+                <g>
+                  <path className="streak" d="M12 100H28" />
+                  <path className="streak" style={{ animationDelay: '-.2s' }} d="M12 112H28" />
+                  <path className="streak" style={{ animationDelay: '-.4s' }} d="M12 124H28" />
+                </g>
+
+                {/* Body (bobs on the suspension) */}
+                <g className="bob">
+                  <path className="body" d="M36 126V106Q36 96 48 94L120 88L152 60Q157 55 164 55H252Q261 55 267 61L296 88L362 96Q384 100 388 116V126Z" />
+                  <path className="shade" d="M36 118H388V126H36Z" />
+                  <path className="glass" d="M132 86L158 63Q160 60 165 60H204V86Z" />
+                  <path className="glass" d="M212 60H252Q257 60 261 64L284 86H212Z" />
+                  <path className="glint" d="M168 84L188 62H196L176 84Z" />
+                  <path className="glint" d="M232 84L250 62H256L238 84Z" />
+                  <path className="seam" d="M148 90V120M208 88V122" />
+                  <rect className="handle" x="184" y="97" width="14" height="3" rx="1.5" />
+                  <rect className="handle" x="244" y="97" width="14" height="3" rx="1.5" />
+                  <rect className="tail" x="36" y="100" width="6" height="12" rx="2" clipPath="url(#car-clip)" />
+                  <path className="lamp" d="M366 101Q384 103 388 111V115L370 112Z" />
+                  {/* Wheel arches, cut to the body outline */}
+                  <g clipPath="url(#car-clip)">
+                    <circle className="well" cx="108" cy="124" r="29" />
+                    <circle className="well" cx="312" cy="124" r="29" />
                   </g>
-                  <g>
-                    <circle className="fm-veh-tire" cx="92" cy="108" r="26" />
-                    <circle className="fm-veh-disc" cx="92" cy="108" r="15" />
-                    <g className="fm-veh-spin"><path className="fm-veh-spokes" d="M92 96 L92 120 M80 108 L104 108 M82 100 L102 116 M102 100 L82 116" /></g>
-                    <circle className="fm-veh-rim" cx="92" cy="108" r="15" />
-                    <circle className="fm-veh-hub" cx="92" cy="108" r="3.6" />
+                </g>
+
+                {/* Rear wheel */}
+                <g transform="translate(108 124)">
+                  <g className="spin">
+                    <circle className="tire" r="24" />
+                    <circle className="tread" r="20.5" />
+                    <circle className="rim" r="15" />
+                    <path className="spk" d="M0 0V-13M0 0L12.4-4M0 0L7.6 10.5M0 0L-7.6 10.5M0 0L-12.4-4" />
+                    <circle className="cap" r="4" />
+                    <circle className="mark" cx="6.5" cy="-8.9" r="1.8" />
+                  </g>
+                </g>
+
+                {/* Front wheel */}
+                <g transform="translate(312 124)">
+                  <g className="spin">
+                    <circle className="tire" r="24" />
+                    <circle className="tread" r="20.5" />
+                    <circle className="rim" r="15" />
+                    <path className="spk" d="M0 0V-13M0 0L12.4-4M0 0L7.6 10.5M0 0L-7.6 10.5M0 0L-12.4-4" />
+                    <circle className="cap" r="4" />
+                    <circle className="mark" cx="6.5" cy="-8.9" r="1.8" />
                   </g>
                 </g>
               </svg>
             ) : (
-              <svg key="bike" className="fm-veh-art" viewBox="0 0 360 150" role="img" aria-label="Side-view illustration of a sport motorcycle with spoked wheels, fuel tank, engine block and exhaust">
-                <g className="fm-veh-bob">
-                  <ellipse className="fm-veh-shadow" cx="180" cy="136" rx="150" ry="6" />
-                  <g>
-                    <circle className="fm-veh-tire" cx="86" cy="102" r="29" />
-                    <circle className="fm-veh-disc" cx="86" cy="102" r="17" />
-                    <g className="fm-veh-spin"><path className="fm-veh-spokes" d="M86 86 L86 118 M70 102 L102 102 M74 90 L98 114 M98 90 L74 114" /></g>
-                    <circle className="fm-veh-rim" cx="86" cy="102" r="17" />
-                    <circle className="fm-veh-hub" cx="86" cy="102" r="3.6" />
+              <svg key="bike" className="moto" viewBox="0 0 460 170" role="img" aria-labelledby="moto-title">
+                <title id="moto-title">Animated motorcycle riding to the right</title>
+                <defs>
+                  <linearGradient id="moto-beam" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0" className="s0" />
+                    <stop offset="1" className="s1" />
+                  </linearGradient>
+                </defs>
+
+                {/* Road */}
+                <line className="ground" x1="0" y1="148" x2="460" y2="148" />
+                <line className="dash" x1="-50" y1="160" x2="510" y2="160" />
+
+                {/* Headlight beam */}
+                <path className="beam" fill="url(#moto-beam)" d="M312 66L452 44V104L312 74Z" />
+
+                {/* Speed streaks behind the bike */}
+                <g>
+                  <path className="streak" d="M30 92H52" />
+                  <path className="streak" style={{ animationDelay: '-.2s' }} d="M30 104H52" />
+                  <path className="streak" style={{ animationDelay: '-.4s' }} d="M30 116H52" />
+                </g>
+
+                {/* Rear wheel */}
+                <g transform="translate(112 118)">
+                  <g className="spin">
+                    <circle className="tire" r="26" />
+                    <circle className="tread" r="26" />
+                    <circle className="rimring" r="21" />
+                    <path className="spk" d="M0 0V-21M0 0L10.5-18.2M0 0L18.2-10.5M0 0H21M0 0L18.2 10.5M0 0L10.5 18.2M0 0V21M0 0L-10.5 18.2M0 0L-18.2 10.5M0 0H-21M0 0L-18.2-10.5M0 0L-10.5-18.2" />
+                    <circle className="hub" r="5" />
+                    <circle className="mark" cx="4.5" cy="-16.9" r="1.8" />
                   </g>
-                  <g>
-                    <circle className="fm-veh-tire" cx="256" cy="102" r="29" />
-                    <circle className="fm-veh-disc" cx="256" cy="102" r="17" />
-                    <g className="fm-veh-spin"><path className="fm-veh-spokes" d="M256 86 L256 118 M240 102 L272 102 M244 90 L268 114 M268 90 L244 114" /></g>
-                    <circle className="fm-veh-rim" cx="256" cy="102" r="17" />
-                    <circle className="fm-veh-hub" cx="256" cy="102" r="3.6" />
+                </g>
+
+                {/* Front wheel (with brake disc) */}
+                <g transform="translate(344 118)">
+                  <g className="spin">
+                    <circle className="tire" r="26" />
+                    <circle className="tread" r="26" />
+                    <circle className="rimring" r="21" />
+                    <path className="spk" d="M0 0V-21M0 0L10.5-18.2M0 0L18.2-10.5M0 0H21M0 0L18.2 10.5M0 0L10.5 18.2M0 0V21M0 0L-10.5 18.2M0 0L-18.2 10.5M0 0H-21M0 0L-18.2-10.5M0 0L-10.5-18.2" />
+                    <circle className="disc" r="11" />
+                    <circle className="hub" r="5" />
+                    <circle className="mark" cx="4.5" cy="-16.9" r="1.8" />
                   </g>
-                  <path className="fm-veh-body" d="M256 102 L228 76 L196 66 L172 66" />
-                  <path className="fm-veh-detail" d="M172 70 L120 74 M120 74 L86 96" />
-                  <path className="fm-veh-detail" d="M228 78 L214 92 M214 92 L176 96" />
-                  <path className="fm-veh-body" d="M150 78 C144 62 160 52 180 52 C200 52 210 64 205 78 Z" />
-                  <path className="fm-veh-glass" d="M156 70 C158 62 168 58 178 58 C186 58 192 62 194 70 Z" />
-                  <path className="fm-veh-body" d="M204 76 L232 80 C238 81 242 78 242 72 C242 66 236 64 230 66 L206 68 Z" />
-                  <path className="fm-veh-body" d="M172 66 C182 62 200 62 210 68 L214 74 L168 74 Z" />
-                  <path className="fm-veh-detail" d="M150 82 L172 90 M172 86 L172 96" />
-                  <path className="fm-veh-body" d="M168 78 L146 82 L150 92 L172 90 Z" />
-                  <path className="fm-veh-detail" d="M150 84 L166 87 M152 88 L168 90" />
-                  <path className="fm-veh-body" d="M244 58 L262 50 L272 52 L268 66 L250 66 Z" />
-                  <path className="fm-veh-glass" d="M248 60 L262 54 L266 62 L250 64 Z" />
-                  <path className="fm-veh-body" d="M248 52 L274 44 M266 44 L280 40" />
-                  <path className="fm-veh-light-front fm-veh-glow" d="M240 66 L252 64 L252 74 L242 74 Z" />
-                  <path className="fm-veh-detail" d="M188 80 C160 84 120 86 92 84" />
-                  <path className="fm-veh-light-rear" d="M84 92 L94 92 L94 100 L84 100 Z" />
-                  <path className="fm-veh-detail" d="M96 84 L92 72 L108 82" />
+                </g>
+
+                {/* Exhaust smoke */}
+                <g transform="translate(90 126)"><circle className="puff" r="3.5" /></g>
+                <g transform="translate(90 126)"><circle className="puff" style={{ animationDelay: '-.3s' }} r="3.5" /></g>
+                <g transform="translate(90 126)"><circle className="puff" style={{ animationDelay: '-.6s' }} r="3.5" /></g>
+
+                {/* Bike (bobs on the suspension) */}
+                <g className="bob">
+                  {/* swingarm and rear shock */}
+                  <path className="metal" style={{ strokeWidth: 5 }} d="M112 118L196 112" />
+                  <path className="metal" style={{ strokeWidth: 3 }} d="M170 92L154 114" />
+
+                  {/* engine */}
+                  <g className="vib">
+                    <path className="engine" d="M176 106L240 98L256 112L250 132L184 134Z" />
+                    <path className="engine" d="M206 99L244 93L252 104L214 108Z" />
+                    <path className="fin" d="M190 114L246 110M190 121L249 118M188 128L250 126" />
+                  </g>
+
+                  {/* down tube, tank, seat, tail */}
+                  <path className="metal" style={{ strokeWidth: 4 }} d="M286 82L252 108" />
+                  <path className="body" d="M200 86Q204 66 238 64L274 68Q290 72 284 84L210 94Z" />
+                  <path className="hl" d="M212 77Q236 70 270 74" />
+                  <path className="seat" d="M118 86Q150 80 200 86L206 94L128 98Q114 96 118 86Z" />
+                  <path className="shade" d="M106 88L122 83L128 92L110 98Z" />
+                  <circle className="tail" cx="108" cy="92" r="3.2" />
+
+                  {/* front fork, bars, mirror, lamp, fender */}
+                  <path className="metal" style={{ strokeWidth: 5 }} d="M288 74L344 118" />
+                  <path className="stan" d="M288 74L316 96" />
+                  <path className="metal" style={{ strokeWidth: 4 }} d="M290 70L284 58L270 56" />
+                  <path className="grip" d="M270 56L261 55" />
+                  <path className="metal" style={{ strokeWidth: 2 }} d="M285 59L292 48" />
+                  <ellipse className="shade" cx="293" cy="46" rx="4.5" ry="3" />
+                  <path className="fender" d="M316 90Q344 74 372 92" />
+                  <ellipse className="lamp" cx="304" cy="68" rx="7" ry="9" />
+
+                  {/* exhaust */}
+                  <path className="pipe" d="M246 126Q236 140 206 138L150 134L96 126" />
+                  <path className="pipehl" transform="translate(0 -2)" d="M246 126Q236 140 206 138L150 134L96 126" />
                 </g>
               </svg>
             )}
@@ -285,13 +444,42 @@ export default function Landing() {
       <section className="fm-section" id="packages" aria-labelledby="packages-title">
         <div className="fm-wrap">
           <Reveal>
-            <p className="fm-eyebrow">Access</p>
-            <h2 id="packages-title">Features unlock through organization packages.</h2>
-            <p className="fm-muted">Contact us for fleet pricing — packages grant dashboard features per organization while subscriptions stay active.</p>
+            <p className="fm-eyebrow">Packages</p>
+            <h2 id="packages-title">One package per workspace — the plan is the ceiling.</h2>
+            <p className="fm-muted">Pick a personal package for yourself, or a team package when you register an organization. {plansLoading ? 'Loading live packages…' : 'Live from the server — the same packages you choose at sign-up.'}</p>
           </Reveal>
-          <div className="fm-grid fm-grid--3">
-            {[['Essentials', 'Core tracking for owners.', ['Vehicle records', 'Fuel & trip tracking', 'Maintenance history']], ['Fleet', 'Shared visibility for teams.', ['Everything in Essentials', 'Organization roles', 'Package-based access']], ['Scale', 'For growing operations.', ['Time-limited subscriptions', 'Central access', 'Expanding fleets']]].map(([title, text, items], i) => (
-              <Reveal as="article" key={title} delay={i % 3} className={`fm-card fm-card--lift fm-package${i === 1 ? ' fm-package--hot' : ''}`}>
+          <div className="fm-packages" role="list">
+            {plansLoading && (
+              <Reveal as="article" className="fm-card fm-package" aria-label="Loading packages">
+                <div className="fm-package-top"><h3>Loading packages…</h3></div>
+                <p className="fm-muted">Fetching the latest packages from the server.</p>
+              </Reveal>
+            )}
+            {!plansLoading && liveGroups.map((group) => (
+              <div key={group.heading} className="fm-package-group" role="list">
+                <p className="fm-package-group-heading">{group.heading}</p>
+                {group.plans.map((plan) => {
+                  const popular = plan.key === 'personal-pro' || plan.key === 'group'
+                  const accountType = plan.kind === 'personal' ? 'personal' : 'organization'
+                  return (
+                    <Reveal as="article" key={plan.key || plan.id} className={`fm-card fm-card--lift fm-package${popular ? ' fm-package--hot' : ''}`}>
+                      <div className="fm-package-top">
+                        <h3>{plan.name}</h3>
+                        {popular && <span className="fm-badge fm-badge--accent">Popular</span>}
+                      </div>
+                      <p className="fm-muted">{plan.description}</p>
+                      <ul>
+                        <li>{formatLimit(plan.limits?.vehicles)} {Number(plan.limits?.vehicles) === 1 ? 'vehicle' : 'vehicles'} · {formatLimit(plan.limits?.members)} {Number(plan.limits?.members) === 1 ? 'member' : 'members'}</li>
+                        {highlightFeatures(plan).map((item) => <li key={item}>{item}</li>)}
+                      </ul>
+                      <Link className={`fm-btn ${popular ? 'fm-btn--primary' : 'fm-btn--ghost'}`} to={`/register?account=${accountType}&plan=${encodeURIComponent(plan.id)}`}>Start with {plan.name}</Link>
+                    </Reveal>
+                  )
+                })}
+              </div>
+            ))}
+            {!plansLoading && liveGroups.length === 0 && FALLBACK_PACKAGES.map(({ key, title, text, items }, i) => (
+              <Reveal as="article" key={key} className={`fm-card fm-card--lift fm-package${i === 1 ? ' fm-package--hot' : ''}`}>
                 <div className="fm-package-top"><h3>{title}</h3>{i === 1 && <span className="fm-badge fm-badge--accent">Popular</span>}</div>
                 <p className="fm-muted">{text}</p>
                 <ul>{items.map((item) => <li key={item}>{item}</li>)}</ul>
@@ -309,7 +497,7 @@ export default function Landing() {
             <h2 id="faq-title">Questions, answered.</h2>
           </Reveal>
           <div className="fm-faq">
-            {[['Does it work offline?', 'Yes. The app shell loads from cache, records save on-device first (Dexie on web, SQLite on mobile), and everything syncs when you are back online. Sign-in needs the network the first time.'], ['Do I need an OBD-II adapter?', 'No. Telemetry lights up when you connect one; fuel, trips and maintenance work fully without hardware.'], ['Cars and motorcycles?', 'Both. Fuel in litres, distances in km, consumption in L/100 km and UGX costs work for any vehicle with an odometer.'], ['How do teams work?', 'Organizations group vehicles and members with roles from owner to viewer; packages unlock features per organization.'], ['Is my data private?', 'Every API call needs JWT auth and is scoped to you — clients never supply an owner id.']].map(([q, a]) => (
+            {[['Does it work offline?', 'Yes. The app shell loads from cache, records save on-device first (Dexie on web, SQLite on mobile), and everything syncs when you are back online. Sign-in needs the network the first time.'], ['Do I need an OBD-II adapter?', 'No. Telemetry lights up when you connect one; fuel, trips and maintenance work fully without hardware.'], ['Cars and motorcycles?', 'Both. Fuel in litres, distances in km, consumption in L/100 km and UGX costs work for any vehicle with an odometer.'], ['How do packages work?', 'Every workspace has one package: personal packages for individuals (Personal, Personal Pro), team packages for groups and organizations (Group, Enterprise). The package sets vehicle and member limits; roles decide what each person can do.'], ['Is my data private?', 'Every API call needs JWT auth and is scoped to you — clients never supply an owner id.']].map(([q, a]) => (
               <details key={q} className="fm-card"><summary>{q}</summary><p className="fm-muted">{a}</p></details>
             ))}
           </div>

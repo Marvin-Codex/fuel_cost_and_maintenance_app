@@ -1,0 +1,251 @@
+/* Collapsible dashboard sidebar.
+   Mobile: fixed bottom bar. Tablet: sticky inline pill. Desktop: grid sidebar with a collapse rail. */
+
+.dashboard-sidebar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10;
+  padding: 12px 10px calc(10px + env(safe-area-inset-bottom));
+  background: var(--fm-bg-soft);
+  border-top: 1px solid var(--fm-line);
+}
+
+.dashboard-sidebar .sidebar-head,
+.dashboard-sidebar .sidebar-footer {
+  display: none;
+}
+
+.dashboard-sidebar .sidebar-nav {
+  display: flex;
+  justify-content: center;
+  gap: clamp(15px, 7vw, 50px);
+  overflow-x: auto;
+}
+
+.dashboard-sidebar .sidebar-nav button {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  color: var(--fm-muted);
+  background: transparent;
+  font: 8px/1.3 'Space Mono', monospace;
+  cursor: pointer;
+}
+
+.dashboard-sidebar .sidebar-nav button.selected {
+  color: var(--fm-accent);
+}
+
+.dashboard-sidebar .sidebar-nav button.selected svg {
+  filter: drop-shadow(0 0 5px rgba(66, 216, 244, 0.5));
+}
+
+.dashboard-sidebar button:focus-visible {
+  outline: 2px solid var(--fm-accent);
+  outline-offset: 2px;
+}
+
+.dashboard-shell.super-admin-shell {
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+
+/* Tablet: sticky inline pill nav above the content well. */
+@media (min-width: 900px) and (max-width: 1199.98px) {
+  .dashboard-shell,
+  .dashboard-shell.super-admin-shell {
+    padding-bottom: 0;
+  }
+
+  .dashboard-sidebar {
+    position: sticky;
+    top: 12px;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    width: min(100% - 40px, 1080px);
+    margin: 12px auto 0;
+    border: 1px solid var(--fm-line);
+    border-radius: 8px;
+  }
+}
+
+/* Desktop: left grid sidebar with an optional collapsed icon rail. */
+@media (min-width: 1200px) {
+  .dashboard-shell.sidebar-collapsed {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .dashboard-shell.super-admin-shell {
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    align-items: start;
+  }
+
+  .dashboard-shell.super-admin-shell.sidebar-collapsed {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .dashboard-shell.super-admin-shell .dashboard-topbar {
+    grid-column: 1 / -1;
+  }
+
+  .dashboard-shell.super-admin-shell .super-admin-content {
+    grid-column: 2;
+    grid-row: 2;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 28px 28px 48px;
+  }
+
+  .dashboard-sidebar {
+    position: sticky;
+    top: 0;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    height: 100svh;
+    margin: 0;
+    padding: 16px 12px calc(16px + env(safe-area-inset-bottom));
+    overflow-x: visible;
+    overflow-y: auto;
+    border: 0;
+    border-right: 1px solid var(--fm-line);
+    border-radius: 0;
+  }
+
+  .dashboard-sidebar .sidebar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 4px 10px;
+    border-bottom: 1px solid var(--fm-line);
+  }
+
+  .dashboard-sidebar .sidebar-heading {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .dashboard-sidebar .sidebar-heading strong {
+    color: var(--fm-ink);
+    font: 700 13px/1 'Barlow Condensed', sans-serif;
+    letter-spacing: 0.14em;
+  }
+
+  .dashboard-sidebar .sidebar-heading span {
+    overflow: hidden;
+    color: var(--fm-muted);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dashboard-sidebar .sidebar-toggle {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--fm-line);
+    border-radius: 6px;
+    color: var(--fm-ink);
+    background: var(--fm-surface);
+    cursor: pointer;
+  }
+
+  .dashboard-sidebar .sidebar-toggle:hover {
+    background: var(--fm-accent-soft);
+  }
+
+  .dashboard-sidebar .sidebar-nav {
+    display: grid;
+    gap: 6px;
+    overflow-x: visible;
+    overflow-y: auto;
+  }
+
+  .dashboard-sidebar .sidebar-nav button {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 11px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    letter-spacing: 0.6px;
+    text-align: left;
+  }
+
+  .dashboard-sidebar .sidebar-nav button:hover {
+    color: var(--fm-ink);
+    background: var(--fm-accent-soft);
+  }
+
+  .dashboard-sidebar .sidebar-nav button.selected {
+    color: var(--fm-accent);
+    background: #18253c;
+  }
+
+  .dashboard-sidebar .sidebar-footer {
+    display: block;
+    margin-top: auto;
+    padding: 10px 6px 0;
+    border-top: 1px solid var(--fm-line);
+  }
+
+  .dashboard-sidebar .sidebar-footer-copy small {
+    display: block;
+    color: var(--fm-muted);
+    font-size: 8px;
+    letter-spacing: 0.14em;
+  }
+
+  .dashboard-sidebar .sidebar-footer-copy strong {
+    display: block;
+    margin-top: 3px;
+    color: var(--fm-ink);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  /* Collapsed rail: icons only. */
+  .dashboard-sidebar.collapsed .sidebar-heading span,
+  .dashboard-sidebar.collapsed .sidebar-nav button span,
+  .dashboard-sidebar.collapsed .sidebar-footer {
+    display: none;
+  }
+
+  .dashboard-sidebar.collapsed .sidebar-nav button {
+    justify-content: center;
+    padding: 11px 0;
+  }
+
+  .dashboard-sidebar.collapsed .sidebar-toggle svg {
+    transform: rotate(180deg);
+  }
+
+  .dashboard-sidebar.collapsed .sidebar-heading strong {
+    font-size: 10px;
+  }
+}
+
+/* Keep anchored super-admin sections clear of the sticky topbar when scrolling. */
+.super-admin-content [id^='sa-'] {
+  scroll-margin-top: 18px;
+}

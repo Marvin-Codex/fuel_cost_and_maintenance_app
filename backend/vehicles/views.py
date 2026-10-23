@@ -1,69 +1,46 @@
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
-from accounts.models import Membership
-from accounts.permissions import has_permission, tenant_membership
 from preferences.models import UserPreference
+from django.db import transaction
+
+from access.drf import WorkspacePermission, canonical_code
+from access.models import Workspace
+from access.services import check_limit
 
 from .models import Vehicle
+from .scoping import vehicles_for
 from .serializers import VehicleSerializer
 
 
 class VehicleViewSet(viewsets.ModelViewSet):
     serializer_class = VehicleSerializer
-
-    def _membership(self):
-        return tenant_membership(self.request)
-
-    def _require_permission(self, permission):
-        membership = self._membership()
-        if membership and not has_permission(
-            self.request.user, permission, membership.organization
-        ):
-            raise PermissionDenied(
-                'Your organization role or package cannot perform this action.'
-            )
-        return membership
+    permission_classes = [WorkspacePermission]
+    permission_map = {
+        'list': 'vehicles.view',
+        'retrieve': 'vehicles.view',
+        'create': 'vehicles.add',
+        'update': 'vehicles.edit',
+        'partial_update': 'vehicles.edit',
+        'destroy': 'vehicles.delete',
+        'activate': 'vehicles.view',
+    }
 
     def get_queryset(self):
-        user = self.request.user
-        membership = self._membership()
-        if membership and not has_permission(
-            user, 'vehicle.view', membership.organization
-        ):
-            raise PermissionDenied(
-                'Your organization role or package cannot view vehicles.'
-            )
-        if membership:
-            queryset = Vehicle.objects.filter(
-                organization_id=membership.organization_id
-            ).select_related('owner', 'organization').prefetch_related('assigned_drivers')
-            if membership.role == Membership.DRIVER:
-                queryset = queryset.filter(assigned_drivers=user)
-            return queryset
-        # No organization header means the personal workspace. This preserves
-        # individual-user accounts and prevents accidental cross-tenant access.
-        return Vehicle.objects.filter(
-            owner=user, organization__isnull=True
-        ).select_related('owner').prefetch_related('assigned_drivers')
+        return vehicles_for(self.request.access)
 
     def perform_create(self, serializer):
-        membership = self._require_permission('vehicle.create')
-        if membership:
-            serializer.save(owner=self.request.user, organization=membership.organization)
-            return
-        serializer.save(owner=self.request.user)
-
-    def update(self, request, *args, **kwargs):
-        membership = self._require_permission('vehicle.update')
-        if not membership and self.get_object().owner_id != request.user.id:
-            raise PermissionDenied('You do not own this vehicle.')
-        return super().update(request, *args, **kwargs)
+        ws = self.request.workspace
+        with transaction.atomic():
+            Workspace.objects.select_for_update().get(pk=ws.pk)  # serialise concurrent adds
+            check_limit(ws, 'vehicles')
+            serializer.save(
+                owner=self.request.user, workspace=ws,
+                organization_id=getattr(ws, '_legacy_org_id', None),
+            )
 
     def destroy(self, request, *args, **kwargs):
-        self._require_permission('vehicle.delete')
         vehicle = self.get_object()
         has_history = any((
             vehicle.fuel_records.exists(),
@@ -91,3 +68,8 @@ class VehicleViewSet(viewsets.ModelViewSet):
             defaults={'active_vehicle': vehicle},
         )
         return Response(self.get_serializer(vehicle).data)
+
+    def permission_for_action(self):
+        """Lets WorkspacePermission derive the code when it probes the view."""
+        action = getattr(self, 'action', '') or 'list'
+        return canonical_code(self.permission_map.get(action, 'vehicles.view'))

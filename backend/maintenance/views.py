@@ -52,10 +52,10 @@ class MaintenanceReminderViewSet(VehicleScopedViewSet):
     serializer_class = MaintenanceReminderSerializer
     resource_name = 'maintenance'
 
-    def permission_for_action(self):
-        if getattr(self, 'action', '') == 'complete':
-            return 'maintenance.update'
-        return super().permission_for_action()
+    def permission_for_action(self, action=None):
+        if (action or getattr(self, 'action', '')) == 'complete':
+            return 'maintenance.edit'
+        return super().permission_for_action(action)
 
     def get_queryset(self):
         queryset = super().get_queryset()

@@ -101,6 +101,13 @@ Django models are the canonical schema. React and Flutter each maintain their ow
 python -m pip install dj-database-url
 ```
 
+
+## Current implementation status
+
+The React web app now includes the authentication shell, workspace-aware access snapshot and switching, the personal/workspace dashboard foundation, and a dedicated superadmin dashboard presentation shell at `/super-admin`. Shared light/dark/system themes are implemented through design tokens and `ThemeProvider`, and light mode is supported by the dashboard styles.
+
+The superadmin dashboard is currently a visual foundation: its metrics and action buttons use sample values and are not yet connected to platform-management APIs. The next dashboard task is to build protected API-backed screens for plans, roles and permissions, workspaces, memberships, audit history, and support access. Billing, invitations, audit logging, and full offline synchronization remain separate TODOs.
+
 `config/settings.py`:
 
 ```python

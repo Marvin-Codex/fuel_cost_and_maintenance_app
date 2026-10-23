@@ -68,32 +68,166 @@
 .fm-tabs button.is-active { background: var(--fm-accent); color: #0b1526; }
 .fm-vehicle-card { margin-top: 18px; padding: 24px; display: grid; gap: 20px; align-items: center; }
 .fm-vehicle-card svg { width: 100%; max-width: 360px; height: auto; color: var(--fm-accent-strong); }
-/* --- Vehicle illustrations: layered, token-driven, works in light + dark --- */
-.fm-veh-bob { transform-box: fill-box; transform-origin: center; animation: fm-veh-bob 4s ease-in-out infinite; }
-.fm-veh-body { fill: var(--fm-accent-soft); stroke: var(--fm-accent-strong); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
-.fm-veh-detail { fill: none; stroke: var(--fm-accent-strong); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; opacity: 0.75; }
-.fm-veh-glass { fill: var(--fm-accent); fill-opacity: 0.18; stroke: var(--fm-accent-strong); stroke-width: 2; stroke-linejoin: round; }
-.fm-veh-shadow { fill: var(--fm-map-grid); stroke: none; }
-.fm-veh-tire { fill: var(--fm-ink); fill-opacity: 0.9; stroke: var(--fm-ink); stroke-width: 3; }
-.fm-veh-rim { fill: none; stroke: var(--fm-accent-strong); stroke-width: 2.5; }
-.fm-veh-spokes { fill: none; stroke: var(--fm-accent-strong); stroke-width: 1.6; stroke-linecap: round; opacity: 0.85; }
-.fm-veh-spin { transform-box: fill-box; transform-origin: center; animation: fm-veh-spin 3.5s linear infinite; }
-.fm-veh-disc { fill: none; stroke: var(--fm-accent-strong); stroke-width: 1.4; opacity: 0.5; }
-.fm-veh-hub { fill: var(--fm-accent-strong); }
-.fm-veh-light-front { fill: #ffd77a; stroke: var(--fm-accent-strong); stroke-width: 1.6; }
-.fm-veh-light-rear { fill: #ff7a6b; stroke: none; }
-.fm-veh-glow { filter: drop-shadow(0 0 5px rgba(255, 199, 92, 0.85)); }
-@keyframes fm-veh-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-@keyframes fm-veh-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) {
-  .fm-veh-bob, .fm-veh-spin { animation: none; }
+/* --- Vehicle illustrations: self-contained animated SVGs, themed via tokens --- */
+.fm-vehicle-card { --vehicle-body: var(--fm-accent-strong); }
+.fm-vehicle-card .car {
+  --body: var(--vehicle-body, #0ea5a4); --body2: #0a7d7c; --glass: #cde7f5; --glass2: #fff;
+  --tire: #1e293b; --rim: #cbd5e1; --spoke: #64748b; --well: #0b1220; --light: #f59e0b;
+  --beam: 0.3; --road: #cbd5e1; --mute: #94a3b8;
 }
+.fm-vehicle-card .moto {
+  --body: var(--vehicle-body, #0ea5a4); --body2: #0a7d7c; --tire: #1e293b; --rim: #cbd5e1;
+  --spoke: #64748b; --well: #0b1220; --metal: #64748b; --seat: #1f2937; --engine: #475569;
+  --light: #f59e0b; --beam: 0.3; --road: #cbd5e1; --mute: #94a3b8;
+}
+@media (prefers-color-scheme: dark) {
+  .fm-vehicle-card .car {
+    --body: var(--vehicle-body, #2dd4bf); --body2: #0f8f84; --glass: #12354a; --glass2: #7cc4ea;
+    --tire: #334155; --rim: #94a3b8; --spoke: #64748b; --well: #020617; --light: #fff1a8;
+    --beam: 0.55; --road: #334155; --mute: #64748b;
+  }
+  .fm-vehicle-card .moto {
+    --body: var(--vehicle-body, #2dd4bf); --body2: #0f8f84; --tire: #334155; --rim: #94a3b8;
+    --spoke: #64748b; --well: #020617; --metal: #94a3b8; --seat: #334155; --engine: #64748b;
+    --light: #fff1a8; --beam: 0.55; --road: #334155; --mute: #64748b;
+  }
+}
+:root[data-theme="dark"] .fm-vehicle-card .car {
+  --body: var(--vehicle-body, #2dd4bf); --body2: #0f8f84; --glass: #12354a; --glass2: #7cc4ea;
+  --tire: #334155; --rim: #94a3b8; --spoke: #64748b; --well: #020617; --light: #fff1a8;
+  --beam: 0.55; --road: #334155; --mute: #64748b;
+}
+:root[data-theme="dark"] .fm-vehicle-card .moto {
+  --body: var(--vehicle-body, #2dd4bf); --body2: #0f8f84; --tire: #334155; --rim: #94a3b8;
+  --spoke: #64748b; --well: #020617; --metal: #94a3b8; --seat: #334155; --engine: #64748b;
+  --light: #fff1a8; --beam: 0.55; --road: #334155; --mute: #64748b;
+}
+:root[data-theme="light"] .fm-vehicle-card .car {
+  --body: var(--vehicle-body, #0ea5a4); --body2: #0a7d7c; --glass: #cde7f5; --glass2: #fff;
+  --tire: #1e293b; --rim: #cbd5e1; --spoke: #64748b; --well: #0b1220; --light: #f59e0b;
+  --beam: 0.3; --road: #cbd5e1; --mute: #94a3b8;
+}
+:root[data-theme="light"] .fm-vehicle-card .moto {
+  --body: var(--vehicle-body, #0ea5a4); --body2: #0a7d7c; --tire: #1e293b; --rim: #cbd5e1;
+  --spoke: #64748b; --well: #0b1220; --metal: #64748b; --seat: #1f2937; --engine: #475569;
+  --light: #f59e0b; --beam: 0.3; --road: #cbd5e1; --mute: #94a3b8;
+}
+/* --- Car illustration: shapes --- */
+.fm-vehicle-card .car .ground { stroke: var(--road); stroke-width: 2; }
+.fm-vehicle-card .car .dash { fill: none; stroke: var(--road); stroke-width: 3; stroke-dasharray: 26 20; }
+.fm-vehicle-card .car .body { fill: var(--body); }
+.fm-vehicle-card .car .shade, .fm-vehicle-card .car .handle { fill: var(--body2); }
+.fm-vehicle-card .car .glass { fill: var(--glass); }
+.fm-vehicle-card .car .glint { fill: var(--glass2); opacity: 0.45; }
+.fm-vehicle-card .car .seam { fill: none; stroke: var(--body2); stroke-width: 1.5; }
+.fm-vehicle-card .car .tail { fill: #ef4444; }
+.fm-vehicle-card .car .lamp { fill: var(--light); }
+.fm-vehicle-card .car .well { fill: var(--well); }
+.fm-vehicle-card .car .tire { fill: var(--tire); stroke: var(--well); stroke-width: 1; }
+.fm-vehicle-card .car .tread { fill: none; stroke: var(--rim); stroke-opacity: 0.4; stroke-width: 3; stroke-dasharray: 4 7; }
+.fm-vehicle-card .car .rim { fill: var(--rim); }
+.fm-vehicle-card .car .spk { fill: none; stroke: var(--spoke); stroke-width: 3; stroke-linecap: round; }
+.fm-vehicle-card .car .cap { fill: var(--tire); }
+.fm-vehicle-card .car .mark { fill: var(--body); }
+.fm-vehicle-card .car .streak { stroke: var(--mute); stroke-width: 2.5; stroke-linecap: round; }
+.fm-vehicle-card .car .beam { opacity: var(--beam); }
+.fm-vehicle-card .car .s0 { stop-color: var(--light); }
+.fm-vehicle-card .car .s1 { stop-color: var(--light); stop-opacity: 0; }
+/* --- Car illustration: motion (transform / opacity / dashoffset only) --- */
+.fm-vehicle-card .car .spin { transform-origin: 0 0; animation: car-spin var(--dur, 1s) linear infinite; }
+.fm-vehicle-card .car .bob { animation: car-bob calc(var(--dur, 1s) * 0.55) ease-in-out infinite; }
+.fm-vehicle-card .car .dash { animation: car-road calc(var(--dur, 1s) * 0.305) linear infinite; }
+.fm-vehicle-card .car .streak { animation: car-streak 0.6s linear infinite; }
+.fm-vehicle-card .car .beam { animation: car-flicker 3s ease-in-out infinite; }
+@keyframes car-spin { to { transform: rotate(360deg); } }
+@keyframes car-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.2px); } }
+@keyframes car-road { to { stroke-dashoffset: 46; } }
+@keyframes car-streak { from { transform: translateX(0); opacity: 0.9; } to { transform: translateX(-12px); opacity: 0; } }
+@keyframes car-flicker { 0%, 100% { opacity: var(--beam); } 50% { opacity: calc(var(--beam) * 0.75); } }
+
+/* --- Motorcycle illustration shapes --- */
+.fm-vehicle-card .moto .ground { stroke: var(--road); stroke-width: 2; }
+.fm-vehicle-card .moto .dash { fill: none; stroke: var(--road); stroke-width: 3; stroke-dasharray: 26 20; }
+.fm-vehicle-card .moto .tire { fill: none; stroke: var(--tire); stroke-width: 8; }
+.fm-vehicle-card .moto .tread { fill: none; stroke: var(--rim); stroke-opacity: 0.35; stroke-width: 8; stroke-dasharray: 3 9; }
+.fm-vehicle-card .moto .rimring { fill: none; stroke: var(--rim); stroke-width: 2.2; }
+.fm-vehicle-card .moto .spk { fill: none; stroke: var(--spoke); stroke-width: 1.1; }
+.fm-vehicle-card .moto .disc { fill: none; stroke: var(--spoke); stroke-width: 2; }
+.fm-vehicle-card .moto .hub { fill: var(--rim); stroke: var(--spoke); stroke-width: 1.5; }
+.fm-vehicle-card .moto .mark { fill: var(--body); }
+.fm-vehicle-card .moto .metal { fill: none; stroke: var(--metal); stroke-linecap: round; stroke-linejoin: round; }
+.fm-vehicle-card .moto .stan { fill: none; stroke: var(--rim); stroke-width: 3; stroke-linecap: round; }
+.fm-vehicle-card .moto .grip { fill: none; stroke: var(--well); stroke-width: 5; stroke-linecap: round; }
+.fm-vehicle-card .moto .engine { fill: var(--engine); }
+.fm-vehicle-card .moto .fin { fill: none; stroke: var(--well); stroke-opacity: 0.5; stroke-width: 1.5; stroke-linecap: round; }
+.fm-vehicle-card .moto .body { fill: var(--body); }
+.fm-vehicle-card .moto .shade { fill: var(--body2); }
+.fm-vehicle-card .moto .hl { fill: none; stroke: #fff; stroke-opacity: 0.35; stroke-width: 2; stroke-linecap: round; }
+.fm-vehicle-card .moto .seat { fill: var(--seat); }
+.fm-vehicle-card .moto .tail { fill: #ef4444; }
+.fm-vehicle-card .moto .fender { fill: none; stroke: var(--body); stroke-width: 4; stroke-linecap: round; }
+.fm-vehicle-card .moto .lamp { fill: var(--light); stroke: var(--metal); stroke-width: 1.5; }
+.fm-vehicle-card .moto .pipe { fill: none; stroke: var(--metal); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; }
+.fm-vehicle-card .moto .pipehl { fill: none; stroke: var(--rim); stroke-opacity: 0.5; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fm-vehicle-card .moto .puff { fill: var(--mute); }
+.fm-vehicle-card .moto .streak { stroke: var(--mute); stroke-width: 2.5; stroke-linecap: round; }
+.fm-vehicle-card .moto .beam { opacity: var(--beam); }
+.fm-vehicle-card .moto .s0 { stop-color: var(--light); }
+.fm-vehicle-card .moto .s1 { stop-color: var(--light); stop-opacity: 0; }
+
+/* --- Motorcycle illustration motion --- */
+.fm-vehicle-card .moto .spin { transform-origin: 0 0; animation: moto-spin var(--dur, 1s) linear infinite; }
+.fm-vehicle-card .moto .bob { animation: moto-bob calc(var(--dur, 1s) * 0.5) ease-in-out infinite; }
+.fm-vehicle-card .moto .vib { animation: moto-vib 0.1s linear infinite alternate; }
+.fm-vehicle-card .moto .dash { animation: moto-road calc(var(--dur, 1s) * 0.244) linear infinite; }
+.fm-vehicle-card .moto .puff { animation: moto-puff 0.9s ease-out infinite; }
+.fm-vehicle-card .moto .streak { animation: moto-streak 0.6s linear infinite; }
+.fm-vehicle-card .moto .beam { animation: moto-flicker 3s ease-in-out infinite; }
+@keyframes moto-spin { to { transform: rotate(360deg); } }
+@keyframes moto-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.2px); } }
+@keyframes moto-vib { from { transform: translate(0, 0); } to { transform: translate(0.4px, -0.4px); } }
+@keyframes moto-road { to { stroke-dashoffset: 46; } }
+@keyframes moto-puff { 0% { transform: translate(0, 0) scale(0.5); opacity: 0.55; } 100% { transform: translate(-26px, -8px) scale(2.2); opacity: 0; } }
+@keyframes moto-streak { from { transform: translateX(0); opacity: 0.9; } to { transform: translateX(-12px); opacity: 0; } }
+@keyframes moto-flicker { 0%, 100% { opacity: var(--beam); } 50% { opacity: calc(var(--beam) * 0.75); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fm-vehicle-card .car .spin,
+  .fm-vehicle-card .car .bob,
+  .fm-vehicle-card .car .dash,
+  .fm-vehicle-card .car .streak,
+  .fm-vehicle-card .car .beam,
+  .fm-vehicle-card .moto .spin,
+  .fm-vehicle-card .moto .bob,
+  .fm-vehicle-card .moto .vib,
+  .fm-vehicle-card .moto .dash,
+  .fm-vehicle-card .moto .puff,
+  .fm-vehicle-card .moto .streak,
+  .fm-vehicle-card .moto .beam { animation: none; }
+}
+
 .fm-stat { margin-top: 14px; display: grid; gap: 2px; }
 .fm-stat strong { font-size: 26px; }
 .fm-package { padding: 24px; display: grid; gap: 10px; align-content: start; }
 .fm-package--hot { border-color: var(--fm-accent); }
 .fm-package-top { display: flex; align-items: center; justify-content: space-between; }
 .fm-package ul { list-style: none; margin: 6px 0 10px; padding: 0; display: grid; gap: 8px; font-size: 13px; }
+.fm-packages { display: grid; gap: 30px; margin-top: 28px; }
+.fm-package-group { display: grid; gap: 16px; }
+.fm-package-group-heading { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--fm-muted); margin: 0; }
+.fm-package-group .fm-package { margin: 0; }
+@media (min-width: 860px) {
+  .fm-package-group { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .fm-package-group-heading { grid-column: 1 / -1; }
+}
+@media (min-width: 1100px) {
+  /* All four package cards fit on one row: flatten the groups so the cards
+     become direct grid items, and hide the group headings on wide screens. */
+  .fm-packages { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  .fm-packages > :only-child { grid-column: 1 / -1; }
+  .fm-package-group { display: contents; }
+  .fm-package-group-heading { display: none; }
+}
 .fm-faq { display: grid; gap: 10px; margin-top: 26px; }
 .fm-faq details { padding: 18px 20px; }
 .fm-faq summary { cursor: pointer; font-weight: 700; }

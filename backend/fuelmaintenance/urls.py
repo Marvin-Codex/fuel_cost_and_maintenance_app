@@ -6,10 +6,16 @@ from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.permissions import AllowAny
 
+from access.drf import my_access
+
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Web auth (SimpleJWT) â€” matches the frontend api/auth.js contract.
+    # Offline-first access snapshot (spec §9): cached by web + Flutter.
+    path('api/v1/auth/me/access/', my_access, name='my-access'),
+    path('api/me/access/', my_access, name='my-access-short'),
+    # Web auth (SimpleJWT) — matches the frontend api/auth.js contract.
     path('api/v1/auth/', include('accounts.urls')),
+    path('api/v1/access/', include('access.urls')),
     # Resource APIs.
     path('api/v1/', include('vehicles.urls')),
     path('api/v1/', include('fuel.urls')),
@@ -17,7 +23,9 @@ urlpatterns = [
     path('api/v1/', include('maintenance.urls')),
     path('api/v1/system/', include('preferences.urls')),
     path('api/v1/dashboard/', include('dashboard.urls')),
-    # OpenAPI schema (public â€” both clients codegen/reference from it).
+    # Routing proxy (same-origin OSRM for the trip map).
+    path('api/v1/', include('routing.urls')),
+    # OpenAPI schema (public — both clients codegen/reference from it).
     path(
         'api/schema/',
         SpectacularAPIView.as_view(permission_classes=[AllowAny]),

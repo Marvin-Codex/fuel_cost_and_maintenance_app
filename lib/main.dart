@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 
+import 'database/app_database.dart' show AppDatabase;
 import 'models/fuel_record.dart';
 import 'models/vehicle.dart';
-import 'services/local_vehicle_store.dart';
+import 'screens/maintenance_page.dart';
+import 'screens/plan_trip_page.dart';
+import 'screens/trips_page.dart';
+import 'services/access.dart';
+import 'services/api_service.dart';
 import 'services/local_fuel_store.dart';
+import 'services/local_maintenance_store.dart';
+import 'services/local_trip_store.dart';
+import 'services/local_vehicle_store.dart';
+import 'services/sync_service.dart';
 
 const supportedCurrencies = ['UGX', 'USD', 'EUR', 'GBP', 'KES', 'TZS'];
 
@@ -36,8 +45,97 @@ class _DashboardPageState extends State<DashboardPage> {
   int _selectedIndex = 0;
   double _fuelPricePerLitre = 1.50;
   String _currency = 'UGX';
-  final LocalVehicleStore _vehicleStore = LocalVehicleStore();
-  final LocalFuelStore _fuelStore = LocalFuelStore();
+
+  final AppDatabase _appDatabase = AppDatabase();
+  late final LocalVehicleStore _vehicleStore =
+      LocalVehicleStore(_appDatabase);
+  late final LocalFuelStore _fuelStore = LocalFuelStore(_appDatabase);
+  late final LocalTripStore _tripStore = LocalTripStore(_appDatabase);
+  late final LocalMaintenanceStore _maintenanceStore =
+      LocalMaintenanceStore(_appDatabase);
+
+  List<Map<String, dynamic>> _workspaces = const [];
+  String? _activeWorkspaceId;
+
+  /// Rights for the workspace currently in use, from the server snapshot.
+  ///
+  /// Until that snapshot arrives this is `Access.unknown()`, which denies
+  /// everything — we never assume a user may do something and take it back.
+  Access _access = const Access.unknown();
+
+  final ApiService _api = ApiService();
+  late final SyncService _sync = SyncService(_api);
+  bool _syncing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStores();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncNow());
+  }
+
+  @override
+  void dispose() {
+    _appDatabase.close();
+    super.dispose();
+  }
+
+  Future<void> _loadStores() async {
+    await _vehicleStore.load();
+    await _fuelStore.load();
+    await _tripStore.load();
+    await _maintenanceStore.load();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _syncNow() async {
+    if (_syncing) return;
+    setState(() => _syncing = true);
+    try {
+      await _sync.sync(
+        onAccess: applyAccessSnapshot,
+        vehicleStore: _vehicleStore,
+        fuelStore: _fuelStore,
+        tripStore: _tripStore,
+        maintenanceStore: _maintenanceStore,
+      );
+    } catch (_) {
+      // Offline or auth missing: keep local data.
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
+  Future<void> _switchWorkspace(String id) async {
+    if (id == _activeWorkspaceId) return;
+    _api.setActiveWorkspace(id);
+    _activeWorkspaceId = id;
+    await _syncNow();
+  }
+
+  /// Applies the server's access snapshot. If it contains no workspaces,
+  /// the last known rights are kept.
+  void applyAccessSnapshot(Map<String, dynamic> snapshot) {
+    final workspaces = (snapshot['workspaces'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .toList() ??
+        const <Map<String, dynamic>>[];
+    _workspaces = workspaces;
+    _activeWorkspaceId = snapshot['active_workspace']?.toString();
+    _api.setActiveWorkspace(_activeWorkspaceId);
+    final activeEntry = workspaces.firstWhere(
+      (w) =>
+          w['workspace'] is Map &&
+          (w['workspace'] as Map)['id']?.toString() == _activeWorkspaceId,
+      orElse: () =>
+          workspaces.isNotEmpty ? workspaces.first : <String, dynamic>{},
+    );
+    if (activeEntry.isNotEmpty) {
+      final entry = Map<String, dynamic>.from(activeEntry);
+      entry['is_superuser'] = snapshot['is_superuser'] == true;
+      setState(() => _access = Access.fromSnapshot(entry));
+    }
+  }
 
   void _showFuelPriceDialog() {
     final controller = TextEditingController(
@@ -169,6 +267,12 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   void _showAddFuelDialog() {
+    if (_vehicleStore.vehicles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add a vehicle first.')),
+      );
+      return;
+    }
     final litres = TextEditingController();
     final cost = TextEditingController();
     final odometer = TextEditingController();
@@ -235,24 +339,58 @@ class _DashboardPageState extends State<DashboardPage> {
         vehicles: _vehicleStore.vehicles,
         fuelPricePerLitre: _fuelPricePerLitre,
         currency: _currency,
-        onAdd: _showAddVehicleDialog,
+        access: _access,
+        onAdd: _access.canAddVehicle ? _showAddVehicleDialog : null,
       ),
       _FuelContent(
         records: _fuelStore.records,
         currency: _currency,
-        onAdd: _showAddFuelDialog,
+        access: _access,
+        onAdd: _access.canLogFuel ? _showAddFuelDialog : null,
       ),
-      const _SimpleSection(
-          icon: Icons.build_outlined,
-          title: 'Maintenance',
-          description:
-              'Track service history and upcoming maintenance reminders.'),
+      PlanTripPage(api: _api),
+      TripsPage(
+        store: _tripStore,
+        vehicles: _vehicleStore.vehicles,
+        access: _access,
+        onChanged: () => setState(() {}),
+      ),
+      MaintenancePage(
+        store: _maintenanceStore,
+        vehicles: _vehicleStore.vehicles,
+        access: _access,
+        onChanged: () => setState(() {}),
+      ),
     ];
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Fuel and Maintenance'),
         actions: [
+          if (_workspaces.length > 1)
+            PopupMenuButton<String>(
+              tooltip: 'Workspace',
+              icon: const Icon(Icons.workspaces_outlined),
+              onSelected: _switchWorkspace,
+              itemBuilder: (context) => _workspaces.map((w) {
+                final ws = (w['workspace'] as Map?) ?? {};
+                final id = ws['id']?.toString() ?? '';
+                final name = ws['name']?.toString() ?? 'Workspace';
+                return PopupMenuItem<String>(
+                  value: id,
+                  child: Text(name),
+                );
+              }).toList(),
+            ),
+          IconButton(
+              tooltip: 'Sync',
+              onPressed: _syncing ? null : _syncNow,
+              icon: _syncing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.sync_outlined)),
           IconButton(
               tooltip: 'Settings',
               onPressed: _showFuelPriceDialog,
@@ -278,21 +416,33 @@ class _DashboardPageState extends State<DashboardPage> {
               selectedIcon: Icon(Icons.local_gas_station),
               label: 'Fuel'),
           NavigationDestination(
+              icon: Icon(Icons.route_outlined),
+              selectedIcon: Icon(Icons.route),
+              label: 'Plan trip'),
+          NavigationDestination(
+              icon: Icon(Icons.alt_route_outlined),
+              selectedIcon: Icon(Icons.alt_route),
+              label: 'Trips'),
+          NavigationDestination(
               icon: Icon(Icons.build_outlined),
               selectedIcon: Icon(Icons.build),
-              label: 'Service'),
+              label: 'Maintenance'),
         ],
       ),
       floatingActionButton: _selectedIndex == 1
-          ? FloatingActionButton.extended(
-              onPressed: _showAddVehicleDialog,
-              icon: const Icon(Icons.add),
-              label: const Text('Vehicle'))
-          : _selectedIndex == 2
+          ? (_access.canAddVehicle
               ? FloatingActionButton.extended(
-                  onPressed: _showAddFuelDialog,
+                  onPressed: _showAddVehicleDialog,
                   icon: const Icon(Icons.add),
-                  label: const Text('Fuel'))
+                  label: const Text('Vehicle'))
+              : null)
+          : _selectedIndex == 2
+              ? (_access.canLogFuel
+                  ? FloatingActionButton.extended(
+                      onPressed: _showAddFuelDialog,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Fuel'))
+                  : null)
               : null,
     );
   }
@@ -395,11 +545,16 @@ class _FuelContent extends StatelessWidget {
   const _FuelContent({
     required this.records,
     required this.currency,
-    required this.onAdd,
+    required this.access,
+    this.onAdd,
   });
   final List<FuelRecord> records;
   final String currency;
-  final VoidCallback onAdd;
+  final Access access;
+
+  /// Null when this user's role lacks `fuel.add` — the button is not rendered
+  /// at all rather than shown and disabled.
+  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -432,10 +587,15 @@ class _FuelContent extends StatelessWidget {
             ),
           ),
           if (records.isNotEmpty) const SizedBox(height: 8),
-          OutlinedButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add),
-              label: const Text('Log a fuel purchase')),
+          if (onAdd != null)
+            OutlinedButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add),
+                label: const Text('Log a fuel purchase'))
+          else
+            const _ReadOnlyMessage(
+              message: 'Your role can view fuel records but not log new ones.',
+            ),
         ],
       );
 }
@@ -471,12 +631,16 @@ class _VehiclesContent extends StatelessWidget {
     required this.vehicles,
     required this.fuelPricePerLitre,
     required this.currency,
-    required this.onAdd,
+    required this.access,
+    this.onAdd,
   });
   final List<Vehicle> vehicles;
   final double fuelPricePerLitre;
   final String currency;
-  final VoidCallback onAdd;
+  final Access access;
+
+  /// Null when this user's role lacks `vehicles.add`.
+  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -507,11 +671,44 @@ class _VehiclesContent extends StatelessWidget {
                 ),
               )),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add),
-              label: const Text('Add another vehicle')),
+          if (onAdd != null)
+            OutlinedButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add),
+                label: const Text('Add another vehicle'))
+          else
+            const _ReadOnlyMessage(
+              message: 'Your role can view vehicles but not add new ones.',
+            ),
         ],
+      );
+}
+
+/// Shown in place of an add button when the role lacks the permission, so the
+/// absence of a button reads as a rule rather than a bug.
+class _ReadOnlyMessage extends StatelessWidget {
+  const _ReadOnlyMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Icon(Icons.lock_outline,
+                size: 16, color: Theme.of(context).colorScheme.outline),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.outline,
+                    ),
+              ),
+            ),
+          ],
+        ),
       );
 }
 
@@ -522,29 +719,3 @@ IconData _vehicleIcon(VehicleType type) => switch (type) {
       VehicleType.van => Icons.airport_shuttle_outlined,
       _ => Icons.directions_car_outlined,
     };
-
-class _SimpleSection extends StatelessWidget {
-  const _SimpleSection(
-      {required this.icon, required this.title, required this.description});
-  final IconData icon;
-  final String title;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, size: 56, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 16),
-            Text(title,
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(description, textAlign: TextAlign.center),
-          ]),
-        ),
-      );
-}

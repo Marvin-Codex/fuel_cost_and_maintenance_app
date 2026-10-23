@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import User
-from vehicles.models import Vehicle
+from vehicles.test_helpers import make_vehicle
 
 from .models import MaintenanceRecord, MaintenanceReminder
 
@@ -15,11 +15,11 @@ class MaintenanceAPITests(APITestCase):
     def setUp(self):
         self.owner = User.objects.create_user(username='service-owner', password='test-pass-123')
         self.other = User.objects.create_user(username='service-other', password='test-pass-123')
-        self.vehicle = Vehicle.objects.create(
-            owner=self.owner, name='Premio', license_plate='SERV1', odometer_km=42000
+        self.vehicle = make_vehicle(
+            self.owner, name='Premio', license_plate='SERV1', odometer_km=42000
         )
-        self.other_vehicle = Vehicle.objects.create(
-            owner=self.other, name='Hilux', license_plate='SERV2', odometer_km=30000
+        self.other_vehicle = make_vehicle(
+            self.other, name='Hilux', license_plate='SERV2', odometer_km=30000
         )
         self.client.force_authenticate(user=self.owner)
 

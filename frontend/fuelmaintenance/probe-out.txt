@@ -1,0 +1,71 @@
+{
+  "inBody": true,
+  "position": "fixed",
+  "zIndex": "1200",
+  "maxHeight": "219.6px",
+  "fontSizeName": "12px",
+  "fontSizeKind": "9px",
+  "fontSizeCtx": "10px",
+  "optionCount": 5,
+  "hasKind": true,
+  "hasContext": true,
+  "markCount": 8,
+  "rect": {
+    "top": 159.59375,
+    "bottom": 379.1875,
+    "left": 40,
+    "width": 676,
+    "height": 219.59375
+  },
+  "inputRect": {
+    "top": 117.59375,
+    "bottom": 155.59375,
+    "left": 40,
+    "width": 676
+  },
+  "viewport": {
+    "w": 756,
+    "h": 488
+  },
+  "panelOverflow": "hidden",
+  "visibleAtCenter": true,
+  "hitTag": "LI.",
+  "listText": "Kampala | City | Kampala · Central · Uganda"
+}
+KEYBOARD: {
+  "activeExists": true,
+  "activeText": "Kampala | City | Kampala · Central · Uganda",
+  "ariaActiveDescendant": "loc-search-list-_r_0_-0",
+  "ariaExpanded": "true"
+}
+COMPARISON: [
+  {
+    "variant": "OLD (pre-fix)",
+    "position": "absolute",
+    "parentIsBody": false,
+    "listBottom": 583.1875,
+    "visibleAtCenter": false,
+    "hitTag": "DIV.",
+    "clipper": {
+      "cls": "trips-panel current-trip-panel",
+      "overflow": "hidden",
+      "bottom": 377.6875,
+      "top": 246.59375
+    },
+    "cutOffByClipper": true,
+    "optionCount": 5,
+    "nameFontSize": "9px"
+  },
+  {
+    "variant": "NEW (fixed)",
+    "position": "fixed",
+    "parentIsBody": true,
+    "listBottom": 379.1875,
+    "visibleAtCenter": true,
+    "hitTag": "LI.",
+    "clipper": null,
+    "cutOffByClipper": false,
+    "optionCount": 5,
+    "nameFontSize": "12px"
+  }
+]

@@ -3,9 +3,22 @@ from rest_framework import serializers
 from preferences.models import UserPreference
 
 from .models import Vehicle
+from .scoping import vehicles_for
+
+
+class VehicleScopedSerializerMixin:
+    """Limits the `vehicle` dropdown to vehicles visible in this workspace."""
+
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get('request')
+        if request is not None and 'vehicle' in fields and hasattr(request, 'access'):
+            fields['vehicle'].queryset = vehicles_for(request.access)
+        return fields
 
 
 class VehicleSerializer(serializers.ModelSerializer):
+    workspace = serializers.PrimaryKeyRelatedField(read_only=True)
     is_selected = serializers.SerializerMethodField()
 
     def __init__(self, *args, **kwargs):
@@ -16,20 +29,19 @@ class VehicleSerializer(serializers.ModelSerializer):
             self.active_vehicle_id = UserPreference.objects.filter(
                 user=request.user
             ).values_list('active_vehicle_id', flat=True).first()
-
     class Meta:
         model = Vehicle
         fields = [
-            'id', 'owner', 'organization', 'assigned_drivers', 'name', 'make',
+            'id', 'owner', 'workspace', 'organization', 'assigned_drivers', 'name', 'make',
             'model', 'year', 'license_plate', 'vin', 'fuel_type',
             'engine_capacity_cc', 'transmission', 'tank_capacity_liters',
             'odometer_km', 'status', 'is_active', 'is_selected', 'created_at',
             'updated_at',
         ]
-        # owner is always set server-side from the authenticated request user
-        # (see VehicleViewSet.perform_create) — never accepted from the client.
+        # owner/workspace are always set server-side from the authenticated
+        # request (see VehicleViewSet.perform_create) — never from the client.
         read_only_fields = [
-            'id', 'owner', 'organization', 'assigned_drivers', 'created_at', 'updated_at'
+            'id', 'owner', 'workspace', 'organization', 'assigned_drivers', 'created_at', 'updated_at'
         ]
 
     def validate_year(self, value):

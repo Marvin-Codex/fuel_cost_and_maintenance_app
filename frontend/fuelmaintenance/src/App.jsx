@@ -8,6 +8,7 @@ import Landing from './pages/Landing'
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
+const SuperAdminManage = lazy(() => import('./pages/SuperAdminManage'))
 
 /** Placeholder shown while a lazy route chunk downloads. */
 function RouteFallback() {
@@ -32,6 +33,8 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/super-admin" element={<Dashboard />} />
+        <Route path="/super-admin/:resource" element={<SuperAdminManage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

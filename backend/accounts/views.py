@@ -13,6 +13,9 @@ from .serializers import (
     LoginSerializer,
     OrganizationSerializer,
     PlanSerializer,
+    AccessPlanSerializer,
+    PublicWorkspaceSerializer,
+    PublicOrganizationSerializer,
     RegisterSerializer,
     SubscriptionSerializer,
     UserSerializer,
@@ -83,6 +86,34 @@ class PlanListView(generics.ListAPIView):
         return Plan.objects.filter(is_active=True).prefetch_related('features')
 
 
+class PublicPlanListView(generics.ListAPIView):
+    """GET /api/v1/auth/plans/public/ — public access packages for registration."""
+
+    permission_classes = [AllowAny]
+    serializer_class = AccessPlanSerializer
+
+    def get_queryset(self):
+        from access.models import Plan as AccessPlan
+
+        return AccessPlan.objects.filter(
+            is_public=True, is_active=True,
+        ).prefetch_related('entitlements').order_by('id')
+
+
+class PublicOrganizationListView(generics.ListAPIView):
+    """GET /api/v1/auth/organizations/public/ — active organization workspaces."""
+
+    permission_classes = [AllowAny]
+    serializer_class = PublicWorkspaceSerializer
+
+    def get_queryset(self):
+        from access.models import Workspace
+
+        return Workspace.objects.filter(
+            kind='organization', is_active=True,
+        ).only('id', 'name', 'kind').order_by('name')
+
+
 class OrganizationSubscriptionView(APIView):
     """GET the active subscription for the requested organization."""
 
@@ -108,3 +139,36 @@ class MeView(APIView):
 
     def get(self, request):
         return Response(UserSerializer(request.user).data)
+
+
+class MeAccessView(APIView):
+    """GET /api/v1/auth/me/access/ — the access snapshot for the web dashboard.
+
+    One entry per workspace the caller belongs to, carrying the effective
+    permission codes, vehicle scope, limits (limit + current usage) and a
+    `version` that only changes when rights/limits change. The client sends the
+    active workspace id in `X-Workspace`; it defaults to the personal workspace
+    when absent so a brand-new account works before any switch happens.
+
+    A non-member or missing workspace is a 403 — never a silent downgrade to
+    "viewer" (see docs/ACCESS_CONTROL_SPEC.md).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from access.drf import get_active_workspace_id
+        from access.services import AccessDenied, access_snapshot, get_active_workspace
+
+        try:
+            active = get_active_workspace(
+                request.user, get_active_workspace_id(request)
+            )
+        except AccessDenied as exc:
+            return Response({'code': exc.code, 'detail': str(exc)}, status=403)
+        entries = access_snapshot(request.user)
+        return Response({
+            'active_workspace': str(active.pk),
+            'is_superuser': request.user.is_superuser,
+            'workspaces': entries,
+        })

@@ -43,5 +43,38 @@ export default defineConfig({
       },
     }),
   ],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+      // Same-origin OpenStreetMap tiles — avoids Firefox Opaque Response
+      // Blocking on cross-origin tile images.
+      '/osm-tiles': {
+        target: 'https://tile.openstreetmap.org',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/osm-tiles/, ''),
+        headers: { Referer: 'http://localhost:5173/' },
+      },
+      // Same-origin Nominatim geocoding (place search + reverse lookup).
+      '/osm-geocode': {
+        target: 'https://nominatim.openstreetmap.org',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/osm-geocode/, ''),
+        headers: { Referer: 'http://localhost:5173/' },
+      },
+      // Same-origin OSRM routing (road-following geometries for the trip map).
+      '/osm-route': {
+        target: 'https://router.project-osrm.org',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/osm-route/, ''),
+      },
+    },
+  },
 })
 
