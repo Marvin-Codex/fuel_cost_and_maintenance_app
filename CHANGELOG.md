@@ -7,7 +7,25 @@ the date, the component touched, the files involved, and how it was verified.
 
 ## [Unreleased]
 
-### Added — Full-field superadmin console (React web and backend)
+### Added — Android AVD for Flutter widget testing (batch-file method)
+- Created AVD config manually at `C:\Users\Marvin\AppData\Roaming\.android\avd\test_avd\config.ini`
+- AVD targets API 35 with `system-images;android-35;default;arm64-v8a` package
+- Manual config creation required due to `avdmanager create avd` shell argument parsing bug with semicolons in paths
+- All system images confirmed installed via `sdkmanager --list`
+- AVD config file contents: `avd.name=test_avd`, `package.id=system-images;android-35;default;arm64-v8a`, `target=android-35`, `abi=arm64-v8a`, `revision=2`
+- Emulator binary extraction from SDK has been problematic; manual AVD config created as intermediate step
+
+### Added — SDK and AVD infrastructure setup
+- Android SDK confirmed at `C:\Android\Sdk` with android-35 platform and system images
+- System images verified installed (Google APIs, default ARM64 & x86_64)
+- AVD config directory (`%APPDATA%\.android\avd`) created manually
+- Emulator executable location verified in SDK directory
+- Multiple batch file attempts documented (`create_avd.bat` through `create_avd7.bat`)
+
+### Blocked — avdmanager command fails
+- `avdmanager create avd` fails with "Package path is not valid" error
+- Semicolon-separated paths and backslash-separated paths both fail in shell
+- Manual AVD config workaround implemented as alternative
 
 - Backend (`backend/access/views.py`, `urls.py`): new superuser-only `WorkspaceAdminViewSet` at `GET/POST/PATCH/DELETE /api/v1/access/super-workspaces/` exposing every tenant field — name, kind, plan assignment, `limit_overrides`, `entitlement_grants`, `entitlement_revokes`, status — with soft-deactivate on delete; new `GET /api/v1/access/superadmin/permissions/` permission catalog (code/group/label) for the entitlement pickers; new read-only `GET /api/v1/access/super-roles/` role reference (template + custom).
 - Frontend (`SuperAdminManage.jsx`, `api/access.js`): every manage page now edits all fields. Plans: key (locked for seeded packages), name, kind, description, public/default flags, limits JSON, feature-ceiling picker, billing JSON. Users: username, email, first/last name, password (blank on edit keeps it), staff/superuser flags. Workspaces: name, kind, package dropdown, limit-override JSON, grant/revoke pickers. Memberships: searchable user/workspace/role pickers (custom roles filtered to their workspace) + vehicle scope. Vehicle presets: all spec fields incl. tank capacity. New read-only Roles page. Reference data loads via `fetchAdminReference()`; dialogs prefill from rows and strip read-only leftovers on submit.

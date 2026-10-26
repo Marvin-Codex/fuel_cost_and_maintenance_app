@@ -92,6 +92,27 @@ function consumptionChart(trips) {
 export default function Dashboard() {
   const navigate = useNavigate()
   const { state: accessState, error: accessError, refresh, workspaces: workspaceOptions, active, access, switchWorkspace, roleLabel } = useAccess()
+  
+  // Fetch and manage vehicles for this workspace
+  const [vehicles, setVehicles] = useState([])
+  const [vehicleLoading, setVehicleLoading] = useState(false)
+  const [vehicleError, setVehicleError] = useState(null)
+  
+  useEffect(() => {
+    async function loadVehicles() {
+      setVehicleLoading(true)
+      try {
+        const result = await listVehicles()
+        setVehicles(result)
+        setVehicleError(null)
+      } catch (err) {
+        setVehicleError(err.message)
+      } finally {
+        setVehicleLoading(false)
+      }
+    }
+    loadVehicles()
+  }, [access, listVehicles])
 
   const [activeTab, setActiveTab] = useState(() => {
     try {
@@ -115,7 +136,6 @@ export default function Dashboard() {
   }
 
   const organization = active ? { name: active.workspace?.name, role: active.role?.key } : null
-  const [vehicles, setVehicles] = useState([])
   const [vehiclesLoading, setVehiclesLoading] = useState(true)
   const [vehiclesError, setVehiclesError] = useState(null)
   const [selectedVehicleId, setSelectedVehicleId] = useState(() => {

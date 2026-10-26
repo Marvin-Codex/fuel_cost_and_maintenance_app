@@ -1,7 +1,8 @@
-import { Suspense, lazy } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
-import { SkeletonCard } from './components/ui/Feedback'
+import { Suspense, lazy, useEffect, useState } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { hasSession } from './api/auth'
 import Landing from './pages/Landing'
+import { SkeletonCard } from './components/ui/Feedback'
 
 // Route-level code splitting: heavy/authenticated pages load on demand so the
 // public landing shell stays small on slow mobile connections.
@@ -24,17 +25,83 @@ function RouteFallback() {
   )
 }
 
+/** Check authentication and redirect if needed.
+ *  Returns true if the user is authenticated, false otherwise.
+ *  If not authenticated and there's a location to redirect to, store it.
+ */
+function useAuthRedirect() {
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    if (!hasSession()) {
+      // Store the intended destination so we can redirect after login
+      const intended = location.pathname + (location.search ? location.search : '')
+      // Save intended destination to sessionStorage so it persists across refresh
+      try { sessionStorage.setItem('intended_destination', intended) } catch {}
+      navigate('/login', { replace: true })
+    }
+  }, [navigate, location.pathname])
+
+  return true
+}
+
+/** Protected route that checks authentication before rendering. */
+function PrivateRoute({ element, ...rest }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(null)
+
+  useEffect(() => {
+    setIsAuthenticated(hasSession())
+  }, [])
+
+  if (isAuthenticated === null) return null // showing nothing while checking
+
+  if (!isAuthenticated) {
+    // Store the intended destination so we can redirect after login
+    const location = rest.location || '/'
+    try { sessionStorage.setItem('intended_destination', location.pathname + location.search) } catch {}
+    return <Navigate to="/login" replace />
+  }
+
+  return element
+}
+
+/** Super admin route that checks both authentication and superuser status. */
+function SuperAdminRoute({ element, ...rest }) {
+  const [isSuperuser, setIsSuperuser] = useState(null)
+
+  useEffect(() => {
+    setIsSuperuser(hasSession())
+  }, [])
+
+  if (isSuperuser === null) return null // showing nothing while checking
+
+  if (!isSuperuser) {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  return element
+}
+
 /** Public marketing pages and authenticated application routes. */
 export default function App() {
   return (
     <Suspense fallback={<RouteFallback />}>
+
+      {/* Intended destination handler - check auth on mount and redirect if needed */}
+      <useAuthRedirect />
+
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+
+        {/* Protected dashboard route - redirects to login if no session */}
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/super-admin" element={<Dashboard />} />
-        <Route path="/super-admin/:resource" element={<SuperAdminManage />} />
+
+        {/* Super admin route - only for superusers */}
+        <Route path="/super-admin" element={<SuperAdminManage />} />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
