@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createTrip, fetchTripSummary, listTrips } from '../api/resources'
+import { completeTrip as completeOdometerTrip, startTrip as startOdometerTrip } from '../api/trips'
 import { MapView } from '../components/ui/MapView'
 import TripPlanner from '../components/ui/TripPlanner'
 import LocationSearchInput from '../components/ui/LocationSearchInput'
@@ -72,6 +73,9 @@ export default function Trips({ onBack, vehicle, access }) {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState(null)
   const [savedMessage, setSavedMessage] = useState('')
+  const [startLocation, setStartLocation] = useState('')
+  const [destination, setDestination] = useState('')
+  const [endOdometer, setEndOdometer] = useState('')
   const [form, setForm] = useState(() => {
     const now = new Date()
     const earlier = new Date(now.getTime() - 60 * 60 * 1000)
@@ -111,6 +115,8 @@ export default function Trips({ onBack, vehicle, access }) {
   }
 
   const canAddTrips = Boolean(access?.can('trips.add'))
+  const activeTrip = trips.find((trip) => !trip.ended_at)
+  const currentOdometer = Number(vehicle?.odometer ?? vehicle?.odometer_km ?? 0)
 
   /* ── Real-time GPS trip recording ── */
   const [isRecording, setIsRecording] = useState(false)
@@ -431,6 +437,47 @@ export default function Trips({ onBack, vehicle, access }) {
     ? Math.round(((yesterdayStats.consumption - todayStats.consumption) / yesterdayStats.consumption) * 100)
     : null
 
+  async function handleStartOdometerTrip(event) {
+    event.preventDefault()
+    if (!vehicleId || !startLocation.trim() || activeTrip) return
+    setSaving(true)
+    setError(null)
+    setSavedMessage('')
+    try {
+      await startOdometerTrip({
+        vehicle: vehicleId,
+        start_location: startLocation.trim(),
+        destination: destination.trim(),
+      })
+      setStartLocation('')
+      setDestination('')
+      setSavedMessage('Odometer trip started. Its starting reading has been saved.')
+      setReloadKey((key) => key + 1)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleCompleteOdometerTrip(event) {
+    event.preventDefault()
+    if (!activeTrip || endOdometer === '') return
+    setSaving(true)
+    setError(null)
+    setSavedMessage('')
+    try {
+      const completed = await completeOdometerTrip(activeTrip.id, endOdometer)
+      setEndOdometer('')
+      setSavedMessage(`Odometer trip completed: ${completed.distance_km} km.`)
+      setReloadKey((key) => key + 1)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   function updateForm(event) {
     setForm((current) => ({ ...current, [event.target.name]: event.target.value }))
   }
@@ -637,6 +684,59 @@ export default function Trips({ onBack, vehicle, access }) {
         </section>
       )}
 
+      {(canAddTrips || activeTrip) && (
+        <section className="trips-panel current-trip-panel" aria-labelledby="odometer-trip-title">
+          <div className="trips-section-heading">
+            <div>
+              <p className="trips-eyebrow">ODOMETER WORKFLOW</p>
+              <h3 id="odometer-trip-title">{activeTrip ? 'Trip in progress' : 'Start a trip without GPS'}</h3>
+            </div>
+            <span className={`trip-state ${activeTrip ? 'active' : 'stopped'}`}>
+              <i /> {activeTrip ? 'ACTIVE' : 'READY'}
+            </span>
+          </div>
+          {activeTrip ? (
+            <>
+              <div className="current-trip-metrics">
+                <div className="trip-metric"><span>ROUTE</span><strong>{activeTrip.start_location} → {activeTrip.destination || '—'}</strong></div>
+                <div className="trip-metric"><span>START ODOMETER</span><strong>{Number(activeTrip.start_odometer_km ?? 0).toLocaleString('en-UG')} km</strong></div>
+              </div>
+              {canAddTrips && (
+                <form className="trip-action-form" onSubmit={handleCompleteOdometerTrip}>
+                  <label>Ending odometer (km)
+                    <input
+                      type="number"
+                      min={Math.max(currentOdometer, Number(activeTrip.start_odometer_km ?? 0) + 1)}
+                      step="1"
+                      required
+                      value={endOdometer}
+                      onChange={(event) => setEndOdometer(event.target.value)}
+                    />
+                  </label>
+                  <button className="trip-toggle-button end" type="submit" disabled={saving || !vehicle}>
+                    {saving ? 'SAVING…' : 'END ODOMETER TRIP'}
+                  </button>
+                </form>
+              )}
+              <p className="trip-idle-copy">Distance is calculated from the ending and starting odometer readings; GPS remains optional.</p>
+            </>
+          ) : (
+            <form className="trip-action-form" onSubmit={handleStartOdometerTrip}>
+              <label>Starting point
+                <input required maxLength="200" value={startLocation} onChange={(event) => setStartLocation(event.target.value)} placeholder="e.g. Kampala" />
+              </label>
+              <label>Destination (optional)
+                <input maxLength="200" value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="e.g. Entebbe" />
+              </label>
+              <button className="trip-toggle-button start" type="submit" disabled={saving || !vehicle}>
+                {saving ? 'SAVING…' : 'START ODOMETER TRIP'}
+              </button>
+              <p className="trip-idle-copy">Current odometer: {currentOdometer.toLocaleString('en-UG')} km.</p>
+            </form>
+          )}
+        </section>
+      )}
+
       {error && (
         <p className="trip-notice" role="alert">
           {error} <button type="button" onClick={() => setReloadKey((key) => key + 1)}>Retry</button>
@@ -789,7 +889,7 @@ export default function Trips({ onBack, vehicle, access }) {
         <div className="trips-section-heading">
           <div>
             <p className="trips-eyebrow">JOURNEY LOG</p>
-            <h3 id="trip-history-title">Recent trips</h3>
+            <h3 id="trip-history-title">Trip history</h3>
           </div>
           <span className="trip-history-count">{orderedTrips.length} TRIP{orderedTrips.length === 1 ? '' : 'S'}</span>
         </div>

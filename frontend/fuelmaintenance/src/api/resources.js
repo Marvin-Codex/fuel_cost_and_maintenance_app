@@ -92,6 +92,14 @@ export function createVehicle(payload, options = {}) {
   return request('/api/v1/vehicles/', { ...options, method: 'POST', body: payload, errorMessage: 'Unable to add the vehicle.' })
 }
 
+export function activateVehicle(vehicleId, options = {}) {
+  return request(`/api/v1/vehicles/${encodeURIComponent(vehicleId)}/activate/`, {
+    ...options,
+    method: 'POST',
+    errorMessage: 'Unable to select the vehicle.',
+  })
+}
+
 export function updateVehicle(id, payload, options = {}) {
   return request(`/api/v1/vehicles/${id}/`, { ...options, method: 'PATCH', body: payload, errorMessage: 'Unable to update the vehicle.' })
 }

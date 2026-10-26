@@ -1,12 +1,15 @@
 """Vehicle API tests on the workspace model (spec section 8, step 3)."""
+from datetime import timedelta
+
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from access.models import Membership as WsMembership
 from access.models import Role, Workspace
 from access.services import add_member
-from accounts.models import Membership, Organization, User
+from accounts.models import User
 from vehicles.models import Vehicle, VehicleAssignment
 
 
@@ -73,6 +76,57 @@ class VehicleAPITests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(res.data['code'], 'limit_exceeded')
 
+    def test_create_vehicle_with_full_specifications(self):
+        response = self.client.post(
+            self._list_url(),
+            {
+                'make': 'Toyota',
+                'model': 'Premio',
+                'year': 2018,
+                'license_plate': 'uba 123a',
+                'engine_capacity_cc': 1800,
+                'fuel_type': 'petrol',
+                'transmission': 'automatic',
+                'tank_capacity_liters': '60',
+                'odometer_km': 42580,
+                'status': 'simulation',
+            },
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data['name'], 'Toyota Premio')
+        self.assertEqual(response.data['license_plate'], 'UBA 123A')
+        self.assertEqual(response.data['engine_capacity_cc'], 1800)
+        self.assertEqual(response.data['transmission'], 'automatic')
+        self.assertEqual(response.data['tank_capacity_liters'], '60.00')
+        self.assertEqual(response.data['status'], 'simulation')
+
+    def test_duplicate_registration_is_case_insensitive(self):
+        Vehicle.objects.create(owner=self.owner, name='Mine', license_plate='ABC123')
+
+        response = self.client.post(
+            self._list_url(),
+            {'name': 'Another', 'license_plate': 'abc123'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('license_plate', response.data)
+
+    def test_status_and_legacy_active_flag_stay_consistent(self):
+        vehicle = self._vehicle_in(
+            self._personal_ws(self.owner), self.owner,
+            name='Mine', license_plate='STATUS1',
+        )
+
+        response = self.client.patch(
+            self._detail_url(vehicle.id), {'status': 'inactive'}, format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['is_active'])
+        self.assertEqual(response.data['status'], 'inactive')
     def test_ownership_scoped_list_and_retrieve(self):
         mine = self._vehicle_in(
             self._personal_ws(self.owner), self.owner, name='Mine', license_plate='AAA1'
@@ -110,6 +164,57 @@ class VehicleAPITests(APITestCase):
         self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
         v.refresh_from_db()
         self.assertEqual(v.odometer_km, 15000)
+
+    def test_odometer_cannot_be_reduced(self):
+        vehicle = self._vehicle_in(
+            self._personal_ws(self.owner), self.owner,
+            name='Mine', license_plate='ODO1', odometer_km=15000,
+        )
+
+        response = self.client.patch(
+            self._detail_url(vehicle.id), {'odometer_km': 14999}, format='json'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('odometer_km', response.data)
+
+    def test_activate_vehicle_is_persisted_and_returned_in_list(self):
+        vehicle = self._vehicle_in(
+            self._personal_ws(self.owner), self.owner,
+            name='Mine', license_plate='SEL1',
+        )
+
+        response = self.client.post(
+            reverse('vehicles:vehicle-activate', args=[vehicle.id])
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['is_selected'])
+        listed = self.client.get(self._list_url())
+        self.assertTrue(listed.data['results'][0]['is_selected'])
+
+    def test_cannot_delete_vehicle_with_trip_history(self):
+        from trips.models import Trip
+
+        started_at = timezone.now() - timedelta(hours=1)
+        vehicle = self._vehicle_in(
+            self._personal_ws(self.owner), self.owner,
+            name='Mine', license_plate='KEEP1',
+        )
+        Trip.objects.create(
+            owner=self.owner,
+            vehicle=vehicle,
+            start_location='Kampala',
+            destination='Entebbe',
+            started_at=started_at,
+            ended_at=started_at + timedelta(minutes=30),
+            distance_km=25,
+        )
+
+        response = self.client.delete(self._detail_url(vehicle.id))
+
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertTrue(Vehicle.objects.filter(pk=vehicle.id).exists())
 
     def test_workspace_switch_excludes_other_tenant_vehicles(self):
         org_ws = self._make_org_workspace('Fleet One', self.owner)
@@ -163,6 +268,6 @@ class VehicleAPITests(APITestCase):
     def test_access_snapshot_lists_workspaces(self):
         res = self.client.get('/api/v1/auth/me/access/')
         self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
-        entry = res.data[0]
+        entry = res.data['workspaces'][0]
         self.assertIn('vehicles.add', entry['permissions'])
         self.assertEqual(entry['limits']['vehicles']['limit'], 1)

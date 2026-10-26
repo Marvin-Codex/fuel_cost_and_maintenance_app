@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from access.drf import WorkspacePermission
 from fuel.models import FuelRecord
 from maintenance.models import MaintenanceRecord, MaintenanceReminder
+from preferences.models import UserPreference
 from trips.models import Trip
 from vehicles.resource_scoping import check_vehicle_permission, vehicles_visible_to_request
 
@@ -28,7 +29,13 @@ class DashboardSummaryView(APIView):
         if vehicle_id:
             vehicle_uuid = serializers.UUIDField().run_validation(vehicle_id)
             vehicles = vehicles.filter(pk=vehicle_uuid)
-        vehicle = vehicles.order_by('-created_at').first()
+            vehicle = vehicles.first()
+        else:
+            active_vehicle_id = UserPreference.objects.filter(
+                user=request.user
+            ).values_list('active_vehicle_id', flat=True).first()
+            vehicle = vehicles.filter(pk=active_vehicle_id).first() if active_vehicle_id else None
+            vehicle = vehicle or vehicles.order_by('-created_at').first()
         if vehicle is None:
             return Response({'vehicle': None, 'message': 'No accessible vehicle found.'})
 
@@ -53,8 +60,16 @@ class DashboardSummaryView(APIView):
                 'registration': vehicle.license_plate,
                 'vin': vehicle.vin,
                 'fuel_type': vehicle.fuel_type,
+                'engine_capacity_cc': vehicle.engine_capacity_cc,
+                'transmission': vehicle.transmission,
+                'tank_capacity_liters': vehicle.tank_capacity_liters,
                 'odometer_km': vehicle.odometer_km,
+                'status': vehicle.status,
                 'is_active': vehicle.is_active,
+                'is_selected': str(vehicle.id) == str(
+                    UserPreference.objects.filter(user=request.user)
+                    .values_list('active_vehicle_id', flat=True).first()
+                ),
             },
             'fuel': {
                 'this_month_cost': fuel_records.filter(

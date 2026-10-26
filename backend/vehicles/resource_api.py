@@ -1,6 +1,8 @@
+from django.db import transaction
 from rest_framework import viewsets
 from rest_framework.exceptions import PermissionDenied
 
+from .odometer import advance_odometer
 from access.drf import WorkspacePermission, canonical_code
 
 from .resource_scoping import vehicles_visible_to_request
@@ -51,6 +53,7 @@ class VehicleScopedViewSet(viewsets.ModelViewSet):
         _, vehicles = vehicles_visible_to_request(self.request)
         return self.queryset.model.objects.filter(vehicle__in=vehicles)
 
+    @transaction.atomic
     def save_record(self, serializer):
         _, vehicles = vehicles_visible_to_request(self.request)
         vehicle = serializer.validated_data.get(
@@ -59,6 +62,9 @@ class VehicleScopedViewSet(viewsets.ModelViewSet):
         if vehicle is None or not vehicles.filter(pk=vehicle.pk).exists():
             raise PermissionDenied('You cannot add records for this vehicle.')
         serializer.save(owner=self.request.user)
+        reading = serializer.validated_data.get('odometer_km')
+        if reading is not None:
+            advance_odometer(vehicle, reading)
 
     def perform_create(self, serializer):
         self.save_record(serializer)

@@ -28,6 +28,13 @@ class UserPreference(models.Model):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='preferences'
     )
+    active_vehicle = models.ForeignKey(
+        'vehicles.Vehicle',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='selected_by_users',
+    )
     alert_settings = models.JSONField(default=default_alert_settings)
     thresholds = models.JSONField(default=default_thresholds)
     units = models.CharField(max_length=10, choices=UNIT_CHOICES, default='metric')

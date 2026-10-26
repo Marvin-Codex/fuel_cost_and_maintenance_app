@@ -6,6 +6,6 @@ app_name = 'fuel'
 
 router = DefaultRouter()
 router.register('fuel-records', FuelRecordViewSet, basename='fuel-record')
+router.register('fuel', FuelRecordViewSet, basename='fuel')
 
 urlpatterns = router.urls
-

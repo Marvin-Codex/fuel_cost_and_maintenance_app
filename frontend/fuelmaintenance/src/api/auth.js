@@ -43,6 +43,87 @@ export function readToken() {
   }
 }
 
+function readSession() {
+  try {
+    for (const store of [sessionStorage, localStorage]) {
+      const access = store.getItem(ACCESS_TOKEN_KEY)
+      const refresh = store.getItem(REFRESH_TOKEN_KEY)
+      if (access && refresh) return { access, refresh, store }
+    }
+    for (const store of [sessionStorage, localStorage]) {
+      const access = store.getItem(ACCESS_TOKEN_KEY)
+      if (access) return { access, refresh: store.getItem(REFRESH_TOKEN_KEY), store }
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
+function clearTokens() {
+  try {
+    localStorage.removeItem(ACCESS_TOKEN_KEY)
+    localStorage.removeItem(REFRESH_TOKEN_KEY)
+    sessionStorage.removeItem(ACCESS_TOKEN_KEY)
+    sessionStorage.removeItem(REFRESH_TOKEN_KEY)
+  } catch {
+    // Storage may be unavailable in privacy-restricted browser contexts.
+  }
+}
+
+function saveTokens(access, refresh, targetStore) {
+  clearTokens()
+  try {
+    targetStore.setItem(ACCESS_TOKEN_KEY, access)
+    if (refresh) targetStore.setItem(REFRESH_TOKEN_KEY, refresh)
+  } catch {
+    throw new Error('Unable to store your sign-in session. Check browser storage settings.')
+  }
+}
+
+function expireSession() {
+  clearTokens()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('fuelmaintenance:auth-expired'))
+  }
+}
+
+/** Fetch an authenticated API resource and refresh an expired access token once. */
+export async function authenticatedFetch(path, options = {}) {
+  if (USE_MOCK) {
+    throw new Error(
+      'Vehicle data cannot be saved in mock-auth mode. Disable VITE_USE_MOCK_AUTH and sign in to the backend.',
+    )
+  }
+
+  const send = (token) => {
+    const headers = new Headers(options.headers ?? {})
+    headers.set('Authorization', `Bearer ${token}`)
+    try {
+      const workspace = localStorage.getItem(ACTIVE_WORKSPACE_KEY)
+      if (workspace && !headers.has('X-Workspace')) headers.set('X-Workspace', workspace)
+    } catch {
+      // Workspace selection is optional when browser storage is unavailable.
+    }
+    return fetch(`${API_BASE_URL}${path}`, { ...options, headers })
+  }
+
+  const session = readSession()
+  if (!session?.access) {
+    expireSession()
+    throw new Error('Sign in again to continue.')
+  }
+
+  const response = await send(session.access)
+  if (response.status !== 401) return response
+  const token = await refresh()
+  if (!token) {
+    expireSession()
+    throw new Error('Your session has expired. Sign in again.')
+  }
+  return send(token)
+}
+
 async function authenticatedGet(path, workspaceId = null) {
   async function doFetch() {
     const token = readToken()
@@ -136,17 +217,16 @@ export async function register(username, email, password, options = {}) {
 /** Sign in with a username + password; stores tokens and returns the payload. */
 export async function login(username, password, { remember = true } = {}) {
   if (USE_MOCK) {
-    // Clearly marked mock adapter — demo only, no network.
     await new Promise((resolve) => setTimeout(resolve, 500))
     if (username === 'demo' && password === 'demo1234') {
       const data = { access: 'mock-access-token', refresh: 'mock-refresh-token', username, user: { is_superuser: false, username } }
-      storage(remember).setItem(ACCESS_TOKEN_KEY, data.access)
-      storage(remember).setItem(REFRESH_TOKEN_KEY, data.refresh)
+      saveTokens(data.access, data.refresh, storage(remember))
       storage(remember).setItem(USER_KEY, JSON.stringify(data.user))
       return { ...data, mocked: true }
     }
     throw new Error('Mock auth: use demo / demo1234, or unset VITE_USE_MOCK_AUTH for the real backend.')
   }
+
   let response
   try {
     response = await fetch(`${API_BASE_URL}${LOGIN_PATH}`, {
@@ -155,22 +235,23 @@ export async function login(username, password, { remember = true } = {}) {
       body: JSON.stringify({ username, password }),
     })
   } catch {
-    throw new Error(
-      'Cannot reach the server. Check your connection and try again.',
-    )
+    throw new Error('Cannot reach the server. Check your connection and try again.')
   }
 
-  if (response.status === 401) {
-    throw new Error('Incorrect username or password.')
-  }
-  if (!response.ok) {
-    throw new Error('Sign in failed. Please try again.')
-  }
+  if (response.status === 401) throw new Error('Incorrect username or password.')
+  if (!response.ok) throw new Error('Sign in failed. Please try again.')
 
   const data = await response.json()
-  if (data.access) storage(remember).setItem(ACCESS_TOKEN_KEY, data.access)
-  if (data.refresh) storage(remember).setItem(REFRESH_TOKEN_KEY, data.refresh)
-  if (data.user) storage(remember).setItem(USER_KEY, JSON.stringify(data.user))
+  if (data.access) saveTokens(data.access, data.refresh, storage(remember))
+  if (data.user) {
+    try {
+      localStorage.removeItem(USER_KEY)
+      sessionStorage.removeItem(USER_KEY)
+      storage(remember).setItem(USER_KEY, JSON.stringify(data.user))
+    } catch {
+      // User metadata is optional; a successful sign-in remains usable.
+    }
+  }
   // Clear any stale workspace choice from a previous user/session so the
   // next access snapshot establishes the correct default for this user.
   try {
@@ -249,7 +330,7 @@ export function getStoredUser() {
 
 /** Whether a session token is already stored locally. */
 export function hasSession() {
-  return readToken() !== null
+  return Boolean(readSession()?.access)
 }
 
 /** Clear the locally stored session. */

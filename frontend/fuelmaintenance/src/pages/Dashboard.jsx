@@ -10,6 +10,7 @@ import {
 } from '../api/access'
 import {
   createVehicle,
+  activateVehicle,
   fetchDashboardSummary,
   listMaintenanceReminders,
   listTrips,
@@ -91,6 +92,18 @@ function consumptionChart(trips) {
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const hasSession = auth.hasSession()
+
+  useEffect(() => {
+    if (!hasSession) navigate('/login', { replace: true })
+  }, [hasSession, navigate])
+
+  if (!hasSession) return null
+  return <DashboardContent />
+}
+
+function DashboardContent() {
+  const navigate = useNavigate()
   const { state: accessState, error: accessError, refresh, workspaces: workspaceOptions, active, access, switchWorkspace, roleLabel } = useAccess()
   
   // Fetch and manage vehicles for this workspace
@@ -129,15 +142,10 @@ export default function Dashboard() {
     }
   }, [activeTab])
 
-  // Require sign-in before rendering the dashboard or calling any API.
-  if (!auth.hasSession()) {
-    navigate('/login', { replace: true })
-    return null
-  }
-
   const organization = active ? { name: active.workspace?.name, role: active.role?.key } : null
   const [vehiclesLoading, setVehiclesLoading] = useState(true)
   const [vehiclesError, setVehiclesError] = useState(null)
+  const [vehicleSelectionError, setVehicleSelectionError] = useState(null)
   const [selectedVehicleId, setSelectedVehicleId] = useState(() => {
     try { return localStorage.getItem('fuelmaintenance.selectedVehicleId') } catch { return null }
   })
@@ -184,6 +192,11 @@ export default function Dashboard() {
     if (!values.length) return null
     return values.reduce((total, value) => total + value, 0) / values.length
   })()
+  const monthlyDistance = Number(summary?.trips?.month_distance_km ?? 0)
+  const monthlyFuel = Number(summary?.trips?.month_fuel_liters ?? 0)
+  const efficiency = monthlyDistance > 0 && monthlyFuel > 0
+    ? (monthlyFuel / monthlyDistance * 100).toFixed(1)
+    : '—'
   const nextReminder = reminders[0] ?? null
   const reminderDueLabel = nextReminder
     ? (nextReminder.km_remaining !== null && nextReminder.km_remaining !== undefined
@@ -260,6 +273,7 @@ export default function Dashboard() {
     try {
       const rows = await listVehicles()
       const owned = rows.map((row) => ({
+        ...row,
         id: String(row.id),
         rawId: row.id,
         name: row.name,
@@ -270,12 +284,32 @@ export default function Dashboard() {
         engine: row.fuel_type || '—',
         transmission: '—',
         odometer: row.odometer_km ?? '—',
+        is_selected: Boolean(row.is_selected),
       }))
+      let currentId = null
+      try {
+        currentId = localStorage.getItem('fuelmaintenance.selectedVehicleId')
+      } catch {
+        // Vehicle selection still falls back to the server preference.
+      }
+      const initialSelection = owned.find((row) => row.is_selected)
+        ?? owned.find((row) => String(row.id) === String(currentId))
+        ?? owned[0]
+        ?? null
+      if (initialSelection && !initialSelection.is_selected) {
+        try {
+          await activateVehicle(initialSelection.rawId)
+          initialSelection.is_selected = true
+          for (const row of owned) {
+            if (row.id !== initialSelection.id) row.is_selected = false
+          }
+          setVehicleSelectionError(null)
+        } catch (err) {
+          setVehicleSelectionError(err.message)
+        }
+      }
       setVehicles(owned)
-      setSelectedVehicleId((current) => {
-        if (current && owned.some((row) => String(row.id) === String(current))) return current
-        return owned[0] ? String(owned[0].id) : null
-      })
+      setSelectedVehicleId(initialSelection?.id ?? null)
       setVehiclesLoading(false)
       return owned
     } catch (err) {
@@ -373,6 +407,12 @@ export default function Dashboard() {
       if (String(vehicleForm.year ?? '').trim()) payload.year = Number(vehicleForm.year)
       if (String(vehicleForm.odometer_km ?? '').trim()) payload.odometer_km = Number(vehicleForm.odometer_km)
       const created = await createVehicle(payload)
+      try {
+        await activateVehicle(created.id)
+        setVehicleSelectionError(null)
+      } catch (err) {
+        setVehicleSelectionError(err.message)
+      }
       await loadVehicles()
       setSelectedVehicleId(String(created.id))
       setShowAddVehicle(false)
@@ -432,6 +472,21 @@ export default function Dashboard() {
     auth.logout()
     forgetAccessCache()
     navigate('/login')
+  }
+
+  async function selectVehicle(vehicle) {
+    setVehicleSelectionError(null)
+    try {
+      await activateVehicle(vehicle.rawId ?? vehicle.id)
+      setSelectedVehicleId(String(vehicle.id))
+      setIsVehiclePickerOpen(false)
+      setVehicles((current) => current.map((item) => ({
+        ...item,
+        is_selected: String(item.id) === String(vehicle.id),
+      })))
+    } catch (err) {
+      setVehicleSelectionError(err.message)
+    }
   }
 
   // The platform console is for Django superusers only. Workspace-level powers
@@ -640,7 +695,7 @@ export default function Dashboard() {
 
       <section className="dashboard-content">
         <div className="eyebrow">DIAGNOSTICS PANEL</div>
-        <div className="dashboard-heading"><h1>VEHICLE SMART PERFORMANCE</h1><span className="live-pill"><i /> ECU LIVE</span></div>
+        <div className="dashboard-heading"><h1>VEHICLE SMART PERFORMANCE</h1><span className="live-pill"><i /> {selectedVehicle?.status?.replace('_', ' ').toUpperCase() ?? 'NO VEHICLE'}</span></div>
 
         <section className="package-status" aria-live="polite">
           <div><small>{active?.workspace?.kind === 'personal' ? 'PERSONAL PLAN' : 'WORKSPACE PLAN'}</small><strong>{active?.plan?.name ?? 'NO ACTIVE PLAN'}</strong></div>
@@ -657,10 +712,11 @@ export default function Dashboard() {
           ) : (
           <><div className="vehicle-summary"><span className="car-badge"><Icon size={27}><path d="M3 16v-3l2-5h14l2 5v3M5 16v2M19 16v2M6 13h12" /><circle cx="6" cy="16" r="1.5" /><circle cx="18" cy="16" r="1.5" /></Icon></span><div className="vehicle-card-copy"><h2>{selectedVehicle.name ?? (`${selectedVehicle.make ?? ''} ${selectedVehicle.model ?? ''}`.trim() || 'Vehicle')} <em>{selectedVehicle.registration}</em></h2><p>{[selectedVehicle.engine, selectedVehicle.year].filter((part) => part && part !== '—').join(' • ') || '—'}</p></div>
           <div className="vehicle-switcher"><button className="switch-label" type="button" aria-expanded={isVehiclePickerOpen} aria-haspopup="listbox" onClick={() => setIsVehiclePickerOpen((open) => !open)}>⇄ SWITCH</button>{access?.can('vehicles.add') && <button className="switch-label" type="button" onClick={() => setShowAddVehicle(true)}>+ ADD</button>}{isVehiclePickerOpen &&
-            <div className="vehicle-picker" role="listbox" aria-label="Select a vehicle">{ownedVehicles.map((vehicle) => <button className={String(vehicle.id) === String(selectedVehicleId) ? 'current' : ''} type="button" role="option" aria-selected={String(vehicle.id) === String(selectedVehicleId)} key={vehicle.id} onClick={() => { setSelectedVehicleId(String(vehicle.id)); setIsVehiclePickerOpen(false) }}><strong>{vehicle.name ?? `${vehicle.make ?? ''} ${vehicle.model ?? ''}`.trim()}</strong><span>{vehicle.registration} · {vehicle.year}</span></button>)}{presetVehicles.length > 0 && <><small className="vehicle-picker-heading">ADD FROM A PRESET</small>{presetVehicles.map((vehicle) => <button type="button" key={vehicle.id} onClick={() => { setVehicleForm({ name: vehicle.registration && vehicle.registration !== vehicle.make ? vehicle.registration : `${vehicle.make} ${vehicle.model}`, make: vehicle.make === '—' ? '' : vehicle.make, model: vehicle.model === '—' ? '' : vehicle.model, year: vehicle.year === '—' ? '' : vehicle.year, license_plate: '', fuel_type: 'petrol', odometer_km: '' }); setShowAddVehicle(true); setIsVehiclePickerOpen(false) }}><strong>{vehicle.make} {vehicle.model}</strong><span>{vehicle.registration} · {vehicle.year}</span></button>)}</>}</div>}</div></div>
+            <div className="vehicle-picker" role="listbox" aria-label="Select a vehicle">{ownedVehicles.map((vehicle) => <button className={String(vehicle.id) === String(selectedVehicleId) ? 'current' : ''} type="button" role="option" aria-selected={String(vehicle.id) === String(selectedVehicleId)} key={vehicle.id} onClick={() => selectVehicle(vehicle)}><strong>{vehicle.name ?? `${vehicle.make ?? ''} ${vehicle.model ?? ''}`.trim()}</strong><span>{vehicle.registration} · {vehicle.year}</span></button>)}{presetVehicles.length > 0 && <><small className="vehicle-picker-heading">ADD FROM A PRESET</small>{presetVehicles.map((vehicle) => <button type="button" key={vehicle.id} onClick={() => { setVehicleForm({ name: vehicle.registration && vehicle.registration !== vehicle.make ? vehicle.registration : `${vehicle.make} ${vehicle.model}`, make: vehicle.make === '—' ? '' : vehicle.make, model: vehicle.model === '—' ? '' : vehicle.model, year: vehicle.year === '—' ? '' : vehicle.year, license_plate: '', fuel_type: 'petrol', odometer_km: '' }); setShowAddVehicle(true); setIsVehiclePickerOpen(false) }}><strong>{vehicle.make} {vehicle.model}</strong><span>{vehicle.registration} · {vehicle.year}</span></button>)}</>}</div>}</div></div>
           <div className="health-bars masonry"><div><span>ODOMETER <b>{formatNumber(selectedVehicle.odometer)} KM</b></span><div className="bar"><i style={{ width: '100%' }} /></div><small>Current reading</small></div><div><span>MONTH FUEL <b>{summary ? `${formatNumber(summary.fuel.this_month_liters)} L` : '—'}</b></span><div className="bar green"><i style={{ width: summary && Number(summary.fuel.this_month_liters) > 0 ? '100%' : '0%' }} /></div><small>{summary ? `${summary.fuel.record_count} fill-ups logged` : 'No summary yet'}</small></div></div></>
           )}
         </section>
+        {vehicleSelectionError && <p className="vehicle-api-error" role="alert">{vehicleSelectionError}</p>}
 
         {showAddVehicle && (
           <section className="panel" aria-labelledby="add-vehicle-title">
@@ -696,9 +752,11 @@ export default function Dashboard() {
           <Metric label="ODOMETER" value={selectedVehicle ? formatNumber(selectedVehicle.odometer) : '\u2014'} detail={summaryLoading ? 'LOADING\u2026' : 'KM CURRENT'} accent="cyan" icon={<Icon><path d="M4 18a8 8 0 1 1 16 0" /><path d="m12 14 3-3M4 18h16" /></Icon>} />
           <Metric label="FUEL COST" value={summary ? formatUgxShort(summary.fuel.this_month_cost) : summaryLoading ? '\u2026' : '\u2014'} detail="UGX THIS MONTH" accent="white" icon={<Icon><rect x="3" y="6" width="17" height="12" rx="2" /><path d="M7 10h6v4H7zM20 9l2 2v5" /></Icon>} />
           <Metric label="DISTANCE" value={summary ? formatNumber(summary.trips.month_distance_km) : summaryLoading ? '\u2026' : '\u2014'} detail={summary ? `KM THIS MONTH  \u25c9 ${summary.trips.month_count} TRIPS` : 'NO TRIPS YET'} accent="white" icon={<Icon><path d="M6 4v16M18 4v16M6 7c5 0 7 3 12 3M6 17c5 0 7-3 12-3" /><circle cx="6" cy="4" r="2" /><circle cx="18" cy="4" r="2" /></Icon>} />
+          <Metric label="EFFICIENCY" value={efficiency} detail="MONTHLY TRIP FUEL / DISTANCE · L/100 KM" accent="amber" icon={<Icon><path d="M12 3a9 9 0 1 1-9 9" /><path d="M12 7v5l3 2" /></Icon>} />
           <Metric label="SERVICE SPEND" value={summary ? formatUgxShort(summary.maintenance.this_month_cost) : summaryLoading ? '\u2026' : '\u2014'} detail={summary ? `UGX THIS MONTH \u00b7 ${summary.maintenance.record_count} RECORDS` : 'NO RECORDS YET'} accent="amber" icon={<Icon><path d="M12 3a9 9 0 1 1-9 9" /><path d="M12 7v5l3 2" /></Icon>} />
           {(summaryError || vehiclesError) && <p className="dashboard-notice" role="alert">{summaryError ?? vehiclesError} <button type="button" className="dashboard-retry" onClick={() => refreshOverview()}>Try again</button></p>}
         </section>
+        <p className="sample-dashboard-note" role="note">Chart, alerts, and sensor-specific panels below are illustrative until records or live telemetry are connected.</p>
 
         <section className="panel telemetry-panel">
           <div className="panel-title"><h2><span className="trend-icon">⌁</span> TELEMETRY CURVES</h2></div>
