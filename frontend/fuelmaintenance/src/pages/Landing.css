@@ -69,7 +69,7 @@
 .fm-vehicle-card { margin-top: 18px; padding: 24px; display: grid; gap: 20px; align-items: center; }
 .fm-vehicle-card svg { width: 100%; max-width: 360px; height: auto; color: var(--fm-accent-strong); }
 /* --- Vehicle illustrations: self-contained animated SVGs, themed via tokens --- */
-.fm-vehicle-card { --vehicle-body: var(--fm-accent-strong); }
+.fm-vehicle-card { --vehicle-body: var(--fm-accent-strong); --dur: 1s; }
 .fm-vehicle-card .car {
   --body: var(--vehicle-body, #0ea5a4); --body2: #0a7d7c; --glass: #cde7f5; --glass2: #fff;
   --tire: #1e293b; --rim: #cbd5e1; --spoke: #64748b; --well: #0b1220; --light: #f59e0b;
@@ -134,11 +134,11 @@
 .fm-vehicle-card .car .s0 { stop-color: var(--light); }
 .fm-vehicle-card .car .s1 { stop-color: var(--light); stop-opacity: 0; }
 /* --- Car illustration: motion (transform / opacity / dashoffset only) --- */
-.fm-vehicle-card .car .spin { transform-box: fill-box; transform-origin: center; animation: car-spin var(--dur, 1s) linear infinite; }
-.fm-vehicle-card .car .bob { animation: car-bob calc(var(--dur, 1s) * 0.55) ease-in-out infinite; }
-.fm-vehicle-card .car .dash { animation: car-road calc(var(--dur, 1s) * 0.305) linear infinite; }
-.fm-vehicle-card .car .streak { animation: car-streak 0.6s linear infinite; }
-.fm-vehicle-card .car .beam { animation: car-flicker 3s ease-in-out infinite; }
+.fm-vehicle-card .car .spin { transform-box: fill-box; transform-origin: center; animation: car-spin var(--dur, 1s) linear infinite; animation-play-state: running; }
+.fm-vehicle-card .car .bob { animation: car-bob calc(var(--dur, 1s) * 0.55) ease-in-out infinite; animation-play-state: running; }
+.fm-vehicle-card .car .dash { animation: car-road calc(var(--dur, 1s) * 0.305) linear infinite; animation-play-state: running; }
+.fm-vehicle-card .car .streak { animation: car-streak 0.6s linear infinite; animation-play-state: running; }
+.fm-vehicle-card .car .beam { animation: car-flicker 3s ease-in-out infinite; animation-play-state: running; }
 @keyframes car-spin { to { transform: rotate(360deg); } }
 @keyframes car-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.2px); } }
 @keyframes car-road { to { stroke-dashoffset: 46; } }
@@ -176,13 +176,13 @@
 .fm-vehicle-card .moto .s1 { stop-color: var(--light); stop-opacity: 0; }
 
 /* --- Motorcycle illustration motion --- */
-.fm-vehicle-card .moto .spin { transform-box: fill-box; transform-origin: center; animation: moto-spin var(--dur, 1s) linear infinite; }
-.fm-vehicle-card .moto .bob { animation: moto-bob calc(var(--dur, 1s) * 0.5) ease-in-out infinite; }
-.fm-vehicle-card .moto .vib { animation: moto-vib 0.1s linear infinite alternate; }
-.fm-vehicle-card .moto .dash { animation: moto-road calc(var(--dur, 1s) * 0.244) linear infinite; }
-.fm-vehicle-card .moto .puff { transform-box: fill-box; transform-origin: center; animation: moto-puff 0.9s ease-out infinite; }
-.fm-vehicle-card .moto .streak { animation: moto-streak 0.6s linear infinite; }
-.fm-vehicle-card .moto .beam { animation: moto-flicker 3s ease-in-out infinite; }
+.fm-vehicle-card .moto .spin { transform-box: fill-box; transform-origin: center; animation: moto-spin var(--dur, 1s) linear infinite; animation-play-state: running; }
+.fm-vehicle-card .moto .bob { animation: moto-bob calc(var(--dur, 1s) * 0.5) ease-in-out infinite; animation-play-state: running; }
+.fm-vehicle-card .moto .vib { animation: moto-vib 0.1s linear infinite alternate; animation-play-state: running; }
+.fm-vehicle-card .moto .dash { animation: moto-road calc(var(--dur, 1s) * 0.244) linear infinite; animation-play-state: running; }
+.fm-vehicle-card .moto .puff { transform-box: fill-box; transform-origin: center; animation: moto-puff 0.9s ease-out infinite; animation-play-state: running; }
+.fm-vehicle-card .moto .streak { animation: moto-streak 0.6s linear infinite; animation-play-state: running; }
+.fm-vehicle-card .moto .beam { animation: moto-flicker 3s ease-in-out infinite; animation-play-state: running; }
 @keyframes moto-spin { to { transform: rotate(360deg); } }
 @keyframes moto-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.2px); } }
 @keyframes moto-vib { from { transform: translate(0, 0); } to { transform: translate(0.4px, -0.4px); } }

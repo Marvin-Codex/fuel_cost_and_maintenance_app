@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useEffect, useRef, useState } from 'react'
 
 /** Fade/slide sections in once when scrolled into view. */
 export function Reveal({ children, delay = 0, className = '', as: Tag = 'div', ...rest }) {
@@ -23,12 +23,27 @@ export function Reveal({ children, delay = 0, className = '', as: Tag = 'div', .
     observer.observe(node)
     // Fallback so content is never stuck invisible if the observer never fires
     // (e.g. sections that render below the fold in some browsers).
-    const fallback = setTimeout(() => setVisible(true), 1500)
+    const fallback = setTimeout(() => setVisible(true), 300)
     return () => {
       observer.disconnect()
       clearTimeout(fallback)
     }
   }, [])
+
+  // When the reveal becomes visible, force a repaint so any paused CSS
+  // animations on descendants (e.g. SVG wheel spins, engine pistons) resume.
+  // useLayoutEffect runs before the browser paints, so there is no visible flicker.
+  useLayoutEffect(() => {
+    if (!visible || !ref.current) return
+    const node = ref.current
+    // Briefly remove from rendering tree to force a full repaint and restart
+    // paused animations, then restore.
+    const display = node.style.display
+    node.style.display = 'none'
+    void node.offsetHeight // force reflow
+    node.style.display = display
+  }, [visible, ref])
+
   return (
     <Tag ref={ref} className={`fm-reveal${visible ? ' is-visible' : ''} ${className}`.trim()} data-delay={delay || undefined} {...rest}>
       {children}
