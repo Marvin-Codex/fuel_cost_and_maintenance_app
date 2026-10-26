@@ -91,7 +91,7 @@ function formatUgx(value) {
   return `UGX ${Math.round(n).toLocaleString('en-UG')}`
 }
 
-export default function TripPlanner({ vehicle }) {
+export default function TripPlanner({ vehicle, onStartTrip }) {
   const [startText, setStartText] = useState('')
   const [destText, setDestText] = useState('')
   const [startCoords, setStartCoords] = useState(null)
@@ -288,6 +288,28 @@ export default function TripPlanner({ vehicle }) {
         <button type="button" className="trip-save-button" onClick={planRoute} disabled={loading || !startCoords || !destCoords}>
           {loading ? 'PLANNING…' : 'PLAN ROUTE'}
         </button>
+        {selectedRoute && typeof onStartTrip === 'function' && (
+          <button
+            type="button"
+            className="trip-save-button trip-start-button"
+            onClick={() => {
+              const liters = Number.isFinite(fuelLiters) && fuelLiters > 0 ? fuelLiters : null
+              const cost = tripCost !== null && tripCost > 0 ? tripCost : null
+              onStartTrip({
+                startLocation: startText || `${startCoords.lat.toFixed(5)}, ${startCoords.lng.toFixed(5)}`,
+                destination: destText || `${destCoords.lat.toFixed(5)}, ${destCoords.lng.toFixed(5)}`,
+                estimatedDistanceKm: selectedRoute.distanceKm,
+                estimatedDurationSec: selectedRoute.durationSec,
+                estimatedFuelLiters: liters,
+                estimatedCost: cost,
+                fuelPrice: fuelPrice ? Number(fuelPrice) : null,
+                consumption: consumption ? Number(consumption) : null,
+              })
+            }}
+          >
+            START TRIP
+          </button>
+        )}
       </div>
 
       {error && <p className="trip-notice" role="alert">{error}</p>}

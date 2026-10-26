@@ -262,3 +262,11 @@
   .trip-expanded-details { padding-left: 55px; }
   .comparison-row { font-size: 7px; }
 }
+
+.trip-comparison-grid { display: grid; gap: 6px; margin-top: 12px; }
+.trip-comparison-header, .trip-comparison-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 8px; align-items: center; }
+.trip-comparison-header { color: #aebbd0; font-size: 8px; letter-spacing: .5px; padding-bottom: 6px; border-bottom: 1px solid #2a3955; }
+.trip-comparison-row { color: #e5f3ff; font-size: 9px; padding: 4px 0; border-bottom: 1px solid rgba(42, 57, 85, .5); }
+.trip-comparison-row span:first-child { color: #c4cede; font-size: 8px; }
+.trip-comparison-row span:nth-child(2), .trip-comparison-row span:nth-child(3) { font-weight: 600; }
+.trip-comparison-row span:last-child { color: #9aa8c5; font-size: 8px; }

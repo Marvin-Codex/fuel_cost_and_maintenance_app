@@ -12,6 +12,37 @@ function formatUgx(value) {
   return `UGX ${Math.round(number).toLocaleString('en-UG')}`
 }
 
+function formatKm(km) {
+  const number = Number(km)
+  if (!Number.isFinite(number)) return '—'
+  return number.toFixed(1)
+}
+
+function formatMin(sec) {
+  const total = Number(sec)
+  if (!Number.isFinite(total)) return '—'
+  const m = Math.round(total / 60)
+  if (m >= 60) return `${Math.floor(m / 60)}h ${m % 60}m`
+  return `${m} min`
+}
+
+function formatDiff(value, unit) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '—'
+  const sign = number > 0 ? '+' : ''
+  if (unit === 'UGX') return `${sign}${Math.round(number).toLocaleString('en-UG')}`
+  return `${sign}${number.toFixed(1)} ${unit}`
+}
+
+function formatDiffMin(seconds) {
+  const total = Number(seconds)
+  if (!Number.isFinite(total)) return '—'
+  const sign = total > 0 ? '+' : ''
+  const m = Math.round(total / 60)
+  if (m >= 60) return `${sign}${Math.floor(m / 60)}h ${Math.abs(m) % 60}m`
+  return `${sign}${m} min`
+}
+
 function formatDuration(seconds) {
   const total = Number(seconds)
   if (!Number.isFinite(total) || total <= 0) return '—'
@@ -73,6 +104,8 @@ export default function Trips({ onBack, vehicle, access }) {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState(null)
   const [savedMessage, setSavedMessage] = useState('')
+  const [plannedEstimate, setPlannedEstimate] = useState(null)
+  const [tripComparison, setTripComparison] = useState(null)
   const [startLocation, setStartLocation] = useState('')
   const [destination, setDestination] = useState('')
   const [endOdometer, setEndOdometer] = useState('')
@@ -141,12 +174,13 @@ export default function Trips({ onBack, vehicle, access }) {
         tripStartTime,
         tripDestination,
         tripStartLocation,
+        plannedEstimate,
         isRecording: true,
       }))
     } catch {
       /* storage unavailable — ignore */
     }
-  }, [isRecording, tripPoints, tripStartTime, tripDestination, tripStartLocation, vehicleId])
+  }, [isRecording, tripPoints, tripStartTime, tripDestination, tripStartLocation, plannedEstimate, vehicleId])
 
   // Restore an in-progress trip after a reload so the live journey isn't lost.
   useEffect(() => {
@@ -169,6 +203,8 @@ export default function Trips({ onBack, vehicle, access }) {
     setTripDestination(saved.tripDestination ?? '')
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTripStartLocation(saved.tripStartLocation ?? '')
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (saved.plannedEstimate) setPlannedEstimate(saved.plannedEstimate)
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsRecording(true)
     setTripRecordingError(null)
@@ -279,6 +315,29 @@ export default function Trips({ onBack, vehicle, access }) {
     beginWatching()
   }
 
+  function startTripFromPlan(planData) {
+    if (!navigator.geolocation) {
+      setTripRecordingError('Geolocation is not available in this browser.')
+      return
+    }
+    if (!planData) return
+    // Store the planned estimate so we can compare after the trip.
+    setPlannedEstimate(planData)
+    setTripComparison(null)
+    // Pre-fill start/destination from the plan.
+    setTripStartLocation(planData.startLocation || '')
+    setTripDestination(planData.destination || '')
+    // Begin GPS recording.
+    setTripRecordingError(null)
+    setTripPoints([])
+    setTripStartTime(Date.now())
+    startPlaceResolvedRef.current = false
+    setIsRecording(true)
+    // Close the planner modal.
+    setIsPlannerOpen(false)
+    beginWatching()
+  }
+
   async function stopTrip() {
     if (tripWatchId !== null) {
       navigator.geolocation.clearWatch(tripWatchId)
@@ -343,9 +402,31 @@ export default function Trips({ onBack, vehicle, access }) {
       ])
       setTrips(rows)
       setSummary(tripSummary)
+      const actualDistance = Math.round(totalDistance * 100) / 100
+      const actualDuration = durationSeconds
+      const actualFuel = plannedEstimate?.consumption
+        ? (actualDistance * plannedEstimate.consumption) / 100
+        : null
+      const actualCost = actualFuel !== null && plannedEstimate?.fuelPrice
+        ? actualFuel * plannedEstimate.fuelPrice
+        : null
+      if (plannedEstimate) {
+        setTripComparison({
+          planned: plannedEstimate,
+          actual: {
+            distanceKm: actualDistance,
+            durationSec: actualDuration,
+            fuelLiters: actualFuel,
+            cost: actualCost,
+            startLocation: startLabel,
+            destination: destLabel,
+          },
+        })
+      }
       setSavedMessage(
         `${startLabel} → ${destLabel} recorded (${formatDistance(totalDistance)} km).`,
       )
+      setPlannedEstimate(null)
     } catch (err) {
       setTripRecordingError(err.message || 'Failed to save GPS trip.')
     } finally {
@@ -743,9 +824,56 @@ export default function Trips({ onBack, vehicle, access }) {
         </p>
       )}
       {savedMessage && <p className="trip-notice success" role="status">{savedMessage}</p>}
+      {tripComparison && (
+        <section className="trips-panel trip-comparison-panel" aria-labelledby="trip-comparison-title">
+          <div className="trips-section-heading">
+            <div>
+              <p className="trips-eyebrow">ESTIMATE vs ACTUAL</p>
+              <h3 id="trip-comparison-title">Trip comparison</h3>
+            </div>
+            <button type="button" className="trip-toggle-button" onClick={() => setTripComparison(null)}>Dismiss</button>
+          </div>
+          <div className="trip-comparison-grid">
+            <div className="trip-comparison-header">
+              <span></span>
+              <span>PLANNED</span>
+              <span>ACTUAL</span>
+              <span>DIFF</span>
+            </div>
+            <div className="trip-comparison-row">
+              <span>Distance (km)</span>
+              <span>{formatKm(tripComparison.planned.estimatedDistanceKm)}</span>
+              <span>{formatKm(tripComparison.actual.distanceKm)}</span>
+              <span>{formatDiff(tripComparison.actual.distanceKm - tripComparison.planned.estimatedDistanceKm, 'km')}</span>
+            </div>
+            <div className="trip-comparison-row">
+              <span>Duration</span>
+              <span>{formatMin(tripComparison.planned.estimatedDurationSec)}</span>
+              <span>{formatDuration(tripComparison.actual.durationSec)}</span>
+              <span>{formatDiffMin(tripComparison.actual.durationSec - tripComparison.planned.estimatedDurationSec)}</span>
+            </div>
+            {tripComparison.planned.estimatedFuelLiters !== null && (
+              <div className="trip-comparison-row">
+                <span>Fuel (L)</span>
+                <span>{tripComparison.planned.estimatedFuelLiters.toFixed(1)}</span>
+                <span>{tripComparison.actual.fuelLiters !== null ? tripComparison.actual.fuelLiters.toFixed(1) : '—'}</span>
+                <span>{tripComparison.actual.fuelLiters !== null ? formatDiff(tripComparison.actual.fuelLiters - tripComparison.planned.estimatedFuelLiters, 'L') : '—'}</span>
+              </div>
+            )}
+            {tripComparison.planned.estimatedCost !== null && (
+              <div className="trip-comparison-row">
+                <span>Cost (UGX)</span>
+                <span>{formatUgx(tripComparison.planned.estimatedCost)}</span>
+                <span>{tripComparison.actual.cost !== null ? formatUgx(tripComparison.actual.cost) : '—'}</span>
+                <span>{tripComparison.actual.cost !== null ? formatDiff(tripComparison.actual.cost - tripComparison.planned.estimatedCost, 'UGX') : '—'}</span>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
       {formError && <p className="trip-notice" role="alert">{formError}</p>}
 
-      {isPlannerOpen && <TripPlanner vehicle={vehicle} />}
+      {isPlannerOpen && <TripPlanner vehicle={vehicle} onStartTrip={startTripFromPlan} />}
 
       {isFormOpen && (
         <section className="trips-panel trip-add-panel" aria-labelledby="trip-add-title">
