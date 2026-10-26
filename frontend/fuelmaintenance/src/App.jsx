@@ -29,7 +29,7 @@ function RouteFallback() {
  *  Returns true if the user is authenticated, false otherwise.
  *  If not authenticated and there's a location to redirect to, store it.
  */
-function useAuthRedirect() {
+function UseAuthRedirect() {
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -89,7 +89,7 @@ export default function App() {
     <Suspense fallback={<RouteFallback />}>
 
       {/* Intended destination handler - check auth on mount and redirect if needed */}
-      <useAuthRedirect />
+      <UseAuthRedirect />
 
       <Routes>
         <Route path="/" element={<Landing />} />

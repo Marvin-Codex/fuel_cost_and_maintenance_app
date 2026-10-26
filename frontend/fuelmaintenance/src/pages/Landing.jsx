@@ -459,7 +459,7 @@ export default function Landing() {
               <div key={group.heading} className="fm-package-group" role="list">
                 <p className="fm-package-group-heading">{group.heading}</p>
                 {group.plans.map((plan) => {
-                  const popular = plan.key === 'personal-pro' || plan.key === 'group'
+                  const popular = plan.key === 'personal-pro'
                   const accountType = plan.kind === 'personal' ? 'personal' : 'organization'
                   return (
                     <Reveal as="article" key={plan.key || plan.id} className={`fm-card fm-card--lift fm-package${popular ? ' fm-package--hot' : ''}`}>

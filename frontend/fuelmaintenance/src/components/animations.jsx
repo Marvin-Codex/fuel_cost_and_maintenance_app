@@ -18,10 +18,16 @@ export function Reveal({ children, delay = 0, className = '', as: Tag = 'div', .
           }
         })
       },
-      { threshold: 0.15 },
+      { threshold: 0.1, rootMargin: '0px 0px 120px 0px' },
     )
     observer.observe(node)
-    return () => observer.disconnect()
+    // Fallback so content is never stuck invisible if the observer never fires
+    // (e.g. sections that render below the fold in some browsers).
+    const fallback = setTimeout(() => setVisible(true), 1500)
+    return () => {
+      observer.disconnect()
+      clearTimeout(fallback)
+    }
   }, [])
   return (
     <Tag ref={ref} className={`fm-reveal${visible ? ' is-visible' : ''} ${className}`.trim()} data-delay={delay || undefined} {...rest}>

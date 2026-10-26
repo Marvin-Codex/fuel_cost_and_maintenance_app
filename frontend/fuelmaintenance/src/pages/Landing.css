@@ -134,7 +134,7 @@
 .fm-vehicle-card .car .s0 { stop-color: var(--light); }
 .fm-vehicle-card .car .s1 { stop-color: var(--light); stop-opacity: 0; }
 /* --- Car illustration: motion (transform / opacity / dashoffset only) --- */
-.fm-vehicle-card .car .spin { transform-origin: 0 0; animation: car-spin var(--dur, 1s) linear infinite; }
+.fm-vehicle-card .car .spin { transform-box: fill-box; transform-origin: center; animation: car-spin var(--dur, 1s) linear infinite; }
 .fm-vehicle-card .car .bob { animation: car-bob calc(var(--dur, 1s) * 0.55) ease-in-out infinite; }
 .fm-vehicle-card .car .dash { animation: car-road calc(var(--dur, 1s) * 0.305) linear infinite; }
 .fm-vehicle-card .car .streak { animation: car-streak 0.6s linear infinite; }
@@ -176,11 +176,11 @@
 .fm-vehicle-card .moto .s1 { stop-color: var(--light); stop-opacity: 0; }
 
 /* --- Motorcycle illustration motion --- */
-.fm-vehicle-card .moto .spin { transform-origin: 0 0; animation: moto-spin var(--dur, 1s) linear infinite; }
+.fm-vehicle-card .moto .spin { transform-box: fill-box; transform-origin: center; animation: moto-spin var(--dur, 1s) linear infinite; }
 .fm-vehicle-card .moto .bob { animation: moto-bob calc(var(--dur, 1s) * 0.5) ease-in-out infinite; }
 .fm-vehicle-card .moto .vib { animation: moto-vib 0.1s linear infinite alternate; }
 .fm-vehicle-card .moto .dash { animation: moto-road calc(var(--dur, 1s) * 0.244) linear infinite; }
-.fm-vehicle-card .moto .puff { animation: moto-puff 0.9s ease-out infinite; }
+.fm-vehicle-card .moto .puff { transform-box: fill-box; transform-origin: center; animation: moto-puff 0.9s ease-out infinite; }
 .fm-vehicle-card .moto .streak { animation: moto-streak 0.6s linear infinite; }
 .fm-vehicle-card .moto .beam { animation: moto-flicker 3s ease-in-out infinite; }
 @keyframes moto-spin { to { transform: rotate(360deg); } }
