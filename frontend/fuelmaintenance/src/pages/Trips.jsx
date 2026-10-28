@@ -1,15 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createTrip, fetchTripSummary, listTrips } from '../api/resources'
+import { createTrip, fetchTripSummary, listTrips, listMaintenanceReminders } from '../api/resources'
 import { completeTrip as completeOdometerTrip, startTrip as startOdometerTrip } from '../api/trips'
 import { MapView } from '../components/ui/MapView'
 import TripPlanner from '../components/ui/TripPlanner'
 import LocationSearchInput from '../components/ui/LocationSearchInput'
 import './Trips.css'
 
+function formatUgxShort(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '—'
+  if (Math.abs(number) >= 1000000) return `${(number / 1000000).toFixed(1)}M`
+  if (Math.abs(number) >= 1000) return `${Math.round(number / 1000)}K`
+  return String(Math.round(number))
+}
+
 function formatUgx(value) {
   const number = Number(value)
   if (!Number.isFinite(number)) return '—'
-  return `UGX ${Math.round(number).toLocaleString('en-UG')}`
+  return formatUgxShort(number)
+}
+
+function formatNumber(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return '—'
+  return number.toLocaleString('en-UG')
 }
 
 function formatKm(km) {
@@ -88,6 +102,8 @@ function summarizeTrips(rows) {
     fuel: fuels.length ? sum(fuels) : null,
     duration: durations.length ? sum(durations) : null,
     consumption: consumptions.length ? sum(consumptions) / consumptions.length : null,
+    month_distance_km: distances.length ? sum(distances) : null,
+    month_fuel_liters: fuels.length ? sum(fuels) : null,
   }
 }
 
@@ -108,6 +124,7 @@ export default function Trips({ onBack, vehicle, access }) {
   const [tripComparison, setTripComparison] = useState(null)
   const [startLocation, setStartLocation] = useState('')
   const [destination, setDestination] = useState('')
+  const [reminders, setReminders] = useState([])
   const [endOdometer, setEndOdometer] = useState('')
   const [form, setForm] = useState(() => {
     const now = new Date()
@@ -396,12 +413,28 @@ export default function Trips({ onBack, vehicle, access }) {
       }
       if (gpsSummary) payload.notes = gpsSummary
       await createTrip(payload)
-      const [rows, tripSummary] = await Promise.all([
+      const [rows, tripSummary, maintenanceReminders] = await Promise.all([
         listTrips({ vehicle: vehicleId }),
         fetchTripSummary({ vehicle: vehicleId }),
+        access?.can('maintenance.view')
+          ? listMaintenanceReminders({ vehicle: vehicleId })
+          : [],
       ])
       setTrips(rows)
-      setSummary(tripSummary)
+      const monthDistances = rows.map((trip) => Number(trip.distance_km)).filter(Number.isFinite)
+      const monthFuels = rows.map((trip) => Number(trip.fuel_consumed_liters)).filter(Number.isFinite)
+      const sum = (values) => values.reduce((total, value) => total + value, 0)
+      const monthlyStats = {
+        trip_count: rows.length,
+        distance_km: monthDistances.length ? sum(monthDistances) : null,
+        fuel_used_liters: monthFuels.length ? sum(monthFuels) : null,
+      }
+      const mergedSummary = {
+        ...tripSummary,
+        this_month: { ...tripSummary?.this_month, ...monthlyStats },
+      }
+      setSummary(mergedSummary)
+      setReminders(maintenanceReminders || [])
       const actualDistance = Math.round(totalDistance * 100) / 100
       const actualDuration = durationSeconds
       const actualFuel = plannedEstimate?.consumption
@@ -486,8 +519,22 @@ export default function Trips({ onBack, vehicle, access }) {
     Promise.all([listTrips({ vehicle: vehicleId }), fetchTripSummary({ vehicle: vehicleId })])
       .then(([rows, tripSummary]) => {
         if (cancelled) return
+        // Compute monthly aggregates from trips data for alignment with Dashboard
+        const monthDistances = rows.map((trip) => Number(trip.distance_km)).filter(Number.isFinite)
+        const monthFuels = rows.map((trip) => Number(trip.fuel_consumed_liters)).filter(Number.isFinite)
+        const sum = (values) => values.reduce((total, value) => total + value, 0)
+        const monthlyStats = {
+          trip_count: rows.length,
+          distance_km: monthDistances.length ? sum(monthDistances) : null,
+          fuel_used_liters: monthFuels.length ? sum(monthFuels) : null,
+        }
+        // Merge API summary with local monthly stats (local takes precedence for month fields)
+        const mergedSummary = {
+          ...tripSummary,
+          this_month: { ...tripSummary?.this_month, ...monthlyStats },
+        }
         setTrips(rows)
-        setSummary(tripSummary)
+        setSummary(mergedSummary)
         setLoading(false)
       })
       .catch((err) => {
@@ -514,6 +561,8 @@ export default function Trips({ onBack, vehicle, access }) {
   const todayStats = summarizeTrips(todayTrips)
   const yesterdayStats = summarizeTrips(yesterdayTrips)
   const comparisonReady = todayStats.count > 0 && yesterdayStats.count > 0
+  // efficiencyGain: positive = fuel efficiency improved (consumption decreased),
+  // negative = fuel efficiency worsened (consumption increased)
   const efficiencyGain = comparisonReady && yesterdayStats.consumption && todayStats.consumption
     ? Math.round(((yesterdayStats.consumption - todayStats.consumption) / yesterdayStats.consumption) * 100)
     : null
@@ -868,6 +917,14 @@ export default function Trips({ onBack, vehicle, access }) {
                 <span>{tripComparison.actual.cost !== null ? formatDiff(tripComparison.actual.cost - tripComparison.planned.estimatedCost, 'UGX') : '—'}</span>
               </div>
             )}
+            {reminders.length > 0 && (
+              <div className="trip-comparison-row">
+                <span>Service</span>
+                <span>{'—'}</span>
+                <span>{reminders[0]?.km_remaining !== null && reminders[0]?.km_remaining !== undefined ? formatNumber(reminders[0].km_remaining) + ' km remaining' : '—'}</span>
+                <span>{'—'}</span>
+              </div>
+          )}
           </div>
         </section>
       )}
