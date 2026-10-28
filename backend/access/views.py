@@ -1,11 +1,14 @@
 """Workspace / plan / role management APIs (spec sections 9-10)."""
 from django.contrib.auth import get_user_model
 from django.db import models
-from rest_framework import serializers, viewsets
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.filters import SearchFilter
+from django.core.management import call_command
+from io import StringIO
 
 from .drf import WorkspacePermission, canonical_code
 from .models import Membership, Permission, Plan, Role, VehiclePreset, Workspace
@@ -248,6 +251,8 @@ class VehiclePresetSerializer(serializers.ModelSerializer):
 class VehiclePresetViewSet(SuperadminViewSet):
     queryset = VehiclePreset.objects.all()
     serializer_class = VehiclePresetSerializer
+    filter_backends = [SearchFilter]
+    search_fields = ['name', 'make', 'model', 'year', 'engine', 'fuel_type', 'transmission', 'drive_type', 'body_type']
 
     def check_permissions(self, request):
         # Any signed-in user may browse presets to pick from when adding a vehicle.
@@ -261,6 +266,15 @@ class VehiclePresetViewSet(SuperadminViewSet):
         if self.request.user.is_superuser:
             return qs
         return qs.filter(is_active=True)
+
+    @action(detail=False, methods=['post'])
+    def bulk_import(self, request):
+        try:
+            out = StringIO()
+            call_command('import_vehicle_presets', stdout=out)
+            return Response({'detail': 'Import completed', 'output': out.getvalue()})
+        except Exception as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
     def perform_destroy(self, instance):
         instance.is_active = False

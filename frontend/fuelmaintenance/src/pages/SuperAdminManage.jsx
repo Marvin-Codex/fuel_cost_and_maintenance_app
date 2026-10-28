@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import * as auth from '../api/auth'
-import { createAdmin, deactivateAdmin, fetchAdminReference, listAdmin, updateAdmin } from '../api/access'
+import { createAdmin, bulkImportVehiclePresets, deactivateAdmin, fetchAdminReference, listAdmin, updateAdmin } from '../api/access'
 import Sidebar from '../components/Sidebar'
 import DashboardHeader from '../components/DashboardHeader'
 import { useSyncStatus } from '../hooks/useSyncStatus'
@@ -475,6 +475,9 @@ export default function SuperAdminManage() {
   const user = auth.getStoredUser()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [rows, setRows] = useState([])
+  const [pagination, setPagination] = useState({ count: 0, next: null, previous: null })
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
   const [form, setForm] = useState({})
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -487,13 +490,22 @@ export default function SuperAdminManage() {
     if (!SECTIONS[resource]) { navigate('/super-admin/workspaces', { replace: true }); return undefined }
     if (!auth.getStoredUser()?.is_superuser) { navigate('/dashboard', { replace: true }); return undefined }
     let mounted = true
-    listAdmin(apiPath(resource)).then((data) => {
-      if (mounted) setRows(Array.isArray(data) ? data : data.results ?? [])
+    setLoading(true)
+    listAdmin(apiPath(resource), { page, search: search || undefined }).then((data) => {
+      if (mounted) {
+        if (Array.isArray(data)) {
+          setRows(data)
+          setPagination({ count: data.length, next: null, previous: null })
+        } else {
+          setRows(data.results ?? [])
+          setPagination({ count: data.count ?? 0, next: data.next, previous: data.previous })
+        }
+      }
     }).catch((e) => { if (mounted) setError(e.message) }).finally(() => {
       if (mounted) setLoading(false)
     })
     return () => { mounted = false }
-  }, [navigate, resource])
+  }, [navigate, resource, page, search])
   /* Reference data for the pickers (plans, users, workspaces, roles, catalog). */
   useEffect(() => {
     let mounted = true
@@ -537,6 +549,8 @@ export default function SuperAdminManage() {
   function handleNav(id) {
     if (id === 'sa-overview') navigate('/super-admin')
     else navigate(`/super-admin/${id.replace('sa-', '')}`)
+    setPage(1)
+    setSearch('')
   }
 
   return (
@@ -556,8 +570,34 @@ export default function SuperAdminManage() {
         <div className="super-admin-hero"><div><p className="eyebrow">SUPER ADMIN / {resource.toUpperCase()}</p><h1>{section.title}</h1><p className="super-admin-section-description">{section.description}</p></div><span className="live-pill"><i /> PROTECTED</span></div>
         {error && <div className="dashboard-notice" role="alert">{error}</div>}
         <section className="panel super-admin-panel super-admin-manager">
-          <div className="panel-title"><h2>All {resource}</h2><b>{rows.length} RECORDS</b></div>
-          {!section.readOnly && <button className="super-admin-create-button" type="button" onClick={openCreate}>+ Add {section.singular}</button>}
+          <div className="panel-title"><h2>All {resource}</h2><b>{pagination.count || rows.length} RECORDS</b></div>
+          {!section.readOnly && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+              {resource === 'vehicle-presets' && (
+                <button className="super-admin-create-button" type="button" onClick={async () => {
+                  if (!window.confirm('Import vehicle presets from docs/vehicle_dataset.csv?')) return
+                  try {
+                    const res = await bulkImportVehiclePresets()
+                    alert(res?.detail || 'Import completed')
+                    window.location.reload()
+                  } catch (e) {
+                    alert(e.message)
+                  }
+                }}>BULK IMPORT FROM CSV</button>
+              )}
+              <button className="super-admin-create-button" type="button" onClick={openCreate}>+ Add {section.singular}</button>
+            </div>
+          )}
+          {resource === 'vehicle-presets' && (
+            <div style={{ marginBottom: 12 }}>
+              <input
+                placeholder="Search make, model, year..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                style={{ width: '100%', maxWidth: 320, padding: '8px 10px', borderRadius: 6 }}
+              />
+            </div>
+          )}
           <div className="super-admin-list">
             {rows.length ? rows.map((row) => {
               const title = row.name ?? row.username ?? row.workspace_name ?? row.key ?? row.id
@@ -565,6 +605,13 @@ export default function SuperAdminManage() {
               return <div key={row.id} className={row.is_active === false ? 'is-inactive' : ''}><span>{title}<small>{detail}</small></span><strong>{row.is_active === false ? 'Inactive' : <><button type="button" onClick={() => openEdit(row)}>{section.readOnly ? 'View' : 'Edit'}</button>{!section.readOnly && <button type="button" onClick={() => setDeleteId(row.id)}>Delete</button>}</>}</strong></div>
             }) : <p className="super-admin-empty">{loading ? 'Loading records…' : 'No records found.'}</p>}
           </div>
+          {resource === 'vehicle-presets' && (pagination.next || pagination.previous) && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
+              <button type="button" disabled={!pagination.previous || loading} onClick={() => setPage(p => Math.max(1, p-1))}>Previous</button>
+              <span>Page {page}</span>
+              <button type="button" disabled={!pagination.next || loading} onClick={() => setPage(p => p+1)}>Next</button>
+            </div>
+          )}
         </section>
       </section>
 
