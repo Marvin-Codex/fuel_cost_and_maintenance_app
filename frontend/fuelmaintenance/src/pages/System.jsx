@@ -29,10 +29,27 @@ function vehicleDraftFrom(vehicle = null) {
     year: vehicle?.year ?? '',
     license_plate: vehicle?.registration ?? vehicle?.license_plate ?? '',
     vin: vehicle?.vin ?? '',
+    color: vehicle?.color ?? '',
+    body_type: vehicle?.body_type ?? '',
+    doors: vehicle?.doors ?? '',
+    seats: vehicle?.seats ?? '',
     engine_capacity_cc: vehicle?.engine_capacity_cc ?? '',
+    cylinders: vehicle?.cylinders ?? '',
     fuel_type: vehicle?.fuel_type ?? 'petrol',
     transmission: vehicle?.transmission ?? 'automatic',
+    drive_type: vehicle?.drive_type ?? '',
+    power_hp: vehicle?.power_hp ?? '',
+    power_kw: vehicle?.power_kw ?? '',
+    torque_nm: vehicle?.torque_nm ?? '',
+    top_speed_kmh: vehicle?.top_speed_kmh ?? '',
+    curb_weight_kg: vehicle?.curb_weight_kg ?? '',
+    gross_weight_kg: vehicle?.gross_weight_kg ?? '',
     tank_capacity_liters: vehicle?.tank_capacity_liters ?? '',
+    combined_fuel_consumption_l_100km: vehicle?.combined_fuel_consumption_l_100km ?? '',
+    city_fuel_consumption_l_100km: vehicle?.city_fuel_consumption_l_100km ?? '',
+    highway_fuel_consumption_l_100km: vehicle?.highway_fuel_consumption_l_100km ?? '',
+    battery_capacity_kwh: vehicle?.battery_capacity_kwh ?? '',
+    electric_range_km: vehicle?.electric_range_km ?? '',
     odometer_km: vehicle?.odometer ?? vehicle?.odometer_km ?? 0,
     status: vehicle?.status ?? 'simulation',
   }
@@ -111,10 +128,27 @@ export default function System({ onBack, vehicle, access, onVehiclesChanged }) {
         license_plate: vehicleDraft.license_plate.trim(),
         odometer_km: Number(vehicleDraft.odometer_km),
         vin: vehicleDraft.vin.trim(),
+        color: vehicleDraft.color.trim(),
+        body_type: vehicleDraft.body_type || '',
+        doors: vehicleDraft.doors ? Number(vehicleDraft.doors) : null,
+        seats: vehicleDraft.seats ? Number(vehicleDraft.seats) : null,
         engine_capacity_cc: vehicleDraft.engine_capacity_cc ? Number(vehicleDraft.engine_capacity_cc) : null,
+        cylinders: vehicleDraft.cylinders ? Number(vehicleDraft.cylinders) : null,
         fuel_type: vehicleDraft.fuel_type,
         transmission: vehicleDraft.transmission,
+        drive_type: vehicleDraft.drive_type || '',
+        power_hp: vehicleDraft.power_hp ? Number(vehicleDraft.power_hp) : null,
+        power_kw: vehicleDraft.power_kw ? Number(vehicleDraft.power_kw) : null,
+        torque_nm: vehicleDraft.torque_nm ? Number(vehicleDraft.torque_nm) : null,
+        top_speed_kmh: vehicleDraft.top_speed_kmh ? Number(vehicleDraft.top_speed_kmh) : null,
+        curb_weight_kg: vehicleDraft.curb_weight_kg ? Number(vehicleDraft.curb_weight_kg) : null,
+        gross_weight_kg: vehicleDraft.gross_weight_kg ? Number(vehicleDraft.gross_weight_kg) : null,
         tank_capacity_liters: vehicleDraft.tank_capacity_liters ? Number(vehicleDraft.tank_capacity_liters) : null,
+        combined_fuel_consumption_l_100km: vehicleDraft.combined_fuel_consumption_l_100km ? Number(vehicleDraft.combined_fuel_consumption_l_100km) : null,
+        city_fuel_consumption_l_100km: vehicleDraft.city_fuel_consumption_l_100km ? Number(vehicleDraft.city_fuel_consumption_l_100km) : null,
+        highway_fuel_consumption_l_100km: vehicleDraft.highway_fuel_consumption_l_100km ? Number(vehicleDraft.highway_fuel_consumption_l_100km) : null,
+        battery_capacity_kwh: vehicleDraft.battery_capacity_kwh ? Number(vehicleDraft.battery_capacity_kwh) : null,
+        electric_range_km: vehicleDraft.electric_range_km ? Number(vehicleDraft.electric_range_km) : null,
         status: vehicleDraft.status,
       }
       if (String(vehicleDraft.year).trim()) payload.year = Number(vehicleDraft.year)
@@ -272,35 +306,66 @@ export default function System({ onBack, vehicle, access, onVehiclesChanged }) {
               ['year', 'Year'],
               ['license_plate', 'License plate'],
               ['vin', 'VIN'],
+              ['color', 'Color'],
+              ['doors', 'Doors'],
+              ['seats', 'Seats'],
               ['engine_capacity_cc', 'Engine capacity (cc)'],
+              ['cylinders', 'Cylinders'],
               ['tank_capacity_liters', 'Tank capacity (litres)'],
               ['odometer_km', 'Odometer (km)'],
+              ['power_hp', 'Power (hp)'],
+              ['power_kw', 'Power (kW)'],
+              ['torque_nm', 'Torque (Nm)'],
+              ['top_speed_kmh', 'Top speed (km/h)'],
+              ['curb_weight_kg', 'Curb weight (kg)'],
+              ['gross_weight_kg', 'Gross weight (kg)'],
+              ['combined_fuel_consumption_l_100km', 'Combined (L/100 km)'],
+              ['city_fuel_consumption_l_100km', 'City (L/100 km)'],
+              ['highway_fuel_consumption_l_100km', 'Highway (L/100 km)'],
+              ['battery_capacity_kwh', 'Battery (kWh)'],
+              ['electric_range_km', 'Electric range (km)'],
             ].map(([name, label]) => (
               <label key={name}>
                 {label}
                 <input
                   name={name}
-                  type={['year', 'engine_capacity_cc', 'tank_capacity_liters', 'odometer_km'].includes(name) ? 'number' : 'text'}
-                  min={name === 'year' ? '1900' : name === 'tank_capacity_liters' ? '0.01' : name === 'engine_capacity_cc' ? '1' : '0'}
+                  type={['year', 'doors', 'seats', 'engine_capacity_cc', 'cylinders', 'tank_capacity_liters', 'odometer_km', 'power_hp', 'power_kw', 'torque_nm', 'top_speed_kmh', 'curb_weight_kg', 'gross_weight_kg', 'combined_fuel_consumption_l_100km', 'city_fuel_consumption_l_100km', 'highway_fuel_consumption_l_100km', 'battery_capacity_kwh', 'electric_range_km'].includes(name) ? 'number' : 'text'}
+                  min={name === 'year' ? '1900' : name === 'tank_capacity_liters' || name.includes('fuel_consumption') ? '0.01' : name === 'engine_capacity_cc' ? '1' : name === 'doors' || name === 'seats' ? '1' : name === 'cylinders' ? '1' : name === 'odometer_km' ? '0' : '0'}
                   max={name === 'year' ? '2100' : undefined}
-                  step={name === 'tank_capacity_liters' ? '0.01' : '1'}
+                  step={name === 'tank_capacity_liters' || name.includes('fuel_consumption') || name === 'power_hp' || name === 'power_kw' || name === 'torque_nm' || name === 'top_speed_kmh' || name === 'curb_weight_kg' || name === 'gross_weight_kg' || name === 'battery_capacity_kwh' ? '0.01' : '1'}
                   value={vehicleDraft[name]}
                   onChange={updateDraft}
-                  required={['make', 'model', 'year', 'license_plate', 'engine_capacity_cc', 'tank_capacity_liters'].includes(name)}
+                  required={['make', 'model', 'year', 'license_plate'].includes(name)}
                 />
               </label>
             ))}
             <label>Fuel type
               <select name="fuel_type" value={vehicleDraft.fuel_type} onChange={updateDraft}>
-                {['petrol', 'diesel', 'electric', 'hybrid', 'lpg'].map((value) => (
+                {['petrol', 'diesel', 'electric', 'hybrid', 'lpg', 'cng', 'other'].map((value) => (
                   <option key={value} value={value}>{value.toUpperCase()}</option>
                 ))}
               </select>
             </label>
             <label>Transmission
               <select name="transmission" value={vehicleDraft.transmission} onChange={updateDraft}>
-                {['manual', 'automatic', 'cvt', 'other'].map((value) => (
+                {['manual', 'automatic', 'cvt', 'dct', 'amt', 'other'].map((value) => (
                   <option key={value} value={value}>{value.toUpperCase()}</option>
+                ))}
+              </select>
+            </label>
+            <label>Drive type
+              <select name="drive_type" value={vehicleDraft.drive_type} onChange={updateDraft}>
+                <option value="">—</option>
+                {['fwd', 'rwd', 'awd', '4wd', 'other'].map((value) => (
+                  <option key={value} value={value}>{value.toUpperCase()}</option>
+                ))}
+              </select>
+            </label>
+            <label>Body type
+              <select name="body_type" value={vehicleDraft.body_type} onChange={updateDraft}>
+                <option value="">—</option>
+                {['sedan', 'hatchback', 'suv', 'crossover', 'wagon', 'pickup', 'van', 'coupe', 'convertible', 'bus', 'other'].map((value) => (
+                  <option key={value} value={value}>{value.replace(/_/g, ' ').toUpperCase()}</option>
                 ))}
               </select>
             </label>
@@ -309,6 +374,7 @@ export default function System({ onBack, vehicle, access, onVehiclesChanged }) {
                 <option value="simulation">Simulation</option>
                 <option value="active">Active</option>
                 <option value="maintenance">Maintenance</option>
+                <option value="in_service">In service</option>
                 <option value="inactive">Inactive</option>
               </select>
             </label>
@@ -323,13 +389,30 @@ export default function System({ onBack, vehicle, access, onVehiclesChanged }) {
               ['Make', vehicle?.make ?? '—'],
               ['Model', vehicle?.model ?? '—'],
               ['Year', vehicle?.year ?? '—'],
-              ['Registration', vehicle?.registration ?? '—'],
+              ['Registration', vehicle?.registration ?? vehicle?.license_plate ?? '—'],
               ['VIN', vehicle?.vin ?? '—'],
+              ['Color', vehicle?.color ?? '—'],
+              ['Body type', vehicle?.body_type ? vehicle.body_type.replace(/_/g, ' ') : '—'],
+              ['Doors', vehicle?.doors ?? '—'],
+              ['Seats', vehicle?.seats ?? '—'],
               ['Engine capacity', vehicle?.engine_capacity_cc ? `${vehicle.engine_capacity_cc} cc` : '—'],
-              ['Fuel type', vehicle?.fuel_type ?? vehicle?.engine ?? '—'],
+              ['Cylinders', vehicle?.cylinders ?? '—'],
+              ['Fuel type', vehicle?.fuel_type ?? '—'],
               ['Transmission', vehicle?.transmission ?? '—'],
+              ['Drive type', vehicle?.drive_type ? vehicle.drive_type.toUpperCase() : '—'],
+              ['Power (hp)', vehicle?.power_hp ?? '—'],
+              ['Power (kW)', vehicle?.power_kw ?? '—'],
+              ['Torque (Nm)', vehicle?.torque_nm ?? '—'],
+              ['Top speed (km/h)', vehicle?.top_speed_kmh ?? '—'],
+              ['Curb weight (kg)', vehicle?.curb_weight_kg ?? '—'],
+              ['Gross weight (kg)', vehicle?.gross_weight_kg ?? '—'],
               ['Tank capacity', vehicle?.tank_capacity_liters ? `${vehicle.tank_capacity_liters} L` : '—'],
-              ['Odometer', vehicle?.odometer !== undefined && vehicle?.odometer !== null ? `${Number(vehicle.odometer).toLocaleString('en-UG')} km` : '—'],
+              ['Combined consumption', vehicle?.combined_fuel_consumption_l_100km ? `${vehicle.combined_fuel_consumption_l_100km} L/100 km` : '—'],
+              ['City consumption', vehicle?.city_fuel_consumption_l_100km ? `${vehicle.city_fuel_consumption_l_100km} L/100 km` : '—'],
+              ['Highway consumption', vehicle?.highway_fuel_consumption_l_100km ? `${vehicle.highway_fuel_consumption_l_100km} L/100 km` : '—'],
+              ['Battery capacity', vehicle?.battery_capacity_kwh ? `${vehicle.battery_capacity_kwh} kWh` : '—'],
+              ['Electric range', vehicle?.electric_range_km ? `${vehicle.electric_range_km} km` : '—'],
+              ['Odometer', vehicle?.odometer !== undefined && vehicle?.odometer !== null ? `${Number(vehicle.odometer).toLocaleString('en-UG')} km` : (vehicle?.odometer_km !== undefined && vehicle?.odometer_km !== null ? `${Number(vehicle.odometer_km).toLocaleString('en-UG')} km` : '—')],
             ].map(([label, value]) => (
               <div className="vehicle-info-item" key={label}><span>{label}</span><strong>{value}</strong></div>
             ))}

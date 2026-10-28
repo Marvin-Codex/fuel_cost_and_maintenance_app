@@ -198,17 +198,71 @@ function fields(resource, form, editingId, setField, refs) {
     <Field label="Year">
       <input type="number" min="1900" max="2100" placeholder="2018" value={form.year ?? ''} onChange={(e) => setField('year', e.target.value || null)} />
     </Field>
+    <Field label="Color">
+      <input placeholder="White" value={form.color ?? ''} onChange={(e) => setField('color', e.target.value)} />
+    </Field>
+    <Field label="Body type">
+      <select value={form.body_type ?? ''} onChange={(e) => setField('body_type', e.target.value)}><option value="">—</option>{['sedan','hatchback','suv','crossover','wagon','pickup','van','coupe','convertible','bus','other'].map(v=><option key={v} value={v}>{v.replace(/_/g,' ').toUpperCase()}</option>)}</select>
+    </Field>
+    <Field label="Doors">
+      <input type="number" min="1" placeholder="4" value={form.doors ?? ''} onChange={(e) => setField('doors', e.target.value || null)} />
+    </Field>
+    <Field label="Seats">
+      <input type="number" min="1" placeholder="5" value={form.seats ?? ''} onChange={(e) => setField('seats', e.target.value || null)} />
+    </Field>
     <Field label="Fuel type">
-      <select value={form.fuel_type ?? 'petrol'} onChange={(e) => setField('fuel_type', e.target.value)}><option value="petrol">Petrol</option><option value="diesel">Diesel</option><option value="electric">Electric</option><option value="hybrid">Hybrid</option><option value="lpg">LPG</option></select>
+      <select value={form.fuel_type ?? 'petrol'} onChange={(e) => setField('fuel_type', e.target.value)}><option value="petrol">Petrol</option><option value="diesel">Diesel</option><option value="electric">Electric</option><option value="hybrid">Hybrid</option><option value="lpg">LPG</option><option value="cng">CNG</option><option value="other">Other</option></select>
     </Field>
     <Field label="Engine">
       <input placeholder="1.8L 2ZR-FAE" value={form.engine ?? ''} onChange={(e) => setField('engine', e.target.value)} />
     </Field>
+    <Field label="Engine capacity (cc)">
+      <input type="number" min="1" placeholder="1800" value={form.engine_capacity_cc ?? ''} onChange={(e) => setField('engine_capacity_cc', e.target.value || null)} />
+    </Field>
+    <Field label="Cylinders">
+      <input type="number" min="1" placeholder="4" value={form.cylinders ?? ''} onChange={(e) => setField('cylinders', e.target.value || null)} />
+    </Field>
     <Field label="Transmission">
-      <input placeholder="Automatic" value={form.transmission ?? ''} onChange={(e) => setField('transmission', e.target.value)} />
+      <select value={form.transmission ?? ''} onChange={(e) => setField('transmission', e.target.value)}><option value="">—</option><option value="manual">Manual</option><option value="automatic">Automatic</option><option value="cvt">CVT</option><option value="dct">DCT</option><option value="amt">AMT</option><option value="other">Other</option></select>
+    </Field>
+    <Field label="Drive type">
+      <select value={form.drive_type ?? ''} onChange={(e) => setField('drive_type', e.target.value)}><option value="">—</option><option value="fwd">FWD</option><option value="rwd">RWD</option><option value="awd">AWD</option><option value="4wd">4WD</option><option value="other">Other</option></select>
+    </Field>
+    <Field label="Power (hp)">
+      <input type="number" min="0" step="0.01" placeholder="140" value={form.power_hp ?? ''} onChange={(e) => setField('power_hp', e.target.value || null)} />
+    </Field>
+    <Field label="Power (kW)">
+      <input type="number" min="0" step="0.01" placeholder="104" value={form.power_kw ?? ''} onChange={(e) => setField('power_kw', e.target.value || null)} />
+    </Field>
+    <Field label="Torque (Nm)">
+      <input type="number" min="0" step="0.01" placeholder="173" value={form.torque_nm ?? ''} onChange={(e) => setField('torque_nm', e.target.value || null)} />
+    </Field>
+    <Field label="Top speed (km/h)">
+      <input type="number" min="0" step="0.01" placeholder="200" value={form.top_speed_kmh ?? ''} onChange={(e) => setField('top_speed_kmh', e.target.value || null)} />
+    </Field>
+    <Field label="Curb weight (kg)">
+      <input type="number" min="0" step="0.01" placeholder="1300" value={form.curb_weight_kg ?? ''} onChange={(e) => setField('curb_weight_kg', e.target.value || null)} />
+    </Field>
+    <Field label="Gross weight (kg)">
+      <input type="number" min="0" step="0.01" placeholder="1700" value={form.gross_weight_kg ?? ''} onChange={(e) => setField('gross_weight_kg', e.target.value || null)} />
     </Field>
     <Field label="Tank capacity (L)">
-      <input type="number" min="0" step="0.1" placeholder="60" value={form.tank_capacity_l ?? ''} onChange={(e) => setField('tank_capacity_l', e.target.value || null)} />
+      <input type="number" min="0" step="0.01" placeholder="60" value={form.tank_capacity_liters ?? form.tank_capacity_l ?? ''} onChange={(e) => { setField('tank_capacity_liters', e.target.value || null); setField('tank_capacity_l', e.target.value || null) }} />
+    </Field>
+    <Field label="Combined (L/100 km)">
+      <input type="number" min="0" step="0.01" placeholder="6.5" value={form.combined_fuel_consumption_l_100km ?? ''} onChange={(e) => setField('combined_fuel_consumption_l_100km', e.target.value || null)} />
+    </Field>
+    <Field label="City (L/100 km)">
+      <input type="number" min="0" step="0.01" placeholder="8.0" value={form.city_fuel_consumption_l_100km ?? ''} onChange={(e) => setField('city_fuel_consumption_l_100km', e.target.value || null)} />
+    </Field>
+    <Field label="Highway (L/100 km)">
+      <input type="number" min="0" step="0.01" placeholder="5.0" value={form.highway_fuel_consumption_l_100km ?? ''} onChange={(e) => setField('highway_fuel_consumption_l_100km', e.target.value || null)} />
+    </Field>
+    <Field label="Battery (kWh)">
+      <input type="number" min="0" step="0.01" placeholder="50" value={form.battery_capacity_kwh ?? ''} onChange={(e) => setField('battery_capacity_kwh', e.target.value || null)} />
+    </Field>
+    <Field label="Electric range (km)">
+      <input type="number" min="0" placeholder="350" value={form.electric_range_km ?? ''} onChange={(e) => setField('electric_range_km', e.target.value || null)} />
     </Field>
   </>
   if (resource === 'workspaces') return <>

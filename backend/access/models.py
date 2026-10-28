@@ -111,6 +111,36 @@ class VehiclePreset(models.Model):
         ('electric', 'Electric'),
         ('hybrid', 'Hybrid'),
         ('lpg', 'LPG'),
+        ('cng', 'CNG'),
+        ('other', 'Other'),
+    ]
+    TRANSMISSION_TYPES = [
+        ('manual', 'Manual'),
+        ('automatic', 'Automatic'),
+        ('cvt', 'CVT'),
+        ('dct', 'Dual-Clutch (DCT)'),
+        ('amt', 'AMT'),
+        ('other', 'Other'),
+    ]
+    DRIVE_TYPES = [
+        ('fwd', 'Front-Wheel Drive (FWD)'),
+        ('rwd', 'Rear-Wheel Drive (RWD)'),
+        ('awd', 'All-Wheel Drive (AWD)'),
+        ('4wd', 'Four-Wheel Drive (4WD)'),
+        ('other', 'Other'),
+    ]
+    BODY_TYPES = [
+        ('sedan', 'Sedan'),
+        ('hatchback', 'Hatchback'),
+        ('suv', 'SUV'),
+        ('crossover', 'Crossover'),
+        ('wagon', 'Wagon/Station Wagon'),
+        ('pickup', 'Pickup/Truck'),
+        ('van', 'Van/Minivan'),
+        ('coupe', 'Coupe'),
+        ('convertible', 'Convertible'),
+        ('bus', 'Bus'),
+        ('other', 'Other'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -120,8 +150,27 @@ class VehiclePreset(models.Model):
     year = models.PositiveSmallIntegerField(null=True, blank=True)
     fuel_type = models.CharField(max_length=10, choices=FUEL_TYPES, default='petrol')
     engine = models.CharField(max_length=80, blank=True)
-    transmission = models.CharField(max_length=30, blank=True)
+    engine_capacity_cc = models.PositiveIntegerField(null=True, blank=True)
+    cylinders = models.PositiveSmallIntegerField(null=True, blank=True)
+    transmission = models.CharField(max_length=30, choices=TRANSMISSION_TYPES, blank=True)
+    drive_type = models.CharField(max_length=10, choices=DRIVE_TYPES, blank=True)
+    body_type = models.CharField(max_length=20, choices=BODY_TYPES, blank=True)
+    doors = models.PositiveSmallIntegerField(null=True, blank=True)
+    seats = models.PositiveSmallIntegerField(null=True, blank=True)
+    color = models.CharField(max_length=30, blank=True)
+    power_hp = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    power_kw = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    torque_nm = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    top_speed_kmh = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    curb_weight_kg = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    gross_weight_kg = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     tank_capacity_l = models.DecimalField(max_digits=6, decimal_places=1, null=True, blank=True)
+    tank_capacity_liters = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    combined_fuel_consumption_l_100km = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    city_fuel_consumption_l_100km = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    highway_fuel_consumption_l_100km = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    battery_capacity_kwh = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    electric_range_km = models.PositiveIntegerField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

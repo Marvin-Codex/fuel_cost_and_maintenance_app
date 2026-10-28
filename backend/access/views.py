@@ -235,7 +235,12 @@ class VehiclePresetSerializer(serializers.ModelSerializer):
         model = VehiclePreset
         fields = [
             'id', 'name', 'make', 'model', 'year', 'fuel_type', 'engine',
-            'transmission', 'tank_capacity_l', 'is_active', 'created_at', 'updated_at',
+            'engine_capacity_cc', 'cylinders', 'transmission', 'drive_type', 'body_type',
+            'doors', 'seats', 'color', 'power_hp', 'power_kw', 'torque_nm',
+            'top_speed_kmh', 'curb_weight_kg', 'gross_weight_kg',
+            'tank_capacity_l', 'tank_capacity_liters',
+            'combined_fuel_consumption_l_100km', 'city_fuel_consumption_l_100km', 'highway_fuel_consumption_l_100km',
+            'battery_capacity_kwh', 'electric_range_km', 'is_active', 'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
