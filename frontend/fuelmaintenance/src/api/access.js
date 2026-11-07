@@ -160,7 +160,14 @@ async function adminRequest(path, options = {}) {
   return data
 }
 
-export function listAdmin(resource) { return adminRequest(`/api/v1/access/${resource}/`) }
+export async function listAdmin(resource, params = {}) {
+  const query = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') query.append(key, value)
+  })
+  const suffix = query.toString() ? `?${query.toString()}` : ''
+  return adminRequest(`/api/v1/access/${resource}/${suffix}`)
+}
 export function createAdmin(resource, payload) {
   return adminRequest(`/api/v1/access/${resource}/`, { method: 'POST', body: JSON.stringify(payload) })
 }
@@ -175,6 +182,10 @@ export function deactivateAdmin(resource, id) {
 export async function listVehiclePresets() {
   const data = await adminRequest('/api/v1/access/vehicle-presets/')
   return Array.isArray(data) ? data : data.results ?? []
+}
+
+export async function bulkImportVehiclePresets() {
+  return adminRequest('/api/v1/access/vehicle-presets/bulk_import/', { method: 'POST', body: JSON.stringify({}) })
 }
 
 /**

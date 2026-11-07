@@ -33,8 +33,12 @@ class VehicleSerializer(serializers.ModelSerializer):
         model = Vehicle
         fields = [
             'id', 'owner', 'workspace', 'organization', 'assigned_drivers', 'name', 'make',
-            'model', 'year', 'license_plate', 'vin', 'fuel_type',
-            'engine_capacity_cc', 'transmission', 'tank_capacity_liters',
+            'model', 'year', 'license_plate', 'vin', 'color', 'body_type', 'doors', 'seats',
+            'fuel_type', 'engine_capacity_cc', 'cylinders', 'transmission', 'drive_type',
+            'power_hp', 'power_kw', 'torque_nm', 'top_speed_kmh', 'curb_weight_kg',
+            'gross_weight_kg', 'tank_capacity_liters', 'combined_fuel_consumption_l_100km',
+            'city_fuel_consumption_l_100km', 'highway_fuel_consumption_l_100km',
+            'battery_capacity_kwh', 'electric_range_km',
             'odometer_km', 'status', 'is_active', 'is_selected', 'created_at',
             'updated_at',
         ]
@@ -79,6 +83,15 @@ class VehicleSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 'engine_capacity_cc': 'Engine capacity must be greater than zero.'
             })
+        for field in ['power_hp', 'power_kw', 'torque_nm', 'top_speed_kmh',
+                      'curb_weight_kg', 'gross_weight_kg', 'tank_capacity_liters',
+                      'combined_fuel_consumption_l_100km', 'city_fuel_consumption_l_100km',
+                      'highway_fuel_consumption_l_100km', 'battery_capacity_kwh']:
+            val = attrs.get(field)
+            if val is not None and val <= 0:
+                raise serializers.ValidationError({
+                    field: f'{field} must be greater than zero.'
+                })
         if 'status' in self.initial_data and 'status' in attrs:
             attrs['is_active'] = attrs['status'] in {'active', 'simulation'}
         elif 'is_active' in self.initial_data and 'is_active' in attrs:

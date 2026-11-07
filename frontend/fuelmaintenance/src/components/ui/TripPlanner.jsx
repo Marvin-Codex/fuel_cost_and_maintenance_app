@@ -102,6 +102,7 @@ export default function TripPlanner({ vehicle, onStartTrip }) {
   const [selected, setSelected] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [serviceNotice, setServiceNotice] = useState(null)
   const [locating, setLocating] = useState(null)
   const [picking, setPicking] = useState('start')
   const debounceRef = useRef(null)
@@ -151,6 +152,7 @@ export default function TripPlanner({ vehicle, onStartTrip }) {
     if (!startCoords || !destCoords) return
     setLoading(true)
     setError(null)
+    setServiceNotice(null)
     try {
       const token = auth.readToken()
       const headers = token ? { Authorization: `Bearer ${token}` } : {}
@@ -163,6 +165,11 @@ export default function TripPlanner({ vehicle, onStartTrip }) {
       }
       if (!res.ok) throw new Error('Route request failed')
       const data = await res.json()
+      if (data.fallback) {
+        setServiceNotice(
+          'Routing service unavailable — showing a direct line instead of a road route.'
+        )
+      }
       const osrmRoutes = Array.isArray(data.routes) ? data.routes : []
       const mapped = osrmRoutes.map((r, i) => ({
         index: i,
@@ -313,6 +320,7 @@ export default function TripPlanner({ vehicle, onStartTrip }) {
       </div>
 
       {error && <p className="trip-notice" role="alert">{error}</p>}
+      {serviceNotice && <p className="trip-notice" role="status">{serviceNotice}</p>}
 
       {routes.length > 0 && (
         <div className="trip-planner-routes">

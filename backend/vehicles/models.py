@@ -17,11 +17,15 @@ class Vehicle(models.Model):
         ('electric', 'Electric'),
         ('hybrid', 'Hybrid'),
         ('lpg', 'LPG'),
+        ('cng', 'CNG'),
+        ('other', 'Other'),
     ]
     TRANSMISSION_TYPES = [
         ('manual', 'Manual'),
         ('automatic', 'Automatic'),
         ('cvt', 'CVT'),
+        ('dct', 'Dual-Clutch (DCT)'),
+        ('amt', 'AMT'),
         ('other', 'Other'),
     ]
     STATUS_CHOICES = [
@@ -29,6 +33,27 @@ class Vehicle(models.Model):
         ('inactive', 'Inactive'),
         ('in_service', 'In service'),
         ('simulation', 'Simulation'),
+        ('maintenance', 'Maintenance'),
+    ]
+    DRIVE_TYPES = [
+        ('fwd', 'Front-Wheel Drive (FWD)'),
+        ('rwd', 'Rear-Wheel Drive (RWD)'),
+        ('awd', 'All-Wheel Drive (AWD)'),
+        ('4wd', 'Four-Wheel Drive (4WD)'),
+        ('other', 'Other'),
+    ]
+    BODY_TYPES = [
+        ('sedan', 'Sedan'),
+        ('hatchback', 'Hatchback'),
+        ('suv', 'SUV'),
+        ('crossover', 'Crossover'),
+        ('wagon', 'Wagon/Station Wagon'),
+        ('pickup', 'Pickup/Truck'),
+        ('van', 'Van/Minivan'),
+        ('coupe', 'Coupe'),
+        ('convertible', 'Convertible'),
+        ('bus', 'Bus'),
+        ('other', 'Other'),
     ]
 
     owner = models.ForeignKey(
@@ -75,15 +100,64 @@ class Vehicle(models.Model):
     year = models.PositiveSmallIntegerField(null=True, blank=True)
     license_plate = models.CharField(max_length=20)
     vin = models.CharField(max_length=50, blank=True)
+    color = models.CharField(max_length=30, blank=True)
+    body_type = models.CharField(max_length=20, choices=BODY_TYPES, blank=True)
+    doors = models.PositiveSmallIntegerField(null=True, blank=True)
+    seats = models.PositiveSmallIntegerField(null=True, blank=True)
     fuel_type = models.CharField(max_length=10, choices=FUEL_TYPES, default='petrol')
     engine_capacity_cc = models.PositiveIntegerField(null=True, blank=True)
+    cylinders = models.PositiveSmallIntegerField(null=True, blank=True)
     transmission = models.CharField(
         max_length=20, choices=TRANSMISSION_TYPES, default='other'
+    )
+    drive_type = models.CharField(max_length=10, choices=DRIVE_TYPES, blank=True)
+    # Power
+    power_hp = models.DecimalField(
+        max_digits=7, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
+    power_kw = models.DecimalField(
+        max_digits=7, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
+    torque_nm = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
+    # Speeds / weights
+    top_speed_kmh = models.DecimalField(
+        max_digits=7, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
+    curb_weight_kg = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
+    gross_weight_kg = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.01'))],
     )
     tank_capacity_liters = models.DecimalField(
         max_digits=7, decimal_places=2, null=True, blank=True,
         validators=[MinValueValidator(Decimal('0.01'))],
     )
+    combined_fuel_consumption_l_100km = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
+    city_fuel_consumption_l_100km = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
+    highway_fuel_consumption_l_100km = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
+    battery_capacity_kwh = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0.01'))],
+    )
+    electric_range_km = models.PositiveIntegerField(null=True, blank=True)
     odometer_km = models.PositiveIntegerField(default=0)
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default='simulation'
