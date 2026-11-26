@@ -137,27 +137,31 @@ class Command(BaseCommand):
                     except Exception:
                         doors = None
 
-                hwy_mpg = row.get('highway MPG') or row.get('highway_mpg') or ''
-                city_mpg = row.get('city mpg') or row.get('city_mpg') or ''
+                hwy_mpg = row.get('highway MPG') or row.get('highway_mpg') or row.get('Highway MPG') or ''
+                city_mpg = row.get('city mpg') or row.get('city_mpg') or row.get('City MPG') or row.get('City mpg') or ''
                 hwy = None
                 city = None
                 try:
-                    if hwy_mpg:
+                    if hwy_mpg not in (None, '', '0'):
                         hwy = Decimal(str(hwy_mpg))
                 except Exception:
                     pass
                 try:
-                    if city_mpg:
+                    if city_mpg not in (None, '', '0'):
                         city = Decimal(str(city_mpg))
                 except Exception:
                     pass
-                combined = None
+                combined_mpg = None
                 if hwy is not None and city is not None:
                     try:
-                        combined = ((city + hwy) / Decimal('2')).quantize(Decimal('0.01'))
+                        combined_mpg = ((city + hwy) / Decimal('2')).quantize(Decimal('0.01'))
                     except Exception:
-                        combined = None
-                # Convert MPG to L/100km approx? Or store as-is? Dataset uses MPG; easier to store derived? We'll store combined if we have it as decimal (MPG value isn't same unit) - better skip conversion or store combined_mpg differently; but our model stores L/100km. We'll compute inverse approx: L/100km = 235.214583 / MPG for US mpg
+                        combined_mpg = None
+                elif hwy is not None:
+                    combined_mpg = hwy
+                elif city is not None:
+                    combined_mpg = city
+
                 def mpg_to_l100(mpg):
                     if mpg is None or mpg <= 0:
                         return None
@@ -166,24 +170,185 @@ class Command(BaseCommand):
                     except Exception:
                         return None
 
-                combined_l = mpg_to_l100(combined)
+                combined_l = mpg_to_l100(combined_mpg)
                 city_l = mpg_to_l100(city)
                 hwy_l = mpg_to_l100(hwy)
 
+                # Detect bikes/scooters/mopeds/trikes
+                category = 'car'
+                text_all = ' '.join(str(v or '') for v in row.values()).lower()
+                bike_hints = ['motorcycle', 'motorbike', 'bike', 'scooter', 'moped', 'tricycle', 'tuk', 'atv', 'quad']
+                if any(h in text_all or h in body_raw for h in bike_hints):
+                    if any(h in text_all for h in ['scooter', 'moped']):
+                        category = 'scooter'
+                    elif any(h in text_all for h in ['tricycle', 'tuk']):
+                        category = 'tricycle'
+                    elif any(h in text_all for h in ['atv', 'quad']):
+                        category = 'atv'
+                    else:
+                        category = 'bike'
+
+                # Map bike body/style to categories
+                if body_raw:
+                    if 'naked' in body_raw or 'street' in body_raw and category == 'bike':
+                        body = 'naked'
+                    elif 'sport' in body_raw and category == 'bike':
+                        body = 'sport'
+                    elif 'cruiser' in body_raw:
+                        body = 'cruiser'
+                    elif 'touring' in body_raw:
+                        body = 'touring'
+                    elif 'adventure' in body_raw or 'adv' in body_raw:
+                        body = 'adventure'
+                    elif 'dual' in body_raw or 'enduro' in body_raw:
+                        body = 'dual_sport'
+                    elif 'scooter' in body_raw or 'moped' in body_raw:
+                        body = 'scooter'
+                        category = 'scooter'
+                    elif 'commuter' in body_raw:
+                        body = 'commuter'
+
+                # Extract CC/displacement/power
+                cc_raw = row.get('Engine Displacement') or row.get('Displacement') or row.get('displacement_cc') or row.get('engine_capacity_cc') or row.get('cc') or ''
+                disp_cc = None
+                if cc_raw:
+                    try:
+                        # handle like '124 cc' or '1.2L'
+                        s = str(cc_raw).lower().strip()
+                        if 'l' in s and 'cc' not in s:
+                            try:
+                                disp_cc = int(float(s.replace('l', '').strip()) * 1000)
+                            except Exception:
+                                pass
+                        else:
+                            # extract number
+                            import re
+                            m = re.findall(r'(\d+(?:\.\d+)?)', s)
+                            if m:
+                                disp_cc = int(float(m[0]))
+                    except Exception:
+                        pass
+                if disp_cc:
+                    if engine_capacity_cc is None:
+                        engine_capacity_cc = disp_cc
+                else:
+                    engine_capacity_cc = None
+                if displacement_cc is None and disp_cc:
+                    displacement_cc = disp_cc
+
+                power_rpm = None
+                torque_rpm = None
+                # try common names
+                try:
+                    pr = row.get('Power RPM') or row.get('power_rpm')
+                    if pr: power_rpm = int(float(str(pr)))
+                except Exception:
+                    pass
+                try:
+                    tr = row.get('Torque RPM') or row.get('torque_rpm')
+                    if tr: torque_rpm = int(float(str(tr)))
+                except Exception:
+                    pass
+
+                wheelbase = None
+                seat_h = None
+                ground_c = None
+                dry_w = None
+                wet_w = None
+                try:
+                    wb = row.get('Wheelbase') or row.get('wheelbase_mm')
+                    if wb:
+                        s = str(wb).lower()
+                        import re
+                        m = re.findall(r'(\d+(?:\.\d+)?)', s)
+                        if m: wheelbase = int(float(m[0]))
+                except Exception:
+                    pass
+                try:
+                    sh = row.get('Seat Height') or row.get('seat_height_mm')
+                    if sh:
+                        s = str(sh).lower()
+                        import re
+                        m = re.findall(r'(\d+(?:\.\d+)?)', s)
+                        if m: seat_h = int(float(m[0]))
+                except Exception:
+                    pass
+                try:
+                    gc = row.get('Ground Clearance') or row.get('ground_clearance_mm')
+                    if gc:
+                        s = str(gc).lower()
+                        import re
+                        m = re.findall(r'(\d+(?:\.\d+)?)', s)
+                        if m: ground_c = int(float(m[0]))
+                except Exception:
+                    pass
+                try:
+                    dw = row.get('Dry Weight') or row.get('dry_weight_kg')
+                    if dw:
+                        s = str(dw).lower()
+                        import re
+                        m = re.findall(r'(\d+(?:\.\d+)?)', s)
+                        if m: dry_w = Decimal(m[0])
+                except Exception:
+                    pass
+                try:
+                    ww = row.get('Wet Weight') or row.get('wet_weight_kg') or row.get('Curb Weight') and category=='bike' and not row.get('curb_weight_kg') and None
+                    if ww and not dry_w:
+                        pass  # keep simple
+                except Exception:
+                    pass
+
+                stroke = ''
+                cooling = ''
+                drive_sys = ''
+                stroke_raw = (row.get('Stroke') or row.get('stroke') or '').lower()
+                if '2' in stroke_raw:
+                    stroke = '2_stroke'
+                elif '4' in stroke_raw:
+                    stroke = '4_stroke'
+                cooling_raw = (row.get('Cooling') or row.get('cooling_system') or '').lower()
+                if 'liquid' in cooling_raw or 'water' in cooling_raw:
+                    cooling = 'liquid'
+                elif 'oil' in cooling_raw:
+                    cooling = 'oil'
+                elif 'air' in cooling_raw:
+                    cooling = 'air'
+                drive_raw2 = (row.get('Final Drive') or row.get('drive_system') or '').lower()
+                if 'chain' in drive_raw2:
+                    drive_sys = 'chain'
+                elif 'belt' in drive_raw2:
+                    drive_sys = 'belt'
+                elif 'shaft' in drive_raw2:
+                    drive_sys = 'shaft'
+
                 name = f'{make} {model} {year}' if year else f'{make} {model}'
-                engine_desc = row.get('Market Category') or ''
+                engine_desc = row.get('Market Category') or row.get('Engine Type') or ''
                 defaults = {
+                    'category': category,
                     'make': make,
                     'model': model,
                     'year': year,
                     'fuel_type': fuel_type,
                     'engine': engine_desc[:80] if engine_desc else '',
+                    'engine_capacity_cc': engine_capacity_cc,
+                    'displacement_cc': displacement_cc if 'displacement_cc' in locals() or True else disp_cc,
                     'cylinders': cyl,
+                    'stroke': stroke,
+                    'engine_type': (row.get('Engine Type') or '')[:60],
+                    'cooling_system': cooling,
                     'transmission': trans,
                     'drive_type': drive,
+                    'drive_system': drive_sys,
                     'body_type': body,
                     'doors': doors,
+                    'seats': None,
                     'power_hp': hp,
+                    'power_rpm': power_rpm,
+                    'torque_rpm': torque_rpm,
+                    'wheelbase_mm': wheelbase,
+                    'seat_height_mm': seat_h,
+                    'ground_clearance_mm': ground_c,
+                    'dry_weight_kg': dry_w,
                     'highway_fuel_consumption_l_100km': hwy_l,
                     'city_fuel_consumption_l_100km': city_l,
                     'combined_fuel_consumption_l_100km': combined_l,

@@ -50,8 +50,13 @@ export function updateVehicle(vehicleId, vehicle) {
   return request(`/api/v1/vehicles/${vehicleId}/`, { method: 'PATCH', body: vehicle })
 }
 
-export function deleteVehicle(vehicleId) {
-  return request(`/api/v1/vehicles/${vehicleId}/`, { method: 'DELETE' })
+export function deleteVehicle(vehicleId, { force = false } = {}) {
+  const suffix = force ? '?force=true' : ''
+  return request(`/api/v1/vehicles/${vehicleId}/${suffix}`, { method: 'DELETE' })
+}
+
+export function hardDeleteVehicle(vehicleId, confirm) {
+  return request(`/api/v1/vehicles/${vehicleId}/hard_delete/`, { method: 'POST', body: { confirm } })
 }
 
 export function getDashboardSummary(vehicleId) {

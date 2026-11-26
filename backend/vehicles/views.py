@@ -25,6 +25,7 @@ class VehicleViewSet(viewsets.ModelViewSet):
         'partial_update': 'vehicles.edit',
         'destroy': 'vehicles.delete',
         'activate': 'vehicles.view',
+        'hard_delete': 'vehicles.delete',
     }
 
     def get_queryset(self):
@@ -42,22 +43,84 @@ class VehicleViewSet(viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         vehicle = self.get_object()
+        force = request.query_params.get('force') == 'true' or request.data.get('force') is True
         has_history = any((
             vehicle.fuel_records.exists(),
             vehicle.trips.exists(),
             vehicle.maintenance_records.exists(),
         ))
-        if has_history:
+        if has_history and not force:
             return Response(
                 {
                     'detail': (
                         'This vehicle has fuel, trip, or maintenance history and '
-                        'cannot be deleted. Mark it inactive instead.'
+                        'cannot be deleted. Mark it inactive instead. To permanently remove '
+                        'it and all related records, set force=true.'
                     )
                 },
                 status=status.HTTP_409_CONFLICT,
             )
+        if has_history and force:
+            with transaction.atomic():
+                # Hard delete related records and vehicle
+                try:
+                    vehicle.fuel_records.all().delete()
+                except Exception:
+                    pass
+                try:
+                    vehicle.trips.all().delete()
+                except Exception:
+                    pass
+                try:
+                    vehicle.maintenance_records.all().delete()
+                except Exception:
+                    pass
+                try:
+                    vehicle.maintenance_reminders.all().delete()
+                except Exception:
+                    pass
+                try:
+                    vehicle.service_reminders.all().delete()
+                except Exception:
+                    pass
+                vehicle.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
         self.perform_destroy(vehicle)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'])
+    def hard_delete(self, request, pk=None):
+        vehicle = self.get_object()
+        confirm = request.data.get('confirm')
+        if confirm not in (True, 'true', vehicle.license_plate, vehicle.name):
+            return Response({'detail': 'Confirm deletion by providing confirm=true or matching license plate/name.'}, status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            try:
+                vehicle.fuel_records.all().delete()
+            except Exception:
+                pass
+            try:
+                vehicle.trips.all().delete()
+            except Exception:
+                pass
+            try:
+                vehicle.maintenance_records.all().delete()
+            except Exception:
+                pass
+            try:
+                vehicle.maintenance_reminders.all().delete()
+            except Exception:
+                pass
+            try:
+                vehicle.service_reminders.all().delete()
+            except Exception:
+                pass
+            try:
+                from reminders.models import Reminder
+                Reminder.objects.filter(vehicle=vehicle).delete()
+            except Exception:
+                pass
+            vehicle.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['post'])

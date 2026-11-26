@@ -186,68 +186,136 @@ function fields(resource, form, editingId, setField, refs) {
     <CheckRow label="Superuser (platform admin)" hint="Grants the whole superadmin console. Handle with care." checked={form.is_superuser ?? false} onChange={(value) => setField('is_superuser', value)} />
   </>
   if (resource === 'vehicle-presets') return <>
+    <Field label="Category">
+      <select value={form.category ?? 'car'} onChange={(e) => setField('category', e.target.value)}>
+        <option value="car">Car</option>
+        <option value="bike">Motorcycle/Bike</option>
+        <option value="scooter">Scooter/Moped</option>
+        <option value="atv">ATV/Quad</option>
+        <option value="truck">Truck/Lorry</option>
+        <option value="bus">Bus</option>
+        <option value="tricycle">Tricycle/Tuk-Tuk</option>
+        <option value="other">Other</option>
+      </select>
+    </Field>
     <Field label="Preset name">
-      <input required placeholder="Toyota Premio 2018" value={form.name ?? ''} onChange={(e) => setField('name', e.target.value)} />
+      <input required placeholder={['bike','scooter','atv'].includes(form.category) ? 'Honda CB125F / Yamaha NMAX' : 'Toyota Premio 2018'} value={form.name ?? ''} onChange={(e) => setField('name', e.target.value)} />
     </Field>
     <Field label="Make">
-      <input required placeholder="Toyota" value={form.make ?? ''} onChange={(e) => setField('make', e.target.value)} />
+      <input required placeholder={['bike','scooter','atv'].includes(form.category) ? 'Honda' : 'Toyota'} value={form.make ?? ''} onChange={(e) => setField('make', e.target.value)} />
     </Field>
     <Field label="Model">
-      <input required placeholder="Premio" value={form.model ?? ''} onChange={(e) => setField('model', e.target.value)} />
+      <input required placeholder={['bike','scooter','atv'].includes(form.category) ? 'CB125F' : 'Premio'} value={form.model ?? ''} onChange={(e) => setField('model', e.target.value)} />
     </Field>
     <Field label="Year">
       <input type="number" min="1900" max="2100" placeholder="2018" value={form.year ?? ''} onChange={(e) => setField('year', e.target.value || null)} />
     </Field>
-    <Field label="Color">
-      <input placeholder="White" value={form.color ?? ''} onChange={(e) => setField('color', e.target.value)} />
-    </Field>
-    <Field label="Body type">
-      <select value={form.body_type ?? ''} onChange={(e) => setField('body_type', e.target.value)}><option value="">—</option>{['sedan','hatchback','suv','crossover','wagon','pickup','van','coupe','convertible','bus','other'].map(v=><option key={v} value={v}>{v.replace(/_/g,' ').toUpperCase()}</option>)}</select>
-    </Field>
-    <Field label="Doors">
-      <input type="number" min="1" placeholder="4" value={form.doors ?? ''} onChange={(e) => setField('doors', e.target.value || null)} />
-    </Field>
-    <Field label="Seats">
-      <input type="number" min="1" placeholder="5" value={form.seats ?? ''} onChange={(e) => setField('seats', e.target.value || null)} />
-    </Field>
-    <Field label="Fuel type">
-      <select value={form.fuel_type ?? 'petrol'} onChange={(e) => setField('fuel_type', e.target.value)}><option value="petrol">Petrol</option><option value="diesel">Diesel</option><option value="electric">Electric</option><option value="hybrid">Hybrid</option><option value="lpg">LPG</option><option value="cng">CNG</option><option value="other">Other</option></select>
-    </Field>
-    <Field label="Engine">
-      <input placeholder="1.8L 2ZR-FAE" value={form.engine ?? ''} onChange={(e) => setField('engine', e.target.value)} />
-    </Field>
-    <Field label="Engine capacity (cc)">
-      <input type="number" min="1" placeholder="1800" value={form.engine_capacity_cc ?? ''} onChange={(e) => setField('engine_capacity_cc', e.target.value || null)} />
-    </Field>
-    <Field label="Cylinders">
-      <input type="number" min="1" placeholder="4" value={form.cylinders ?? ''} onChange={(e) => setField('cylinders', e.target.value || null)} />
-    </Field>
-    <Field label="Transmission">
-      <select value={form.transmission ?? ''} onChange={(e) => setField('transmission', e.target.value)}><option value="">—</option><option value="manual">Manual</option><option value="automatic">Automatic</option><option value="cvt">CVT</option><option value="dct">DCT</option><option value="amt">AMT</option><option value="other">Other</option></select>
-    </Field>
-    <Field label="Drive type">
-      <select value={form.drive_type ?? ''} onChange={(e) => setField('drive_type', e.target.value)}><option value="">—</option><option value="fwd">FWD</option><option value="rwd">RWD</option><option value="awd">AWD</option><option value="4wd">4WD</option><option value="other">Other</option></select>
-    </Field>
+    {(form.category === 'car' || form.category === 'truck' || form.category === 'bus') && (
+      <>
+        <Field label="Body type/Style">
+          <select value={form.body_type ?? ''} onChange={(e) => setField('body_type', e.target.value)}>
+            <option value="">—</option>
+            {['sedan','hatchback','suv','crossover','wagon','pickup','van','coupe','convertible','bus','other'].map(v=><option key={v} value={v}>{v.replace(/_/g,' ').toUpperCase()}</option>)}
+          </select>
+        </Field>
+        <Field label="Doors">
+          <input type="number" min="1" placeholder="4" value={form.doors ?? ''} onChange={(e) => setField('doors', e.target.value || null)} />
+        </Field>
+        <Field label="Seats">
+          <input type="number" min="1" placeholder="5" value={form.seats ?? ''} onChange={(e) => setField('seats', e.target.value || null)} />
+        </Field>
+        <Field label="Drive Type">
+          <select value={form.drive_type ?? ''} onChange={(e) => setField('drive_type', e.target.value)}><option value="">—</option><option value="fwd">FWD</option><option value="rwd">RWD</option><option value="awd">AWD</option><option value="4wd">4WD</option><option value="other">Other</option></select>
+        </Field>
+        <Field label="Curb weight (kg)">
+          <input type="number" min="0" step="0.01" placeholder="1300" value={form.curb_weight_kg ?? ''} onChange={(e) => setField('curb_weight_kg', e.target.value || null)} />
+        </Field>
+        <Field label="Gross weight (kg)">
+          <input type="number" min="0" step="0.01" placeholder="1700" value={form.gross_weight_kg ?? ''} onChange={(e) => setField('gross_weight_kg', e.target.value || null)} />
+        </Field>
+      </>
+    )}
+    {(form.category === 'bike' || form.category === 'scooter' || form.category === 'atv' || form.category === 'tricycle') && (
+      <>
+        <Field label="Body type/Style">
+          <select value={form.body_type ?? ''} onChange={(e) => setField('body_type', e.target.value)}>
+            <option value="">—</option>
+            {['naked','sport','cruiser','touring','adventure','dual_sport','scooter','commuter','offroad','other'].map(v=><option key={v} value={v}>{v.replace(/_/g,' ').toUpperCase()}</option>)}
+          </select>
+        </Field>
+        <Field label="Stroke">
+          <select value={form.stroke ?? ''} onChange={(e) => setField('stroke', e.target.value)}><option value="">—</option><option value="2_stroke">2-Stroke</option><option value="4_stroke">4-Stroke</option><option value="electric">Electric</option><option value="other">Other</option></select>
+        </Field>
+        <Field label="Cooling System">
+          <select value={form.cooling_system ?? ''} onChange={(e) => setField('cooling_system', e.target.value)}><option value="">—</option><option value="air">Air Cooled</option><option value="oil">Oil Cooled</option><option value="liquid">Liquid Cooled</option><option value="air_oil">Air/Oil Cooled</option><option value="other">Other</option></select>
+        </Field>
+        <Field label="Final Drive">
+          <select value={form.drive_system ?? ''} onChange={(e) => setField('drive_system', e.target.value)}><option value="">—</option><option value="chain">Chain Drive</option><option value="belt">Belt Drive</option><option value="shaft">Shaft Drive</option><option value="other">Other</option></select>
+        </Field>
+        <Field label="Wheelbase (mm)">
+          <input type="number" min="0" placeholder="1370" value={form.wheelbase_mm ?? ''} onChange={(e) => setField('wheelbase_mm', e.target.value || null)} />
+        </Field>
+        <Field label="Seat Height (mm)">
+          <input type="number" min="0" placeholder="800" value={form.seat_height_mm ?? ''} onChange={(e) => setField('seat_height_mm', e.target.value || null)} />
+        </Field>
+        <Field label="Ground Clearance (mm)">
+          <input type="number" min="0" placeholder="165" value={form.ground_clearance_mm ?? ''} onChange={(e) => setField('ground_clearance_mm', e.target.value || null)} />
+        </Field>
+        <Field label="Dry Weight (kg)">
+          <input type="number" min="0" step="0.01" placeholder="120" value={form.dry_weight_kg ?? ''} onChange={(e) => setField('dry_weight_kg', e.target.value || null)} />
+        </Field>
+        <Field label="Wet Weight (kg)">
+          <input type="number" min="0" step="0.01" placeholder="130" value={form.wet_weight_kg ?? ''} onChange={(e) => setField('wet_weight_kg', e.target.value || null)} />
+        </Field>
+        <Field label="Fuel Capacity (L)">
+          <input type="number" min="0" step="0.01" placeholder="14" value={form.fuel_capacity_liters ?? ''} onChange={(e) => setField('fuel_capacity_liters', e.target.value || null)} />
+        </Field>
+      </>
+    )}
     <Field label="Power (hp)">
       <input type="number" min="0" step="0.01" placeholder="140" value={form.power_hp ?? ''} onChange={(e) => setField('power_hp', e.target.value || null)} />
     </Field>
     <Field label="Power (kW)">
       <input type="number" min="0" step="0.01" placeholder="104" value={form.power_kw ?? ''} onChange={(e) => setField('power_kw', e.target.value || null)} />
     </Field>
+    <Field label="Power RPM">
+      <input type="number" min="0" placeholder="8500" value={form.power_rpm ?? ''} onChange={(e) => setField('power_rpm', e.target.value || null)} />
+    </Field>
     <Field label="Torque (Nm)">
       <input type="number" min="0" step="0.01" placeholder="173" value={form.torque_nm ?? ''} onChange={(e) => setField('torque_nm', e.target.value || null)} />
+    </Field>
+    <Field label="Torque RPM">
+      <input type="number" min="0" placeholder="6500" value={form.torque_rpm ?? ''} onChange={(e) => setField('torque_rpm', e.target.value || null)} />
     </Field>
     <Field label="Top speed (km/h)">
       <input type="number" min="0" step="0.01" placeholder="200" value={form.top_speed_kmh ?? ''} onChange={(e) => setField('top_speed_kmh', e.target.value || null)} />
     </Field>
+    <Field label="Wheelbase (mm)">
+      <input type="number" min="0" placeholder="1370" value={form.wheelbase_mm ?? ''} onChange={(e) => setField('wheelbase_mm', e.target.value || null)} />
+    </Field>
+    <Field label="Seat Height (mm)">
+      <input type="number" min="0" placeholder="800" value={form.seat_height_mm ?? ''} onChange={(e) => setField('seat_height_mm', e.target.value || null)} />
+    </Field>
+    <Field label="Ground Clearance (mm)">
+      <input type="number" min="0" placeholder="165" value={form.ground_clearance_mm ?? ''} onChange={(e) => setField('ground_clearance_mm', e.target.value || null)} />
+    </Field>
     <Field label="Curb weight (kg)">
       <input type="number" min="0" step="0.01" placeholder="1300" value={form.curb_weight_kg ?? ''} onChange={(e) => setField('curb_weight_kg', e.target.value || null)} />
+    </Field>
+    <Field label="Dry Weight (kg)">
+      <input type="number" min="0" step="0.01" placeholder="120" value={form.dry_weight_kg ?? ''} onChange={(e) => setField('dry_weight_kg', e.target.value || null)} />
+    </Field>
+    <Field label="Wet Weight (kg)">
+      <input type="number" min="0" step="0.01" placeholder="130" value={form.wet_weight_kg ?? ''} onChange={(e) => setField('wet_weight_kg', e.target.value || null)} />
     </Field>
     <Field label="Gross weight (kg)">
       <input type="number" min="0" step="0.01" placeholder="1700" value={form.gross_weight_kg ?? ''} onChange={(e) => setField('gross_weight_kg', e.target.value || null)} />
     </Field>
+    <Field label="Fuel Capacity (L)">
+      <input type="number" min="0" step="0.01" placeholder="14" value={form.fuel_capacity_liters ?? ''} onChange={(e) => setField('fuel_capacity_liters', e.target.value || null)} />
+    </Field>
     <Field label="Tank capacity (L)">
-      <input type="number" min="0" step="0.01" placeholder="60" value={form.tank_capacity_liters ?? form.tank_capacity_l ?? ''} onChange={(e) => { setField('tank_capacity_liters', e.target.value || null); setField('tank_capacity_l', e.target.value || null) }} />
+      <input type="number" min="0" step="0.01" placeholder={['bike','scooter','atv','tricycle'].includes(form.category) ? '14' : '60'} value={form.tank_capacity_liters ?? form.tank_capacity_l ?? form.fuel_capacity_liters ?? ''} onChange={(e) => { const v = e.target.value || null; setField('tank_capacity_liters', v); setField('tank_capacity_l', v); setField('fuel_capacity_liters', v) }} />
     </Field>
     <Field label="Combined (L/100 km)">
       <input type="number" min="0" step="0.01" placeholder="6.5" value={form.combined_fuel_consumption_l_100km ?? ''} onChange={(e) => setField('combined_fuel_consumption_l_100km', e.target.value || null)} />
@@ -444,7 +512,7 @@ function emptyForm(resource) {
   if (resource === 'users') return { is_active: true, is_staff: false, is_superuser: false }
   if (resource === 'workspaces') return { kind: 'personal', plan: '', is_active: true, limit_overrides: '', entitlement_grants: [], entitlement_revokes: [] }
   if (resource === 'memberships') return { user: '', userSearch: '', workspace: '', workspaceSearch: '', role: '', vehicle_scope: '', is_active: true }
-  if (resource === 'vehicle-presets') return { fuel_type: 'petrol', is_active: true }
+  if (resource === 'vehicle-presets') return { category: 'car', fuel_type: 'petrol', is_active: true }
   return { is_active: true }
 }
 
@@ -462,7 +530,7 @@ function rowDetail(resource, row) {
   }
   if (resource === 'workspaces') return row.plan_name ?? ''
   if (resource === 'memberships') return `${row.workspace_name ?? ''} \u00b7 ${row.role_name ?? ''}`
-  if (resource === 'vehicle-presets') return [row.make, row.model, row.year].filter(Boolean).join(' ')
+  if (resource === 'vehicle-presets') return [row.category, row.make, row.model, row.year].filter(Boolean).join(' ')
   if (resource === 'roles') return `${row.workspace ? 'custom' : 'template'} \u00b7 ${(row.permissions ?? []).length} permissions`
   return ''
 }

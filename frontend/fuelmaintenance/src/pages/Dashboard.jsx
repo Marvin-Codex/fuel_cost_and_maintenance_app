@@ -157,7 +157,7 @@ function DashboardContent() {
   const [monthTrips, setMonthTrips] = useState([])
   const [reminders, setReminders] = useState([])
   const [showAddVehicle, setShowAddVehicle] = useState(false)
-  const [vehicleForm, setVehicleForm] = useState({ name: '', make: '', model: '', year: '', license_plate: '', fuel_type: 'petrol', odometer_km: '' })
+  const [vehicleForm, setVehicleForm] = useState({ name: '', make: '', model: '', year: '', license_plate: '', fuel_type: 'petrol', odometer_km: '', transmission: '', drive_type: '', body_type: '', color: '', doors: '', seats: '', engine: '', engine_capacity_cc: '', cylinders: '', power_hp: '', power_kw: '', torque_nm: '', top_speed_kmh: '', curb_weight_kg: '', tank_capacity_liters: '', combined_fuel_consumption_l_100km: '', city_fuel_consumption_l_100km: '', highway_fuel_consumption_l_100km: '', battery_capacity_kwh: '', electric_range_km: '' })
   const [vehicleFormError, setVehicleFormError] = useState(null)
   const [vehicleSaving, setVehicleSaving] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -245,7 +245,7 @@ function DashboardContent() {
           model: preset.model,
           year: preset.year ?? '—',
           registration: preset.name,
-          engine: preset.engine || '—',
+          engine: preset.engine || preset.engine_type || '—',
           transmission: preset.transmission || '—',
           odometer: '0',
           tankReserve: 0,
@@ -253,6 +253,40 @@ function DashboardContent() {
           efficiency: '—',
           fuelCost: '0',
           distance: '0',
+          fuel_type: preset.fuel_type,
+          category: preset.category,
+          body_type: preset.body_type,
+          doors: preset.doors,
+          seats: preset.seats,
+          color: preset.color,
+          engine_capacity_cc: preset.engine_capacity_cc,
+          displacement_cc: preset.displacement_cc,
+          cylinders: preset.cylinders,
+          stroke: preset.stroke,
+          cooling_system: preset.cooling_system,
+          drive_type: preset.drive_type,
+          drive_system: preset.drive_system,
+          power_hp: preset.power_hp,
+          power_kw: preset.power_kw,
+          power_rpm: preset.power_rpm,
+          torque_nm: preset.torque_nm,
+          torque_rpm: preset.torque_rpm,
+          top_speed_kmh: preset.top_speed_kmh,
+          wheelbase_mm: preset.wheelbase_mm,
+          seat_height_mm: preset.seat_height_mm,
+          ground_clearance_mm: preset.ground_clearance_mm,
+          curb_weight_kg: preset.curb_weight_kg,
+          dry_weight_kg: preset.dry_weight_kg,
+          wet_weight_kg: preset.wet_weight_kg,
+          gross_weight_kg: preset.gross_weight_kg,
+          tank_capacity_l: preset.tank_capacity_l,
+          tank_capacity_liters: preset.tank_capacity_liters,
+          fuel_capacity_liters: preset.fuel_capacity_liters,
+          combined_fuel_consumption_l_100km: preset.combined_fuel_consumption_l_100km,
+          city_fuel_consumption_l_100km: preset.city_fuel_consumption_l_100km,
+          highway_fuel_consumption_l_100km: preset.highway_fuel_consumption_l_100km,
+          battery_capacity_kwh: preset.battery_capacity_kwh,
+          electric_range_km: preset.electric_range_km,
         })))
       })
       .catch(() => { /* presets are optional; the picker still works with owned vehicles */ })
@@ -401,11 +435,18 @@ function DashboardContent() {
     setVehicleSaving(true)
     try {
       const payload = { name: vehicleForm.name.trim() }
-      for (const key of ['make', 'model', 'license_plate', 'fuel_type']) {
-        if (String(vehicleForm[key] ?? '').trim()) payload[key] = String(vehicleForm[key]).trim()
+      for (const key of ['make', 'model', 'license_plate', 'fuel_type', 'transmission', 'drive_type', 'body_type', 'color', 'engine']) {
+        const val = vehicleForm[key]
+        if (val === undefined || val === null) continue
+        if (typeof val === 'string' && val.trim() === '') continue
+        payload[key] = typeof val === 'string' ? val.trim() : val
       }
-      if (String(vehicleForm.year ?? '').trim()) payload.year = Number(vehicleForm.year)
-      if (String(vehicleForm.odometer_km ?? '').trim()) payload.odometer_km = Number(vehicleForm.odometer_km)
+      for (const key of ['year', 'odometer_km', 'doors', 'seats', 'engine_capacity_cc', 'cylinders', 'power_hp', 'power_kw', 'torque_nm', 'top_speed_kmh', 'curb_weight_kg', 'tank_capacity_liters', 'combined_fuel_consumption_l_100km', 'city_fuel_consumption_l_100km', 'highway_fuel_consumption_l_100km', 'battery_capacity_kwh', 'electric_range_km']) {
+        const val = vehicleForm[key]
+        if (val === undefined || val === null || val === '') continue
+        const num = Number(val)
+        if (!Number.isNaN(num)) payload[key] = num
+      }
       const created = await createVehicle(payload)
       try {
         await activateVehicle(created.id)
@@ -416,8 +457,7 @@ function DashboardContent() {
       await loadVehicles()
       setSelectedVehicleId(String(created.id))
       setShowAddVehicle(false)
-      setVehicleForm({ name: '', make: '', model: '', year: '', license_plate: '', fuel_type: 'petrol', odometer_km: '' })
-      refresh()
+      setVehicleForm({ name: '', make: '', model: '', year: '', license_plate: '', fuel_type: 'petrol', odometer_km: '', transmission: '', drive_type: '', body_type: '', color: '', doors: '', seats: '', engine: '', engine_capacity_cc: '', cylinders: '', power_hp: '', power_kw: '', torque_nm: '', top_speed_kmh: '', curb_weight_kg: '', tank_capacity_liters: '', combined_fuel_consumption_l_100km: '', city_fuel_consumption_l_100km: '', highway_fuel_consumption_l_100km: '', battery_capacity_kwh: '', electric_range_km: '' })
     } catch (err) {
       setVehicleFormError(err.message)
     } finally {
@@ -710,10 +750,14 @@ function DashboardContent() {
           ) : !selectedVehicle ? (
             <div className="vehicle-summary"><span className="car-badge"><Icon size={27}><path d="M3 16v-3l2-5h14l2 5v3M5 16v2M19 16v2M6 13h12" /><circle cx="6" cy="16" r="1.5" /><circle cx="18" cy="16" r="1.5" /></Icon></span><div className="vehicle-card-copy"><h2>No vehicles yet</h2><p>Add your first vehicle to start tracking fuel, trips, and service.</p></div>{access?.can('vehicles.add') && <div className="vehicle-switcher"><button className="switch-label" type="button" onClick={() => setShowAddVehicle(true)}>+ ADD VEHICLE</button></div>}</div>
           ) : (
-          <><div className="vehicle-summary"><span className="car-badge"><Icon size={27}><path d="M3 16v-3l2-5h14l2 5v3M5 16v2M19 16v2M6 13h12" /><circle cx="6" cy="16" r="1.5" /><circle cx="18" cy="16" r="1.5" /></Icon></span><div className="vehicle-card-copy"><h2>{selectedVehicle.name ?? (`${selectedVehicle.make ?? ''} ${selectedVehicle.model ?? ''}`.trim() || 'Vehicle')} <em>{selectedVehicle.registration}</em></h2><p>{[selectedVehicle.engine, selectedVehicle.year].filter((part) => part && part !== '—').join(' • ') || '—'}</p></div>
-          <div className="vehicle-switcher"><button className="switch-label" type="button" aria-expanded={isVehiclePickerOpen} aria-haspopup="listbox" onClick={() => setIsVehiclePickerOpen((open) => !open)}>⇄ SWITCH</button>{access?.can('vehicles.add') && <button className="switch-label" type="button" onClick={() => setShowAddVehicle(true)}>+ ADD</button>}{isVehiclePickerOpen &&
-            <div className="vehicle-picker" role="listbox" aria-label="Select a vehicle">{ownedVehicles.map((vehicle) => <button className={String(vehicle.id) === String(selectedVehicleId) ? 'current' : ''} type="button" role="option" aria-selected={String(vehicle.id) === String(selectedVehicleId)} key={vehicle.id} onClick={() => selectVehicle(vehicle)}><strong>{vehicle.name ?? `${vehicle.make ?? ''} ${vehicle.model ?? ''}`.trim()}</strong><span>{vehicle.registration} · {vehicle.year}</span></button>)}{presetVehicles.length > 0 && <><small className="vehicle-picker-heading">ADD FROM A PRESET</small>{presetVehicles.map((vehicle) => <button type="button" key={vehicle.id} onClick={() => { setVehicleForm({ name: vehicle.name || (vehicle.registration && vehicle.registration !== vehicle.make ? vehicle.registration : `${vehicle.make} ${vehicle.model}`), make: vehicle.make === '—' ? '' : vehicle.make || '', model: vehicle.model === '—' ? '' : vehicle.model || '', year: vehicle.year === '—' ? '' : vehicle.year || '', license_plate: '', fuel_type: vehicle.fuel_type || 'petrol', transmission: vehicle.transmission || 'automatic', drive_type: vehicle.drive_type || '', body_type: vehicle.body_type || '', color: vehicle.color || '', doors: vehicle.doors || '', seats: vehicle.seats || '', engine_capacity_cc: vehicle.engine_capacity_cc || '', cylinders: vehicle.cylinders || '', power_hp: vehicle.power_hp || '', power_kw: vehicle.power_kw || '', torque_nm: vehicle.torque_nm || '', top_speed_kmh: vehicle.top_speed_kmh || '', curb_weight_kg: vehicle.curb_weight_kg || '', tank_capacity_liters: vehicle.tank_capacity_liters || vehicle.tank_capacity_l || '', combined_fuel_consumption_l_100km: vehicle.combined_fuel_consumption_l_100km || '', city_fuel_consumption_l_100km: vehicle.city_fuel_consumption_l_100km || '', highway_fuel_consumption_l_100km: vehicle.highway_fuel_consumption_l_100km || '', battery_capacity_kwh: vehicle.battery_capacity_kwh || '', electric_range_km: vehicle.electric_range_km || '', odometer_km: '' }); setShowAddVehicle(true); setIsVehiclePickerOpen(false) }}><strong>{vehicle.make} {vehicle.model}</strong><span>{[vehicle.year, vehicle.engine_capacity_cc ? `${vehicle.engine_capacity_cc}cc` : vehicle.engine].filter(Boolean).join(' · ')}</span></button>)}</>}</div>}</div></div>
-          <div className="health-bars masonry"><div><span>ODOMETER <b>{formatNumber(selectedVehicle.odometer)} KM</b></span><div className="bar"><i style={{ width: '100%' }} /></div><small>Current reading</small></div><div><span>MONTH FUEL <b>{summary ? `${formatNumber(summary.fuel.this_month_liters)} L` : '—'}</b></span><div className="bar green"><i style={{ width: summary && Number(summary.fuel.this_month_liters) > 0 ? '100%' : '0%' }} /></div><small>{summary ? `${summary.fuel.record_count} fill-ups logged` : 'No summary yet'}</small></div></div></>
+          <>
+            <div className="vehicle-summary"><span className="car-badge"><Icon size={27}><path d="M3 16v-3l2-5h14l2 5v3M5 16v2M19 16v2M6 13h12" /><circle cx="6" cy="16" r="1.5" /><circle cx="18" cy="16" r="1.5" /></Icon></span><div className="vehicle-card-copy"><h2>{selectedVehicle.name ?? (`${selectedVehicle.make ?? ''} ${selectedVehicle.model ?? ''}`.trim() || 'Vehicle')} <em>{selectedVehicle.registration}</em></h2><p>{[selectedVehicle.engine, selectedVehicle.year].filter((part) => part && part !== '—').join(' • ') || '—'}</p></div>
+              <div className="vehicle-switcher"><button className="switch-label" type="button" aria-expanded={isVehiclePickerOpen} aria-haspopup="listbox" onClick={() => setIsVehiclePickerOpen((open) => !open)}>⇄ SWITCH</button>{access?.can('vehicles.add') && <button className="switch-label" type="button" onClick={() => setShowAddVehicle(true)}>+ ADD</button>}{isVehiclePickerOpen && (
+                <div className="vehicle-picker" role="listbox" aria-label="Select a vehicle">{ownedVehicles.map((vehicle) => <button className={String(vehicle.id) === String(selectedVehicleId) ? 'current' : ''} type="button" role="option" aria-selected={String(vehicle.id) === String(selectedVehicleId)} key={vehicle.id} onClick={() => selectVehicle(vehicle)}><strong>{vehicle.name ?? `${vehicle.make ?? ''} ${vehicle.model ?? ''}`.trim()}</strong><span>{vehicle.registration} · {vehicle.year}</span></button>)}{presetVehicles.length > 0 && <><small className="vehicle-picker-heading">ADD FROM A PRESET</small>{presetVehicles.map((vehicle) => <button type="button" key={vehicle.id} onClick={() => { const isBike = ['bike','scooter','atv','tricycle'].includes(vehicle.category); setVehicleForm({ name: vehicle.name || (vehicle.registration && vehicle.registration !== vehicle.make ? vehicle.registration : `${vehicle.make} ${vehicle.model}`), make: vehicle.make === '—' ? '' : vehicle.make || '', model: vehicle.model === '—' ? '' : vehicle.model || '', year: vehicle.year === '—' ? '' : vehicle.year || '', license_plate: '', fuel_type: vehicle.fuel_type || 'petrol', transmission: vehicle.transmission || (isBike ? 'manual' : 'automatic'), drive_type: vehicle.drive_type || '', body_type: vehicle.body_type || '', color: vehicle.color || '', doors: vehicle.doors || '', seats: vehicle.seats || '', engine: vehicle.engine || vehicle.engine_type || '', engine_capacity_cc: vehicle.engine_capacity_cc || vehicle.displacement_cc || '', cylinders: vehicle.cylinders || '', power_hp: vehicle.power_hp || '', power_kw: vehicle.power_kw || '', torque_nm: vehicle.torque_nm || '', top_speed_kmh: vehicle.top_speed_kmh || '', curb_weight_kg: vehicle.curb_weight_kg || vehicle.dry_weight_kg || '', tank_capacity_liters: vehicle.tank_capacity_liters || vehicle.tank_capacity_l || vehicle.fuel_capacity_liters || '', combined_fuel_consumption_l_100km: vehicle.combined_fuel_consumption_l_100km || '', city_fuel_consumption_l_100km: vehicle.city_fuel_consumption_l_100km || '', highway_fuel_consumption_l_100km: vehicle.highway_fuel_consumption_l_100km || '', battery_capacity_kwh: vehicle.battery_capacity_kwh || '', electric_range_km: vehicle.electric_range_km || '', odometer_km: '' }); setShowAddVehicle(true); setIsVehiclePickerOpen(false) }}><strong>{vehicle.make} {vehicle.model}</strong><span>{[vehicle.category, vehicle.year, vehicle.engine_capacity_cc ? `${vehicle.engine_capacity_cc}cc` : vehicle.displacement_cc ? `${vehicle.displacement_cc}cc` : vehicle.engine].filter(Boolean).join(' · ')}</span></button>)}</>}</div>
+                )}</div>
+            </div>
+            <div className="health-bars masonry"><div><span>ODOMETER <b>{formatNumber(selectedVehicle.odometer)} KM</b></span><div className="bar"><i style={{ width: '100%' }} /></div><small>Current reading</small></div><div><span>MONTH FUEL <b>{summary ? `${formatNumber(summary.fuel.this_month_liters)} L` : '—'}</b></span><div className="bar green"><i style={{ width: summary && Number(summary.fuel.this_month_liters) > 0 ? '100%' : '0%' }} /></div><small>{summary ? `${summary.fuel.record_count} fill-ups logged` : 'No summary yet'}</small></div></div>
+          </>
           )}
         </section>
         {vehicleSelectionError && <p className="vehicle-api-error" role="alert">{vehicleSelectionError}</p>}

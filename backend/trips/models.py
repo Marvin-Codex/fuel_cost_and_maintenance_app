@@ -19,7 +19,7 @@ class Trip(models.Model):
         Organization, on_delete=models.CASCADE, null=True, blank=True,
         related_name='trips',
     )
-    vehicle = models.ForeignKey(Vehicle, on_delete=models.PROTECT, related_name='trips')
+    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='trips')
     start_location = models.CharField(max_length=200)
     destination = models.CharField(max_length=200, blank=True)
     started_at = models.DateTimeField(default=timezone.now)

@@ -21,7 +21,7 @@ class MaintenanceRecord(models.Model):
         related_name='maintenance_records',
     )
     vehicle = models.ForeignKey(
-        Vehicle, on_delete=models.PROTECT, related_name='maintenance_records'
+        Vehicle, on_delete=models.CASCADE, related_name='maintenance_records'
     )
     service_type = models.CharField(max_length=120)
     service_date = models.DateField()

@@ -20,7 +20,7 @@ class FuelRecord(models.Model):
         related_name='fuel_records',
     )
     vehicle = models.ForeignKey(
-        Vehicle, on_delete=models.PROTECT, related_name='fuel_records'
+        Vehicle, on_delete=models.CASCADE, related_name='fuel_records'
     )
     date = models.DateField()
     purchased_at = models.DateTimeField(null=True, blank=True)

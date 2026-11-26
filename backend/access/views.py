@@ -237,11 +237,13 @@ class VehiclePresetSerializer(serializers.ModelSerializer):
     class Meta:
         model = VehiclePreset
         fields = [
-            'id', 'name', 'make', 'model', 'year', 'fuel_type', 'engine',
-            'engine_capacity_cc', 'cylinders', 'transmission', 'drive_type', 'body_type',
-            'doors', 'seats', 'color', 'power_hp', 'power_kw', 'torque_nm',
-            'top_speed_kmh', 'curb_weight_kg', 'gross_weight_kg',
-            'tank_capacity_l', 'tank_capacity_liters',
+            'id', 'category', 'name', 'make', 'model', 'year', 'fuel_type', 'engine',
+            'engine_capacity_cc', 'displacement_cc', 'cylinders', 'stroke', 'engine_type', 'cooling_system',
+            'transmission', 'drive_type', 'drive_system', 'body_type',
+            'doors', 'seats', 'color', 'power_hp', 'power_kw', 'power_rpm', 'torque_nm', 'torque_rpm',
+            'top_speed_kmh', 'wheelbase_mm', 'seat_height_mm', 'ground_clearance_mm',
+            'curb_weight_kg', 'dry_weight_kg', 'wet_weight_kg', 'gross_weight_kg',
+            'tank_capacity_l', 'tank_capacity_liters', 'fuel_capacity_liters',
             'combined_fuel_consumption_l_100km', 'city_fuel_consumption_l_100km', 'highway_fuel_consumption_l_100km',
             'battery_capacity_kwh', 'electric_range_km', 'is_active', 'created_at', 'updated_at',
         ]
@@ -252,7 +254,7 @@ class VehiclePresetViewSet(SuperadminViewSet):
     queryset = VehiclePreset.objects.all()
     serializer_class = VehiclePresetSerializer
     filter_backends = [SearchFilter]
-    search_fields = ['name', 'make', 'model', 'year', 'engine', 'fuel_type', 'transmission', 'drive_type', 'body_type']
+    search_fields = ['name', 'make', 'model', 'year', 'engine', 'fuel_type', 'transmission', 'drive_type', 'body_type', 'category', 'stroke', 'cooling_system', 'drive_system']
 
     def check_permissions(self, request):
         # Any signed-in user may browse presets to pick from when adding a vehicle.
@@ -263,6 +265,9 @@ class VehiclePresetViewSet(SuperadminViewSet):
 
     def get_queryset(self):
         qs = VehiclePreset.objects.all()
+        category = self.request.query_params.get('category')
+        if category:
+            qs = qs.filter(category=category)
         if self.request.user.is_superuser:
             return qs
         return qs.filter(is_active=True)

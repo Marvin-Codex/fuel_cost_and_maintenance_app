@@ -140,10 +140,49 @@ class VehiclePreset(models.Model):
         ('coupe', 'Coupe'),
         ('convertible', 'Convertible'),
         ('bus', 'Bus'),
+        ('naked', 'Naked/Street'),
+        ('sport', 'Sport'),
+        ('cruiser', 'Cruiser'),
+        ('touring', 'Touring'),
+        ('adventure', 'Adventure/ADV'),
+        ('dual_sport', 'Dual Sport/Enduro'),
+        ('scooter', 'Scooter/Moped'),
+        ('commuter', 'Commuter'),
+        ('offroad', 'Off-Road'),
+        ('other', 'Other'),
+    ]
+    VEHICLE_CATEGORIES = [
+        ('car', 'Car'),
+        ('bike', 'Motorcycle/Bike'),
+        ('scooter', 'Scooter/Moped'),
+        ('atv', 'ATV/Quad'),
+        ('truck', 'Truck/Lorry'),
+        ('bus', 'Bus'),
+        ('tricycle', 'Tricycle/Tuk-Tuk'),
+        ('other', 'Other'),
+    ]
+    STROKE_TYPES = [
+        ('2_stroke', '2-Stroke'),
+        ('4_stroke', '4-Stroke'),
+        ('electric', 'Electric'),
+        ('other', 'Other'),
+    ]
+    COOLING_TYPES = [
+        ('air', 'Air Cooled'),
+        ('oil', 'Oil Cooled'),
+        ('liquid', 'Liquid Cooled'),
+        ('air_oil', 'Air/Oil Cooled'),
+        ('other', 'Other'),
+    ]
+    DRIVE_SYSTEM_TYPES = [
+        ('chain', 'Chain Drive'),
+        ('belt', 'Belt Drive'),
+        ('shaft', 'Shaft Drive'),
         ('other', 'Other'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    category = models.CharField(max_length=15, choices=VEHICLE_CATEGORIES, default='car')
     name = models.CharField(max_length=100)
     make = models.CharField(max_length=50)
     model = models.CharField(max_length=50)
@@ -151,21 +190,34 @@ class VehiclePreset(models.Model):
     fuel_type = models.CharField(max_length=10, choices=FUEL_TYPES, default='petrol')
     engine = models.CharField(max_length=80, blank=True)
     engine_capacity_cc = models.PositiveIntegerField(null=True, blank=True)
+    displacement_cc = models.PositiveIntegerField(null=True, blank=True)
     cylinders = models.PositiveSmallIntegerField(null=True, blank=True)
+    stroke = models.CharField(max_length=10, choices=STROKE_TYPES, blank=True)
+    engine_type = models.CharField(max_length=60, blank=True)
+    cooling_system = models.CharField(max_length=15, choices=COOLING_TYPES, blank=True)
     transmission = models.CharField(max_length=30, choices=TRANSMISSION_TYPES, blank=True)
     drive_type = models.CharField(max_length=10, choices=DRIVE_TYPES, blank=True)
+    drive_system = models.CharField(max_length=15, choices=DRIVE_SYSTEM_TYPES, blank=True)
     body_type = models.CharField(max_length=20, choices=BODY_TYPES, blank=True)
     doors = models.PositiveSmallIntegerField(null=True, blank=True)
     seats = models.PositiveSmallIntegerField(null=True, blank=True)
     color = models.CharField(max_length=30, blank=True)
     power_hp = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
     power_kw = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    power_rpm = models.PositiveIntegerField(null=True, blank=True)
     torque_nm = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    torque_rpm = models.PositiveIntegerField(null=True, blank=True)
     top_speed_kmh = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    wheelbase_mm = models.PositiveIntegerField(null=True, blank=True)
+    seat_height_mm = models.PositiveIntegerField(null=True, blank=True)
+    ground_clearance_mm = models.PositiveIntegerField(null=True, blank=True)
     curb_weight_kg = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    dry_weight_kg = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    wet_weight_kg = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     gross_weight_kg = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     tank_capacity_l = models.DecimalField(max_digits=6, decimal_places=1, null=True, blank=True)
     tank_capacity_liters = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
+    fuel_capacity_liters = models.DecimalField(max_digits=7, decimal_places=2, null=True, blank=True)
     combined_fuel_consumption_l_100km = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     city_fuel_consumption_l_100km = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
     highway_fuel_consumption_l_100km = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
@@ -176,7 +228,7 @@ class VehiclePreset(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['make', 'model', '-year']
+        ordering = ['category', 'make', 'model', '-year']
 
     def __str__(self):
         return self.name
